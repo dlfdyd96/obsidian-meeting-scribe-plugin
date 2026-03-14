@@ -1,0 +1,29 @@
+export interface MeetingScribeSettings {
+	settingsVersion: number;
+	sttProvider: string;
+	sttApiKey: string;
+	sttModel: string;
+	llmProvider: string;
+	llmApiKey: string;
+	llmModel: string;
+	outputFolder: string;
+	audioFolder: string;
+	audioRetentionPolicy: 'keep' | 'delete';
+	debugMode: boolean;
+}
+
+export const CURRENT_SETTINGS_VERSION = 1;
+
+export const DEFAULT_SETTINGS: MeetingScribeSettings = {
+	settingsVersion: CURRENT_SETTINGS_VERSION,
+	sttProvider: 'openai',
+	sttApiKey: '',
+	sttModel: 'gpt-4o-mini-transcribe',
+	llmProvider: 'anthropic',
+	llmApiKey: '',
+	llmModel: '',
+	outputFolder: 'Meeting Notes',
+	audioFolder: '_attachments/audio',
+	audioRetentionPolicy: 'keep',
+	debugMode: false,
+};
