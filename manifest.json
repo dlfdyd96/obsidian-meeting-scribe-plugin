@@ -1,0 +1,9 @@
+{
+	"id": "meeting-scribe",
+	"name": "Meeting Scribe",
+	"version": "0.1.0",
+	"minAppVersion": "0.15.0",
+	"description": "Record meetings, transcribe with cloud STT, summarize with LLM, and auto-generate structured meeting notes — all within Obsidian.",
+	"author": "Paul",
+	"isDesktopOnly": false
+}
