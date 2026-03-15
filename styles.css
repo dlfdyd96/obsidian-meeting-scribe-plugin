@@ -1,3 +1,11 @@
 /*
 Meeting Scribe plugin styles.
 */
+
+.meeting-scribe-ribbon-recording {
+	color: var(--text-error);
+}
+
+.meeting-scribe-ribbon-processing {
+	opacity: 0.4;
+}

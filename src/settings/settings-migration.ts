@@ -36,5 +36,5 @@ export function migrateSettings(data: unknown): MeetingScribeSettings {
 		result = Object.assign({}, DEFAULT_SETTINGS, result);
 	}
 
-	return result as MeetingScribeSettings;
+	return result as unknown as MeetingScribeSettings;
 }

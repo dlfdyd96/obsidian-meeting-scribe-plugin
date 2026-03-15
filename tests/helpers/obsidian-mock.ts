@@ -36,14 +36,26 @@ declare global {
 	}
 }
 
+export function setIcon(el: HTMLElement, iconId: string): void {
+	el.dataset.icon = iconId;
+	el.empty();
+	const iconEl = document.createElement('svg');
+	iconEl.setAttribute('data-icon', iconId);
+	el.appendChild(iconEl);
+}
+
 export class Plugin {
 	app: unknown = {};
 	manifest: unknown = {};
+	commands: { id: string; name: string; callback: () => void }[] = [];
 	async loadData(): Promise<unknown> { return null; }
 	async saveData(_data: unknown): Promise<void> { /* noop */ }
 	addRibbonIcon() { return document.createElement('div'); }
 	addStatusBarItem() { return document.createElement('div'); }
-	addCommand() { return null; }
+	addCommand(command: { id: string; name: string; callback: () => void }) {
+		this.commands.push(command);
+		return command;
+	}
 	addSettingTab() { /* noop */ }
 	registerDomEvent() { /* noop */ }
 	registerInterval() { return 0; }
@@ -59,11 +71,43 @@ export class Vault {
 	async createBinary(_path: string, _data: ArrayBuffer): Promise<unknown> { return {}; }
 	getAbstractFileByPath(_path: string): unknown | null { return null; }
 	async createFolder(_path: string): Promise<unknown> { return {}; }
+	getFiles(): TFile[] { return []; }
 }
 
 export type TFolder = Record<string, unknown>;
-export type TFile = Record<string, unknown>;
 export type TAbstractFile = Record<string, unknown>;
+
+export class TFile {
+	path: string;
+	name: string;
+	extension: string;
+	stat: { size: number; ctime: number; mtime: number };
+
+	constructor(path: string, size = 1024) {
+		this.path = path;
+		this.name = path.split('/').pop() ?? path;
+		this.extension = this.name.split('.').pop() ?? '';
+		this.stat = { size, ctime: Date.now(), mtime: Date.now() };
+	}
+}
+
+export class SuggestModal<T> {
+	app: App;
+	emptyStateText = '';
+	containerEl: HTMLElement;
+
+	constructor(app: App) {
+		this.app = app;
+		this.containerEl = document.createElement('div');
+	}
+
+	setPlaceholder(_text: string): void {}
+	open(): void {}
+	close(): void {}
+	getSuggestions(_query: string): T[] { return []; }
+	renderSuggestion(_item: T, _el: HTMLElement): void {}
+	onChooseSuggestion(_item: T, _evt: MouseEvent | KeyboardEvent): void {}
+}
 
 export class PluginSettingTab {
 	app: App;
