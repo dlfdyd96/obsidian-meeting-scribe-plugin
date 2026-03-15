@@ -1,66 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-
-// --- Mock types and helpers ---
-
-function createMockMediaStream(): MediaStream {
-	return {
-		getTracks: () => [{ stop: vi.fn(), kind: 'audio' }],
-		getAudioTracks: () => [{ stop: vi.fn(), kind: 'audio', enabled: true }],
-		getVideoTracks: () => [],
-		active: true,
-	} as unknown as MediaStream;
-}
-
-class MockMediaRecorder extends EventTarget {
-	state: RecordingState = 'inactive';
-	stream: MediaStream;
-	mimeType: string;
-
-	ondataavailable: ((event: Event) => void) | null = null;
-	onstop: ((event: Event) => void) | null = null;
-	onerror: ((event: Event) => void) | null = null;
-
-	constructor(stream: MediaStream, options?: MediaRecorderOptions) {
-		super();
-		this.stream = stream;
-		this.mimeType = options?.mimeType ?? 'audio/webm';
-	}
-
-	start(): void {
-		this.state = 'recording';
-	}
-
-	stop(): void {
-		this.state = 'inactive';
-		const blob = new Blob(['mock-audio-data'], { type: this.mimeType });
-		const dataEvent = new Event('dataavailable');
-		Object.defineProperty(dataEvent, 'data', { value: blob });
-
-		if (this.ondataavailable) {
-			this.ondataavailable(dataEvent);
-		}
-		this.dispatchEvent(dataEvent);
-
-		const stopEvent = new Event('stop');
-		if (this.onstop) {
-			this.onstop(stopEvent);
-		}
-		this.dispatchEvent(stopEvent);
-	}
-
-	pause(): void {
-		this.state = 'paused';
-	}
-
-	resume(): void {
-		this.state = 'recording';
-	}
-
-	static isTypeSupported(mimeType: string): boolean {
-		return ['audio/webm', 'audio/webm;codecs=opus', 'audio/ogg;codecs=opus'].includes(mimeType);
-	}
-}
+import { createMockMediaStream, MockMediaRecorder } from '../helpers/mock-media';
 
 describe('MediaRecorder PoC', () => {
 	beforeEach(() => {

@@ -151,4 +151,32 @@ describe('StateManager', () => {
 			expect(stateManager).toBeInstanceOf(StateManager);
 		});
 	});
+
+	describe('observer error safety', () => {
+		it('should propagate error when an observer throws (error is not caught)', () => {
+			const throwingObserver = vi.fn().mockImplementation(() => {
+				throw new Error('observer exploded');
+			});
+			stateManager.subscribe(throwingObserver);
+
+			expect(() => stateManager.setState(PluginState.Recording)).toThrow(
+				'observer exploded',
+			);
+		});
+
+		it('should still update state even if observer throws (state is set before observers are called)', () => {
+			const throwingObserver = vi.fn().mockImplementation(() => {
+				throw new Error('observer exploded');
+			});
+			stateManager.subscribe(throwingObserver);
+
+			try {
+				stateManager.setState(PluginState.Recording);
+			} catch {
+				// expected
+			}
+
+			expect(stateManager.getState()).toBe(PluginState.Recording);
+		});
+	});
 });

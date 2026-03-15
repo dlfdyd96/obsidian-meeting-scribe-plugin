@@ -6,8 +6,6 @@ import { DEFAULT_SETTINGS } from '../../src/settings/settings';
 import type { MeetingScribeSettings } from '../../src/settings/settings';
 import { logger } from '../../src/utils/logger';
 
-vi.spyOn(console, 'debug').mockImplementation(() => {});
-
 function createMockPlugin(settingsOverrides?: Partial<MeetingScribeSettings>) {
 	const settings: MeetingScribeSettings = { ...DEFAULT_SETTINGS, ...settingsOverrides };
 	return {
@@ -272,5 +270,5 @@ function collectSettings(containerEl: HTMLElement): Setting[] {
 }
 
 function flushPromises(): Promise<void> {
-	return new Promise(resolve => setTimeout(resolve, 0));
+	return Promise.resolve().then(() => {});
 }

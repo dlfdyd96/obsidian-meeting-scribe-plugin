@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { AudioFileManager } from '../../src/recording/audio-file-manager';
 import { logger } from '../../src/utils/logger';
 
@@ -12,6 +12,9 @@ describe('AudioFileManager', () => {
 	const audioFolder = '_attachments/audio';
 
 	beforeEach(() => {
+		vi.useFakeTimers();
+		vi.setSystemTime(new Date('2026-01-15T09:30:45'));
+
 		mockVault = {
 			createBinary: vi.fn().mockResolvedValue({ path: '' }),
 			getAbstractFileByPath: vi.fn().mockReturnValue(null),
@@ -25,6 +28,10 @@ describe('AudioFileManager', () => {
 			mockVault as never,
 			() => audioFolder,
 		);
+	});
+
+	afterEach(() => {
+		vi.useRealTimers();
 	});
 
 	describe('saveRecording()', () => {
@@ -45,7 +52,7 @@ describe('AudioFileManager', () => {
 
 			const callArgs = mockVault.createBinary.mock.calls[0] as [string, ArrayBuffer];
 			const filename = callArgs[0].split('/').pop();
-			expect(filename).toMatch(/^\d{4}-\d{2}-\d{2}-\d{6}-recording\.webm$/);
+			expect(filename).toMatch(/^2026-01-15-\d{6}-recording\.webm$/);
 		});
 
 		it('should create audioFolder if it does not exist', async () => {
@@ -131,6 +138,34 @@ describe('AudioFileManager', () => {
 
 			expect(path).toMatch(/recording\.webm$/);
 			expect(mockVault.createBinary).toHaveBeenCalledTimes(1);
+		});
+	});
+
+	describe('error paths', () => {
+		it('should propagate blob.arrayBuffer() rejection (corrupted blob)', async () => {
+			const corruptedBlob = new Blob(['data'], { type: 'audio/webm' });
+			vi.spyOn(corruptedBlob, 'arrayBuffer').mockRejectedValueOnce(
+				new Error('Failed to read blob'),
+			);
+
+			await expect(audioFileManager.saveRecording(corruptedBlob)).rejects.toThrow(
+				'Failed to read blob',
+			);
+			expect(mockVault.createBinary).not.toHaveBeenCalled();
+		});
+
+		it('should handle getAudioFolder returning empty string', async () => {
+			const emptyFolderManager = new AudioFileManager(
+				mockVault as never,
+				() => '',
+			);
+			const blob = new Blob(['test-audio'], { type: 'audio/webm' });
+
+			await emptyFolderManager.saveRecording(blob);
+
+			const callArgs = mockVault.createBinary.mock.calls[0] as [string, Uint8Array];
+			expect(callArgs[0]).toMatch(/^\/.+-recording\.webm$/);
+			expect(mockVault.getAbstractFileByPath).toHaveBeenCalledWith('');
 		});
 	});
 });
