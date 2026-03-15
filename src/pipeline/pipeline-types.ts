@@ -8,6 +8,7 @@ export interface PipelineContext {
 	settings: MeetingScribeSettings;
 	transcriptionResult?: TranscriptionResult;
 	summaryResult?: SummaryResult;
+	noteFilePath?: string;
 	onProgress?: (step: string, current: number, total: number) => void;
 	forceRetranscribe?: boolean;
 }
