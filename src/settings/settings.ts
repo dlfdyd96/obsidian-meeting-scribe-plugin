@@ -3,6 +3,7 @@ export interface MeetingScribeSettings {
 	sttProvider: string;
 	sttApiKey: string;
 	sttModel: string;
+	sttLanguage: string;
 	llmProvider: string;
 	llmApiKey: string;
 	llmModel: string;
@@ -19,6 +20,7 @@ export const DEFAULT_SETTINGS: MeetingScribeSettings = {
 	sttProvider: 'openai',
 	sttApiKey: '',
 	sttModel: 'gpt-4o-mini-transcribe',
+	sttLanguage: 'auto',
 	llmProvider: 'anthropic',
 	llmApiKey: '',
 	llmModel: '',

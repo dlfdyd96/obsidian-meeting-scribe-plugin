@@ -1,0 +1,17 @@
+import type { Vault } from 'obsidian';
+import type { MeetingScribeSettings } from '../settings/settings';
+import type { TranscriptionResult } from '../providers/types';
+
+export interface PipelineContext {
+	audioFilePath: string;
+	vault: Vault;
+	settings: MeetingScribeSettings;
+	transcriptionResult?: TranscriptionResult;
+	onProgress?: (step: string, current: number, total: number) => void;
+	forceRetranscribe?: boolean;
+}
+
+export interface PipelineStep {
+	readonly name: string;
+	execute(context: PipelineContext): Promise<PipelineContext>;
+}

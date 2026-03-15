@@ -26,6 +26,10 @@ describe('MeetingScribeSettings', () => {
 			expect(DEFAULT_SETTINGS.sttModel).toBe('gpt-4o-mini-transcribe');
 		});
 
+		it('should have sttLanguage set to auto', () => {
+			expect(DEFAULT_SETTINGS.sttLanguage).toBe('auto');
+		});
+
 		it('should have llmProvider set to anthropic', () => {
 			expect(DEFAULT_SETTINGS.llmProvider).toBe('anthropic');
 		});
@@ -54,8 +58,8 @@ describe('MeetingScribeSettings', () => {
 			expect(DEFAULT_SETTINGS.debugMode).toBe(false);
 		});
 
-		it('should have exactly 11 fields', () => {
-			expect(Object.keys(DEFAULT_SETTINGS)).toHaveLength(11);
+		it('should have exactly 12 fields', () => {
+			expect(Object.keys(DEFAULT_SETTINGS)).toHaveLength(12);
 		});
 
 		it('should satisfy the MeetingScribeSettings type', () => {

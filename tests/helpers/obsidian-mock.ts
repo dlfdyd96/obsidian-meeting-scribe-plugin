@@ -68,8 +68,12 @@ export class Notice {
 export type App = Record<string, unknown>;
 
 export class Vault {
-	async createBinary(_path: string, _data: ArrayBuffer): Promise<unknown> { return {}; }
-	getAbstractFileByPath(_path: string): unknown | null { return null; }
+	async create(_path: string, _data: string): Promise<TFile> { return new TFile(_path); }
+	async createBinary(_path: string, _data: ArrayBuffer): Promise<TFile> { return new TFile(_path); }
+	async read(_file: TFile): Promise<string> { return ''; }
+	async readBinary(_file: TFile): Promise<ArrayBuffer> { return new ArrayBuffer(0); }
+	async modify(_file: TFile, _data: string): Promise<void> { /* noop */ }
+	getAbstractFileByPath(_path: string): TFile | null { return null; }
 	async createFolder(_path: string): Promise<unknown> { return {}; }
 	getFiles(): TFile[] { return []; }
 }
