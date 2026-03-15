@@ -39,17 +39,26 @@ export interface LLMModel {
 	name: string;
 }
 
+export interface MeetingMetadata {
+	date?: string;
+	title?: string;
+	participants?: string[];
+	topics?: string[];
+	tags?: string[];
+}
+
 export interface SummaryResult {
 	version: number;
 	provider: string;
 	model: string;
 	summary: string;
+	metadata?: MeetingMetadata;
 	createdAt: string;
 }
 
 export interface LLMProvider {
 	readonly name: string;
-	summarize(transcript: string, prompt: string): Promise<SummaryResult>;
+	summarize(systemPrompt: string, userPrompt: string): Promise<SummaryResult>;
 	validateApiKey(key: string): Promise<boolean>;
 	getSupportedModels(): LLMModel[];
 }

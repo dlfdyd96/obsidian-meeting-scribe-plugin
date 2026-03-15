@@ -1,5 +1,5 @@
 import { requestUrl } from 'obsidian';
-import { TransientError, ConfigError, DataError } from '../../utils/errors';
+import { classifyOpenAIError } from '../openai-error-utils';
 import { logger } from '../../utils/logger';
 import type { STTProvider, STTOptions, STTModel, TranscriptionResult, TranscriptionSegment } from '../types';
 
@@ -61,37 +61,6 @@ function buildMultipartBody(
 	parts.push(encoder.encode(`--${boundary}--\r\n`));
 
 	return concatenateArrayBuffers(parts);
-}
-
-function classifyError(err: unknown): never {
-	const status = (err as { status?: number }).status;
-	const errorJson = (err as { json?: { error?: { message?: string } } }).json;
-	const errorMessage = errorJson?.error?.message ?? '';
-
-	if (status === 401) {
-		throw new ConfigError('Invalid OpenAI API key. Please check your API key in settings.');
-	}
-	if (status === 403) {
-		throw new ConfigError('OpenAI API access denied. Your region or account may not be supported.');
-	}
-	if (status === 400) {
-		throw new DataError(`Invalid transcription request: ${errorMessage}`);
-	}
-	if (status === 413) {
-		throw new DataError('Audio file too large. Maximum size is 25 MB per request.');
-	}
-	if (status === 429) {
-		if (errorMessage.includes('insufficient_quota')) {
-			throw new ConfigError('OpenAI API quota exceeded. Please check your billing settings.');
-		}
-		throw new TransientError('OpenAI API rate limit reached. Will retry shortly.');
-	}
-	if (status === 500 || status === 503) {
-		throw new TransientError('OpenAI API server error. Will retry shortly.');
-	}
-
-	// Network errors (no status code)
-	throw new TransientError(`Network error communicating with OpenAI: ${err instanceof Error ? err.message : String(err)}`);
 }
 
 export class OpenAISTTProvider implements STTProvider {
@@ -195,7 +164,7 @@ export class OpenAISTTProvider implements STTProvider {
 				model: options.model,
 				error: err instanceof Error ? err.message : String(err),
 			});
-			classifyError(err);
+			classifyOpenAIError(err);
 		}
 	}
 
