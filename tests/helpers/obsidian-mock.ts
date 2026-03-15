@@ -55,6 +55,16 @@ export class Notice {
 
 export type App = Record<string, unknown>;
 
+export class Vault {
+	async createBinary(_path: string, _data: ArrayBuffer): Promise<unknown> { return {}; }
+	getAbstractFileByPath(_path: string): unknown | null { return null; }
+	async createFolder(_path: string): Promise<unknown> { return {}; }
+}
+
+export type TFolder = Record<string, unknown>;
+export type TFile = Record<string, unknown>;
+export type TAbstractFile = Record<string, unknown>;
+
 export class PluginSettingTab {
 	app: App;
 	containerEl: HTMLElement;
