@@ -160,6 +160,25 @@ class ToggleComponent {
 	triggerChange(value: boolean): void { if (this._onChange) this._onChange(value); }
 }
 
+export interface RequestUrlParam {
+	url: string;
+	method?: string;
+	contentType?: string;
+	body?: string | ArrayBuffer;
+	headers?: Record<string, string>;
+	throw?: boolean;
+}
+
+export interface RequestUrlResponse {
+	status: number;
+	headers: Record<string, string>;
+	arrayBuffer: ArrayBuffer;
+	json: unknown;
+	text: string;
+}
+
+export const requestUrl = vi.fn<(request: RequestUrlParam | string) => Promise<RequestUrlResponse>>();
+
 export class Setting {
 	settingEl: HTMLElement;
 	nameEl: HTMLElement;
