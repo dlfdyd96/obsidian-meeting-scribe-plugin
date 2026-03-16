@@ -85,7 +85,7 @@ export function getDefaultPreset(): SummaryPreset {
 }
 
 export function buildUserPrompt(template: string, transcript: string): string {
-	return template.replaceAll('{{transcript}}', transcript);
+	return template.split('{{transcript}}').join(transcript);
 }
 
 export function formatSummaryBody(output: LLMNoteOutput): string {
