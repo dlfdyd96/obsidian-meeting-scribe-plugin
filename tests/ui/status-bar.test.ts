@@ -10,6 +10,8 @@ describe('StatusBar', () => {
 	let stateManager: StateManager;
 	let onStart: ReturnType<typeof vi.fn>;
 	let onStop: ReturnType<typeof vi.fn>;
+	let onOpenNote: ReturnType<typeof vi.fn>;
+	let onShowError: ReturnType<typeof vi.fn>;
 	let statusBar: StatusBar;
 
 	beforeEach(() => {
@@ -19,7 +21,9 @@ describe('StatusBar', () => {
 		stateManager = new StateManager();
 		onStart = vi.fn();
 		onStop = vi.fn();
-		statusBar = new StatusBar(el, stateManager, onStart, onStop);
+		onOpenNote = vi.fn();
+		onShowError = vi.fn();
+		statusBar = new StatusBar(el, stateManager, onStart, onStop, onOpenNote, onShowError);
 	});
 
 	afterEach(() => {
@@ -121,7 +125,7 @@ describe('StatusBar', () => {
 		});
 
 		it('should apply --text-warning color when elapsed time exceeds threshold', () => {
-			const warningBar = new StatusBar(el, stateManager, onStart, onStop, 5);
+			const warningBar = new StatusBar(el, stateManager, onStart, onStop, onOpenNote, onShowError, 5);
 			stateManager.setState(PluginState.Recording);
 			vi.advanceTimersByTime(5000);
 			expect(el.style.color).toBe('var(--text-warning)');
@@ -147,6 +151,105 @@ describe('StatusBar', () => {
 			stateManager.setState(PluginState.Recording);
 			// After destroy, state changes should NOT update the display
 			expect(el.textContent).toBe('🎙 Meeting Scribe');
+		});
+	});
+
+	describe('Processing state display', () => {
+		it('should display step name with hourglass emoji and muted color', () => {
+			stateManager.setState(PluginState.Processing, { step: 'transcribing' });
+			expect(el.textContent).toBe('⏳ Transcribing...');
+			expect(el.style.color).toBe('var(--text-muted)');
+		});
+
+		it('should update text when context.step changes', () => {
+			stateManager.setState(PluginState.Processing, { step: 'transcribing' });
+			expect(el.textContent).toBe('⏳ Transcribing...');
+
+			stateManager.setState(PluginState.Processing, { step: 'summarizing' });
+			expect(el.textContent).toBe('⏳ Summarizing...');
+
+			stateManager.setState(PluginState.Processing, { step: 'generating' });
+			expect(el.textContent).toBe('⏳ Creating note...');
+		});
+
+		it('should show progress "(2/3)" when totalSteps present', () => {
+			stateManager.setState(PluginState.Processing, { step: 'transcribing', progress: 2, totalSteps: 3 });
+			expect(el.textContent).toBe('⏳ Transcribing... (2/3)');
+		});
+
+		it('should fallback to "Processing" for unknown step names', () => {
+			stateManager.setState(PluginState.Processing, { step: 'unknown-step' });
+			expect(el.textContent).toBe('⏳ Processing...');
+		});
+
+		it('should not call any callbacks on click during Processing', () => {
+			stateManager.setState(PluginState.Processing, { step: 'transcribing' });
+			el.click();
+			expect(onStart).not.toHaveBeenCalled();
+			expect(onStop).not.toHaveBeenCalled();
+			expect(onOpenNote).not.toHaveBeenCalled();
+			expect(onShowError).not.toHaveBeenCalled();
+		});
+	});
+
+	describe('Complete state display', () => {
+		it('should display "✅ Note ready" with accent color', () => {
+			stateManager.setState(PluginState.Complete, { noteFilePath: 'notes/meeting.md' });
+			expect(el.textContent).toBe('✅ Note ready');
+			expect(el.style.color).toBe('var(--interactive-accent)');
+		});
+
+		it('should call onOpenNote with noteFilePath on click', () => {
+			stateManager.setState(PluginState.Complete, { noteFilePath: 'notes/meeting.md' });
+			el.click();
+			expect(onOpenNote).toHaveBeenCalledWith('notes/meeting.md');
+		});
+
+		describe('auto-revert timer', () => {
+			beforeEach(() => {
+				vi.useFakeTimers();
+			});
+
+			afterEach(() => {
+				vi.useRealTimers();
+			});
+
+			it('should auto-revert to Idle after 3 seconds', async () => {
+				stateManager.setState(PluginState.Complete, { noteFilePath: 'notes/meeting.md' });
+				expect(el.textContent).toBe('✅ Note ready');
+
+				await vi.advanceTimersByTimeAsync(3000);
+				expect(stateManager.getState()).toBe(PluginState.Idle);
+				expect(el.textContent).toBe('🎙 Meeting Scribe');
+			});
+
+			it('should clear auto-revert timer when state changes before 3s', async () => {
+				stateManager.setState(PluginState.Complete, { noteFilePath: 'notes/meeting.md' });
+
+				// State changes before 3s elapsed
+				stateManager.setState(PluginState.Idle);
+				expect(el.textContent).toBe('🎙 Meeting Scribe');
+
+				// Advance past 3s — should NOT trigger another Idle transition
+				await vi.advanceTimersByTimeAsync(3000);
+				expect(el.textContent).toBe('🎙 Meeting Scribe');
+			});
+		});
+	});
+
+	describe('Error state display', () => {
+		it('should display "⚠️ Processing failed" with error color', () => {
+			const testError = new Error('API timeout');
+			stateManager.setState(PluginState.Error, { error: testError });
+			expect(el.textContent).toBe('⚠️ Processing failed');
+			expect(el.style.color).toBe('var(--text-error)');
+		});
+
+		it('should call onShowError with error on click', () => {
+			const testError = new Error('API timeout');
+			stateManager.setState(PluginState.Error, { error: testError });
+			el.click();
+			expect(onShowError).toHaveBeenCalledWith(testError);
 		});
 	});
 

@@ -55,6 +55,13 @@ export default class MeetingScribePlugin extends Plugin {
 			stateManager,
 			startRecordingFlow,
 			stopRecordingFlow,
+			(path: string) => {
+				void this.app.workspace.openLinkText(path, '', false);
+			},
+			(error: Error) => {
+				// Delegates to Notice system (Story 5.4) — basic fallback for now
+				logger.error('MeetingScribePlugin', 'Pipeline error', { error: error.message });
+			},
 		);
 
 		const ribbonEl = this.addRibbonIcon('mic', `${PLUGIN_NAME}: Start Recording`, () => {
