@@ -9,6 +9,7 @@ export enum PluginState {
 export interface StateContext {
 	step?: string;
 	progress?: number;
+	totalSteps?: number;
 	error?: Error;
 	noteFilePath?: string;
 }

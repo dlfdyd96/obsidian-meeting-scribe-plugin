@@ -17,3 +17,8 @@ export interface PipelineStep {
 	readonly name: string;
 	execute(context: PipelineContext): Promise<PipelineContext>;
 }
+
+export interface PipelineResult {
+	context: PipelineContext;
+	failedStepIndex?: number;
+}
