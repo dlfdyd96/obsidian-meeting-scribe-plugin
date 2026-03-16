@@ -449,6 +449,39 @@ describe('TranscribeStep', () => {
 			await expect(step.execute(context)).rejects.toThrow('STT provider not found');
 		});
 
+		it('throws ConfigError when STT API key is not configured', async () => {
+			const mockProvider = makeMockProvider();
+			vi.mocked(providerRegistry.getSTTProvider).mockReturnValue(mockProvider);
+			vi.mocked(chunkAudio).mockResolvedValue([makeChunk()]);
+
+			const audioFile = new TFile('recordings/test.webm');
+			const context = makeContext({ settings: { ...makeContext().settings, sttApiKey: '' } });
+			vi.mocked(context.vault.getAbstractFileByPath).mockImplementation((path: string) => {
+				if (path === 'recordings/test.webm') return audioFile;
+				return null;
+			});
+
+			await expect(step.execute(context)).rejects.toThrow(ConfigError);
+			await expect(step.execute(context)).rejects.toThrow('STT API key is not configured');
+		});
+
+		it('sets API key on provider before transcription', async () => {
+			const mockProvider = { ...makeMockProvider(), setApiKey: vi.fn() };
+			vi.mocked(providerRegistry.getSTTProvider).mockReturnValue(mockProvider);
+			vi.mocked(chunkAudio).mockResolvedValue([makeChunk()]);
+
+			const audioFile = new TFile('recordings/test.webm');
+			const context = makeContext();
+			vi.mocked(context.vault.getAbstractFileByPath).mockImplementation((path: string) => {
+				if (path === 'recordings/test.webm') return audioFile;
+				return null;
+			});
+
+			await step.execute(context);
+
+			expect(mockProvider.setApiKey).toHaveBeenCalledWith('test-key');
+		});
+
 		it('propagates TransientError from provider', async () => {
 			const mockProvider = makeMockProvider();
 			vi.mocked(mockProvider.transcribe).mockRejectedValue(

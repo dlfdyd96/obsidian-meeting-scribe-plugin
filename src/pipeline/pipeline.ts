@@ -19,6 +19,11 @@ export class Pipeline {
 		let currentContext = context;
 
 		for (let i = 0; i < steps.length; i++) {
+			if (currentContext.isAborted?.()) {
+				logger.info(COMPONENT, 'Pipeline aborted between steps', { completedSteps: i });
+				return { context: currentContext };
+			}
+
 			const step = steps[i]!;
 
 			stateManager.setState(PluginState.Processing, {

@@ -86,6 +86,10 @@ export class Notice {
 	}
 }
 
+export class FileManager {
+	async trashFile(_file: TFile): Promise<void> { /* noop */ }
+}
+
 export type App = Record<string, unknown>;
 
 export class Vault {
@@ -95,6 +99,7 @@ export class Vault {
 	async readBinary(_file: TFile): Promise<ArrayBuffer> { return new ArrayBuffer(0); }
 	async modify(_file: TFile, _data: string): Promise<void> { /* noop */ }
 	getAbstractFileByPath(_path: string): TFile | null { return null; }
+	async delete(_file: TFile): Promise<void> { /* noop */ }
 	async createFolder(_path: string): Promise<unknown> { return {}; }
 	getFiles(): TFile[] { return []; }
 }

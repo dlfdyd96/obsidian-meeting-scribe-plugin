@@ -2,6 +2,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { DEFAULT_SETTINGS } from '../../src/settings/settings';
 import { logger } from '../../src/utils/logger';
+import { providerRegistry } from '../../src/providers/provider-registry';
 
 describe('MeetingScribePlugin settings lifecycle', () => {
 	let debugSpy: ReturnType<typeof vi.spyOn>;
@@ -9,6 +10,8 @@ describe('MeetingScribePlugin settings lifecycle', () => {
 	beforeEach(() => {
 		debugSpy = vi.spyOn(console, 'debug').mockImplementation(() => {});
 		logger.setDebugMode(false);
+		(providerRegistry as any).sttProviders = new Map();
+		(providerRegistry as any).llmProviders = new Map();
 	});
 
 	afterEach(() => {

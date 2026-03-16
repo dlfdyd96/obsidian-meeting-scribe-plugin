@@ -11,6 +11,7 @@ export interface PipelineContext {
 	noteFilePath?: string;
 	onProgress?: (step: string, current: number, total: number) => void;
 	forceRetranscribe?: boolean;
+	isAborted?: () => boolean;
 }
 
 export interface PipelineStep {

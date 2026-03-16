@@ -266,6 +266,55 @@ describe('Pipeline', () => {
 		});
 	});
 
+	describe('abort between steps', () => {
+		it('stops execution when isAborted returns true between steps', async () => {
+			let aborted = false;
+			const step1 = createMockStep('transcribe', {
+				transcriptionResult: { fullText: 'text' } as PipelineContext['transcriptionResult'],
+			});
+			const step2 = createMockStep('summarize');
+			const step3 = createMockStep('generate-note');
+
+			// Abort after step 1 completes
+			(step1.execute as ReturnType<typeof vi.fn>).mockImplementation(async (ctx: PipelineContext) => {
+				aborted = true;
+				return { ...ctx, transcriptionResult: { fullText: 'text' } as PipelineContext['transcriptionResult'] };
+			});
+
+			const context = createMockContext({ isAborted: () => aborted });
+			const result = await pipeline.execute([step1, step2, step3], context);
+
+			expect(step1.execute).toHaveBeenCalledOnce();
+			expect(step2.execute).not.toHaveBeenCalled();
+			expect(step3.execute).not.toHaveBeenCalled();
+			expect(result.failedStepIndex).toBeUndefined();
+		});
+
+		it('does not set Complete state when aborted', async () => {
+			const step1 = createMockStep('transcribe');
+			const step2 = createMockStep('summarize');
+
+			const context = createMockContext({ isAborted: () => true });
+			await pipeline.execute([step1, step2], context);
+
+			const setCalls = (stateManager.setState as ReturnType<typeof vi.fn>).mock.calls;
+			const stateValues = setCalls.map((c: unknown[]) => c[0]);
+			expect(stateValues).not.toContain(PluginState.Complete);
+		});
+
+		it('executes all steps when isAborted always returns false', async () => {
+			const step1 = createMockStep('transcribe');
+			const step2 = createMockStep('summarize');
+
+			const context = createMockContext({ isAborted: () => false });
+			const result = await pipeline.execute([step1, step2], context);
+
+			expect(step1.execute).toHaveBeenCalledOnce();
+			expect(step2.execute).toHaveBeenCalledOnce();
+			expect(result.failedStepIndex).toBeUndefined();
+		});
+	});
+
 	describe('onProgress callback', () => {
 		it('uses enriched context onProgress, not original', async () => {
 			const originalOnProgress = vi.fn();

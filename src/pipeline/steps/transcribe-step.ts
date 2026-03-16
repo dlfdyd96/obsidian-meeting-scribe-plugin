@@ -58,6 +58,14 @@ export class TranscribeStep implements PipelineStep {
 			throw new ConfigError(`STT provider not found: ${settings.sttProvider}`);
 		}
 
+		// Set API key on provider
+		if (!settings.sttApiKey) {
+			throw new ConfigError('STT API key is not configured');
+		}
+		if ('setApiKey' in provider && typeof (provider as { setApiKey: (k: string) => void }).setApiKey === 'function') {
+			(provider as { setApiKey: (k: string) => void }).setApiKey(settings.sttApiKey);
+		}
+
 		// Transcribe each chunk
 		const results: TranscriptionResult[] = [];
 		for (const chunk of chunks) {
