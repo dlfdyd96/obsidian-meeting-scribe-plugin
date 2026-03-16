@@ -25,7 +25,7 @@ export class StatusBar {
 		private readonly onStartRecording: () => void,
 		private readonly onStopRecording: () => void,
 		private readonly onOpenNote: (path: string) => void,
-		private readonly onShowError: (error: Error) => void,
+		private readonly onShowError: (error: Error, step?: string) => void,
 		private readonly warningThresholdSeconds: number = 0,
 	) {
 		this.el.setAttribute('aria-live', 'polite');
@@ -46,7 +46,7 @@ export class StatusBar {
 				}
 			} else if (state === PluginState.Error) {
 				if (this.currentContext.error) {
-					this.onShowError(this.currentContext.error);
+					this.onShowError(this.currentContext.error, this.currentContext.step);
 				}
 			}
 		};

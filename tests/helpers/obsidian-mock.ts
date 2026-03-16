@@ -62,7 +62,28 @@ export class Plugin {
 }
 
 export class Notice {
-	constructor(_message: string) { /* noop */ }
+	noticeEl: HTMLElement;
+	timeout?: number;
+
+	constructor(message: string | DocumentFragment, timeout?: number) {
+		this.timeout = timeout;
+		this.noticeEl = document.createElement('div');
+		this.noticeEl.className = 'notice';
+		if (typeof message === 'string') {
+			this.noticeEl.textContent = message;
+		} else if (message instanceof DocumentFragment) {
+			this.noticeEl.appendChild(message);
+		}
+	}
+
+	hide(): void { /* noop */ }
+
+	setMessage(message: string | DocumentFragment): this {
+		if (typeof message === 'string') {
+			this.noticeEl.textContent = message;
+		}
+		return this;
+	}
 }
 
 export type App = Record<string, unknown>;

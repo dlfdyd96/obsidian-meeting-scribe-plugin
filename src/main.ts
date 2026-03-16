@@ -8,7 +8,8 @@ import { RibbonHandler } from './ui/ribbon-handler';
 import { AudioSuggestModal } from './ui/audio-suggest-modal';
 import { stateManager } from './state/state-manager';
 import { PluginState } from './state/types';
-import { PLUGIN_NAME } from './constants';
+import { NoticeManager } from './ui/notices';
+import { PLUGIN_ID, PLUGIN_NAME } from './constants';
 import { logger } from './utils/logger';
 import type { MeetingScribeSettings } from './settings/settings';
 
@@ -19,6 +20,7 @@ export default class MeetingScribePlugin extends Plugin {
 	private audioFileManager!: AudioFileManager;
 	private statusBar!: StatusBar;
 	private ribbonHandler!: RibbonHandler;
+	private noticeManager!: NoticeManager;
 
 	async onload() {
 		const data: unknown = await this.loadData();
@@ -49,6 +51,8 @@ export default class MeetingScribePlugin extends Plugin {
 			})();
 		};
 
+		this.noticeManager = new NoticeManager(this.app, undefined, PLUGIN_ID);
+
 		const statusBarEl = this.addStatusBarItem();
 		this.statusBar = new StatusBar(
 			statusBarEl,
@@ -58,9 +62,8 @@ export default class MeetingScribePlugin extends Plugin {
 			(path: string) => {
 				void this.app.workspace.openLinkText(path, '', false);
 			},
-			(error: Error) => {
-				// Delegates to Notice system (Story 5.4) — basic fallback for now
-				logger.error('MeetingScribePlugin', 'Pipeline error', { error: error.message });
+			(error: Error, step?: string) => {
+				this.noticeManager.showError(step ?? 'Processing', error);
 			},
 		);
 
@@ -131,6 +134,7 @@ export default class MeetingScribePlugin extends Plugin {
 		this.ribbonHandler?.destroy();
 		this.statusBar?.destroy();
 		this.recorder?.destroy();
+		// NoticeManager has no subscriptions to clean up currently
 		logger.debug('MeetingScribePlugin', 'Plugin unloaded');
 	}
 }

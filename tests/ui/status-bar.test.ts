@@ -245,11 +245,11 @@ describe('StatusBar', () => {
 			expect(el.style.color).toBe('var(--text-error)');
 		});
 
-		it('should call onShowError with error on click', () => {
+		it('should call onShowError with error and step on click', () => {
 			const testError = new Error('API timeout');
-			stateManager.setState(PluginState.Error, { error: testError });
+			stateManager.setState(PluginState.Error, { error: testError, step: 'transcribing' });
 			el.click();
-			expect(onShowError).toHaveBeenCalledWith(testError);
+			expect(onShowError).toHaveBeenCalledWith(testError, 'transcribing');
 		});
 	});
 
