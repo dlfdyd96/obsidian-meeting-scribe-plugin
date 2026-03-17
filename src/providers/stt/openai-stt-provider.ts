@@ -11,6 +11,7 @@ const MODELS_ENDPOINT = `${API_BASE}/models`;
 const SUPPORTED_MODELS: STTModel[] = [
 	{ id: 'whisper-1', name: 'Whisper v1', supportsDiarization: false },
 	{ id: 'gpt-4o-mini-transcribe', name: 'GPT-4o Mini Transcribe', supportsDiarization: false },
+	{ id: 'gpt-4o-transcribe', name: 'GPT-4o Transcribe', supportsDiarization: false },
 	{ id: 'gpt-4o-transcribe-diarize', name: 'GPT-4o Transcribe (Diarization)', supportsDiarization: true },
 ];
 
@@ -102,7 +103,7 @@ export class OpenAISTTProvider implements STTProvider {
 			fields['response_format'] = 'verbose_json';
 			fields['timestamp_granularities[]'] = 'segment';
 		} else {
-			// gpt-4o-mini-transcribe and other newer models only support json/text
+			// gpt-4o-transcribe, gpt-4o-mini-transcribe — only json/text supported
 			fields['response_format'] = 'json';
 		}
 
@@ -154,7 +155,7 @@ export class OpenAISTTProvider implements STTProvider {
 				}));
 				language = verbose.language;
 			} else {
-				// gpt-4o-mini-transcribe returns { text: "..." } only — no segments
+				// gpt-4o-transcribe, gpt-4o-mini-transcribe — text only, no segments
 				const simple = json as SimpleJsonApiResponse;
 				segments = [{
 					start: 0,

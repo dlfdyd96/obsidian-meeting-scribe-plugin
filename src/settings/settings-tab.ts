@@ -15,7 +15,8 @@ const LLM_MODELS: Record<string, Record<string, string>> = {
 
 const STT_MODELS: Record<string, string> = {
 	'gpt-4o-mini-transcribe': 'GPT-4o mini transcribe',
-	'gpt-4o-transcribe': 'GPT-4o transcribe (with diarization)',
+	'gpt-4o-transcribe': 'GPT-4o transcribe',
+	'gpt-4o-transcribe-diarize': 'GPT-4o transcribe (with diarization)',
 };
 
 const LANGUAGE_OPTIONS: Record<string, string> = {

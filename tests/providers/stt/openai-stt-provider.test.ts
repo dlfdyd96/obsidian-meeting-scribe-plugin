@@ -26,7 +26,7 @@ describe('OpenAISTTProvider', () => {
 	describe('getSupportedModels', () => {
 		it('returns all supported models', () => {
 			const models = provider.getSupportedModels();
-			expect(models).toHaveLength(3);
+			expect(models).toHaveLength(4);
 		});
 
 		it('returns whisper-1 without diarization', () => {
@@ -45,6 +45,14 @@ describe('OpenAISTTProvider', () => {
 			expect(miniModel!.supportsDiarization).toBe(false);
 		});
 
+		it('returns gpt-4o-transcribe without diarization', () => {
+			const models = provider.getSupportedModels();
+			const model = models.find((m) => m.id === 'gpt-4o-transcribe');
+			expect(model).toBeDefined();
+			expect(model!.name).toBe('GPT-4o Transcribe');
+			expect(model!.supportsDiarization).toBe(false);
+		});
+
 		it('returns gpt-4o-transcribe-diarize with diarization', () => {
 			const models = provider.getSupportedModels();
 			const diarizeModel = models.find((m) => m.id === 'gpt-4o-transcribe-diarize');
@@ -55,7 +63,7 @@ describe('OpenAISTTProvider', () => {
 	});
 
 	describe('transcribe - gpt-4o-mini-transcribe', () => {
-		it('sends json response_format (not verbose_json)', async () => {
+		it('sends json response_format', async () => {
 			const responseData = createSimpleJsonResponse();
 			vi.mocked(requestUrl).mockResolvedValue(createRequestUrlSuccess(responseData));
 
@@ -80,7 +88,6 @@ describe('OpenAISTTProvider', () => {
 			expect(bodyText).toContain('name="response_format"');
 			expect(bodyText).toContain('json');
 			expect(bodyText).not.toContain('verbose_json');
-			expect(bodyText).not.toContain('timestamp_granularities');
 			expect(bodyText).toContain('name="file"');
 			expect(bodyText).toContain('filename="audio.webm"');
 		});

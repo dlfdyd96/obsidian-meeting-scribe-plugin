@@ -23,13 +23,19 @@ export class TranscribeStep implements PipelineStep {
 		if (!context.forceRetranscribe) {
 			const existingFile = vault.getAbstractFileByPath(transcriptPath);
 			if (existingFile instanceof TFile) {
-				logger.info(COMPONENT, 'Cached transcript found, skipping API call', {
-					path: transcriptPath,
-				});
 				const content = await vault.read(existingFile);
 				try {
 					const cached = JSON.parse(content) as TranscriptionResult;
-					return { ...context, transcriptionResult: cached };
+					if (cached.model === settings.sttModel) {
+						logger.info(COMPONENT, 'Cached transcript found, skipping API call', {
+							path: transcriptPath,
+						});
+						return { ...context, transcriptionResult: cached };
+					}
+					logger.info(COMPONENT, 'Cached transcript model mismatch, will re-transcribe', {
+						cachedModel: cached.model,
+						currentModel: settings.sttModel,
+					});
 				} catch {
 					logger.warn(COMPONENT, 'Corrupt transcript cache, will re-transcribe', {
 						path: transcriptPath,

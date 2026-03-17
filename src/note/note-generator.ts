@@ -11,14 +11,16 @@ export interface NoteInput {
 
 export function generateNote(input: NoteInput): string {
 	const frontmatter = buildFrontmatter(input);
+	const audioFilename = input.audioFilePath.split('/').pop() ?? input.audioFilePath;
+	const audioEmbed = `![[${audioFilename}]]`;
 	const body = input.summaryResult.summary;
 
 	if (input.includeTranscript) {
 		const transcript = formatTranscriptSection(input.transcriptionResult);
-		return `${frontmatter}\n\n${body}\n\n## Transcript\n\n${transcript}\n`;
+		return `${frontmatter}\n\n${audioEmbed}\n\n${body}\n\n## Transcript\n\n${transcript}\n`;
 	}
 
-	return `${frontmatter}\n\n${body}\n`;
+	return `${frontmatter}\n\n${audioEmbed}\n\n${body}\n`;
 }
 
 export function generateFilename(metadata: MeetingMetadata | undefined): string {
