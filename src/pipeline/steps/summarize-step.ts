@@ -3,7 +3,7 @@ import type { SummaryResult, MeetingMetadata } from '../../providers/types';
 import { providerRegistry } from '../../providers/provider-registry';
 import { ConfigError, DataError } from '../../utils/errors';
 import { logger } from '../../utils/logger';
-import { getDefaultPreset, buildUserPrompt, formatSummaryBody } from '../../note/templates';
+import { getDefaultPreset, buildUserPrompt, buildLanguageInstruction, formatSummaryBody } from '../../note/templates';
 import type { LLMNoteOutput } from '../../note/templates';
 
 const COMPONENT = 'SummarizeStep';
@@ -64,7 +64,8 @@ export class SummarizeStep implements PipelineStep {
 
 		// Build prompts from default preset
 		const preset = getDefaultPreset();
-		const systemPrompt = preset.systemPrompt;
+		const languageInstruction = buildLanguageInstruction(settings.summaryLanguage);
+		const systemPrompt = preset.systemPrompt + languageInstruction;
 		const userPrompt = buildUserPrompt(
 			preset.userPromptTemplate,
 			context.transcriptionResult.fullText,

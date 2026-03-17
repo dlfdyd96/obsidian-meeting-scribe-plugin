@@ -90,6 +90,20 @@ export function buildUserPrompt(template: string, transcript: string): string {
 	return template.split('{{transcript}}').join(transcript);
 }
 
+const LANGUAGE_NAMES: Record<string, string> = {
+	'ko': 'Korean (한국어)',
+	'en': 'English',
+	'ja': 'Japanese (日本語)',
+	'zh': 'Chinese (中文)',
+};
+
+export function buildLanguageInstruction(summaryLanguage: string): string {
+	if (summaryLanguage === 'auto') return '';
+	const name = LANGUAGE_NAMES[summaryLanguage];
+	if (!name) return '';
+	return `\nIMPORTANT: You MUST write ALL notes in ${name}, regardless of the transcript language.`;
+}
+
 export function formatTimestamp(seconds: number): string {
 	const h = Math.floor(seconds / 3600);
 	const m = Math.floor((seconds % 3600) / 60);

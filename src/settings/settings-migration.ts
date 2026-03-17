@@ -14,9 +14,17 @@ function migrateV1ToV2(data: Record<string, unknown>): Record<string, unknown> {
 	});
 }
 
+function migrateV2ToV3(data: Record<string, unknown>): Record<string, unknown> {
+	return Object.assign({}, data, {
+		settingsVersion: 3,
+		summaryLanguage: data['summaryLanguage'] ?? 'auto',
+	});
+}
+
 const migrations: Migration[] = [
 	migrateV0ToV1,
 	migrateV1ToV2,
+	migrateV2ToV3,
 ];
 
 export function migrateSettings(data: unknown): MeetingScribeSettings {

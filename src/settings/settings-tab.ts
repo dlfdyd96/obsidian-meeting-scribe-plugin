@@ -18,6 +18,22 @@ const STT_MODELS: Record<string, string> = {
 	'gpt-4o-transcribe': 'GPT-4o transcribe (with diarization)',
 };
 
+const LANGUAGE_OPTIONS: Record<string, string> = {
+	'auto': 'Auto',
+	'ko': 'Korean (ko)',
+	'en': 'English (en)',
+	'ja': 'Japanese (ja)',
+	'zh': 'Chinese (zh)',
+};
+
+const SUMMARY_LANGUAGE_OPTIONS: Record<string, string> = {
+	'auto': 'Auto (follow transcript)',
+	'ko': 'Korean',
+	'en': 'English',
+	'ja': 'Japanese',
+	'zh': 'Chinese',
+};
+
 export class MeetingScribeSettingTab extends PluginSettingTab {
 	plugin: MeetingScribePlugin;
 
@@ -125,6 +141,17 @@ export class MeetingScribeSettingTab extends PluginSettingTab {
 					await this.plugin.saveSettings();
 				}));
 
+		new Setting(containerEl)
+			.setName('Speech-to-text language')
+			.setDesc('Language hint for transcription accuracy')
+			.addDropdown(cb => cb
+				.addOptions(LANGUAGE_OPTIONS)
+				.setValue(this.plugin.settings.sttLanguage)
+				.onChange(async (value) => {
+					this.plugin.settings.sttLanguage = value;
+					await this.plugin.saveSettings();
+				}));
+
 		const llmModels = LLM_MODELS[this.plugin.settings.llmProvider] ?? {};
 		new Setting(containerEl)
 			.setName('Language model')
@@ -134,6 +161,17 @@ export class MeetingScribeSettingTab extends PluginSettingTab {
 				.setValue(this.plugin.settings.llmModel)
 				.onChange(async (value) => {
 					this.plugin.settings.llmModel = value;
+					await this.plugin.saveSettings();
+				}));
+
+		new Setting(containerEl)
+			.setName('Summary language')
+			.setDesc('Language for generated meeting notes')
+			.addDropdown(cb => cb
+				.addOptions(SUMMARY_LANGUAGE_OPTIONS)
+				.setValue(this.plugin.settings.summaryLanguage)
+				.onChange(async (value) => {
+					this.plugin.settings.summaryLanguage = value;
 					await this.plugin.saveSettings();
 				}));
 

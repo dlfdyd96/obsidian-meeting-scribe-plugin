@@ -36,7 +36,7 @@ function createMockContext(overrides?: Partial<PipelineContext>): PipelineContex
 		audioFilePath: 'test/audio.webm',
 		vault: {} as PipelineContext['vault'],
 		settings: {
-			settingsVersion: 1,
+			settingsVersion: 3,
 			sttProvider: 'openai',
 			sttApiKey: 'test-stt-key',
 			sttModel: 'gpt-4o-mini-transcribe',
@@ -47,6 +47,8 @@ function createMockContext(overrides?: Partial<PipelineContext>): PipelineContex
 			outputFolder: 'Meeting Notes',
 			audioFolder: '_attachments/audio',
 			audioRetentionPolicy: 'keep' as const,
+			summaryLanguage: 'auto',
+			includeTranscript: true,
 			debugMode: false,
 		} satisfies MeetingScribeSettings,
 		transcriptionResult: {
@@ -176,6 +178,33 @@ describe('SummarizeStep', () => {
 			);
 			// Should keep provider-returned metadata
 			expect(result.summaryResult?.metadata?.title).toBe('Fallback Title');
+		});
+
+		it('should append language instruction to system prompt when summaryLanguage is set', async () => {
+			vi.spyOn(providerRegistry, 'getLLMProvider').mockReturnValue(mockProvider);
+
+			const context = createMockContext({
+				settings: {
+					...createMockContext().settings,
+					summaryLanguage: 'ko',
+				},
+			});
+			await step.execute(context);
+
+			const [systemPrompt] = (mockProvider.summarize as ReturnType<typeof vi.fn>).mock.calls[0]!;
+			expect(systemPrompt).toContain('Korean');
+			expect(systemPrompt).toContain('한국어');
+			expect(systemPrompt).toContain('MUST write ALL notes');
+		});
+
+		it('should not append language instruction when summaryLanguage is auto', async () => {
+			vi.spyOn(providerRegistry, 'getLLMProvider').mockReturnValue(mockProvider);
+
+			const context = createMockContext();
+			await step.execute(context);
+
+			const [systemPrompt] = (mockProvider.summarize as ReturnType<typeof vi.fn>).mock.calls[0]!;
+			expect(systemPrompt).not.toContain('MUST write ALL notes');
 		});
 
 		it('should call onProgress callback', async () => {

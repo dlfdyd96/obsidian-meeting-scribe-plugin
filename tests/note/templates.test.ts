@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
 	getDefaultPreset,
 	buildUserPrompt,
+	buildLanguageInstruction,
 	formatSummaryBody,
 	formatTranscriptSection,
 	formatTimestamp,
@@ -173,6 +174,39 @@ describe('templates', () => {
 			expect(result).toContain('- [ ] @Alice: Do something');
 			expect(result).not.toContain('(by null)');
 			expect(result).not.toContain('(by )');
+		});
+	});
+
+	describe('buildLanguageInstruction', () => {
+		it('should return empty string for auto', () => {
+			expect(buildLanguageInstruction('auto')).toBe('');
+		});
+
+		it('should return Korean instruction for ko', () => {
+			const result = buildLanguageInstruction('ko');
+			expect(result).toContain('Korean');
+			expect(result).toContain('한국어');
+		});
+
+		it('should return English instruction for en', () => {
+			const result = buildLanguageInstruction('en');
+			expect(result).toContain('English');
+		});
+
+		it('should return Japanese instruction for ja', () => {
+			const result = buildLanguageInstruction('ja');
+			expect(result).toContain('Japanese');
+			expect(result).toContain('日本語');
+		});
+
+		it('should return Chinese instruction for zh', () => {
+			const result = buildLanguageInstruction('zh');
+			expect(result).toContain('Chinese');
+			expect(result).toContain('中文');
+		});
+
+		it('should return empty string for unknown language code', () => {
+			expect(buildLanguageInstruction('xx')).toBe('');
 		});
 	});
 
