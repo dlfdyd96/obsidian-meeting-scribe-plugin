@@ -110,10 +110,13 @@ export class OpenAISTTProvider implements STTProvider {
 			fields['language'] = options.language;
 		}
 
+		const filename = options.audioFileName ?? 'audio.webm';
+		const contentType = options.audioMimeType ?? 'audio/webm';
+
 		const boundary = `----FormBoundary${Date.now()}`;
 		const body = buildMultipartBody(
 			fields,
-			{ name: 'file', filename: 'audio.webm', data: audio, contentType: 'audio/webm' },
+			{ name: 'file', filename, data: audio, contentType },
 			boundary,
 		);
 

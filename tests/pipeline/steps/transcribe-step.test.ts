@@ -51,6 +51,8 @@ function makeChunk(overrides?: Partial<AudioChunk>): AudioChunk {
 		chunkIndex: 0,
 		startTime: 0,
 		endTime: 600,
+		mimeType: 'audio/webm',
+		fileExtension: 'webm',
 		...overrides,
 	};
 }
@@ -150,7 +152,7 @@ describe('TranscribeStep', () => {
 
 			expect(mockProvider.transcribe).toHaveBeenCalledWith(
 				expect.any(ArrayBuffer),
-				{ model: 'gpt-4o-mini-transcribe', language: undefined },
+				{ model: 'gpt-4o-mini-transcribe', language: undefined, audioMimeType: 'audio/webm', audioFileName: 'audio.webm' },
 			);
 		});
 
@@ -172,7 +174,7 @@ describe('TranscribeStep', () => {
 
 			expect(mockProvider.transcribe).toHaveBeenCalledWith(
 				expect.any(ArrayBuffer),
-				{ model: 'gpt-4o-mini-transcribe', language: 'ko' },
+				{ model: 'gpt-4o-mini-transcribe', language: 'ko', audioMimeType: 'audio/webm', audioFileName: 'audio.webm' },
 			);
 		});
 	});

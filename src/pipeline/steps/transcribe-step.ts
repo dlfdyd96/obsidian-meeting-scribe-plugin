@@ -72,6 +72,8 @@ export class TranscribeStep implements PipelineStep {
 			const result = await provider.transcribe(chunk.data, {
 				model: settings.sttModel,
 				language: settings.sttLanguage === 'auto' ? undefined : settings.sttLanguage,
+				audioMimeType: chunk.mimeType,
+				audioFileName: `audio.${chunk.fileExtension}`,
 			});
 			results.push(result);
 

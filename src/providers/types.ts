@@ -1,6 +1,8 @@
 export interface STTOptions {
 	model: string;
 	language?: string;
+	audioMimeType?: string;
+	audioFileName?: string;
 }
 
 export interface STTModel {

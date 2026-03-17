@@ -95,6 +95,9 @@ describe('Audio Chunker', () => {
 			expect(chunks[0]!.endTime).toBe(300);
 			// For short audio, original ArrayBuffer is returned as-is
 			expect(chunks[0]!.data).toBe(inputAudio);
+			// Short audio keeps original webm format
+			expect(chunks[0]!.mimeType).toBe('audio/webm');
+			expect(chunks[0]!.fileExtension).toBe('webm');
 		});
 
 		it('should return single chunk for audio exactly at limit (600s)', async () => {
@@ -110,6 +113,8 @@ describe('Audio Chunker', () => {
 
 			expect(chunks).toHaveLength(1);
 			expect(chunks[0]!.data).toBe(inputAudio);
+			expect(chunks[0]!.mimeType).toBe('audio/webm');
+			expect(chunks[0]!.fileExtension).toBe('webm');
 		});
 
 		it('should split long audio (1500s) into 3 chunks', async () => {
@@ -213,6 +218,23 @@ describe('Audio Chunker', () => {
 
 			await expect(chunkAudio(new ArrayBuffer(0))).rejects.toThrow(DataError);
 			await expect(chunkAudio(new ArrayBuffer(0))).rejects.toThrow('Failed to decode audio');
+		});
+
+		it('should set WAV mimeType and fileExtension for split chunks', async () => {
+			const sampleRate = 16000;
+			const duration = 1500;
+			const pcm = createUniformNoisePcm(duration, sampleRate);
+			const mockBuffer = createMockAudioBuffer({ duration, sampleRate, channelData: pcm });
+			setupOfflineAudioContextMock(mockBuffer);
+
+			const { chunkAudio } = await import('../../src/pipeline/chunker');
+			const chunks = await chunkAudio(new ArrayBuffer(1024));
+
+			expect(chunks.length).toBeGreaterThan(1);
+			for (const chunk of chunks) {
+				expect(chunk.mimeType).toBe('audio/wav');
+				expect(chunk.fileExtension).toBe('wav');
+			}
 		});
 
 		it('should produce valid WAV headers in chunked output', async () => {

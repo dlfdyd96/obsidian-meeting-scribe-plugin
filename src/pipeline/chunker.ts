@@ -7,6 +7,8 @@ export interface AudioChunk {
 	chunkIndex: number;
 	startTime: number;
 	endTime: number;
+	mimeType: string;
+	fileExtension: string;
 }
 
 export interface ChunkerOptions {
@@ -150,6 +152,8 @@ export async function chunkAudio(
 				chunkIndex: 0,
 				startTime: 0,
 				endTime: duration,
+				mimeType: 'audio/webm',
+				fileExtension: 'webm',
 			},
 		];
 	}
@@ -190,6 +194,8 @@ export async function chunkAudio(
 			chunkIndex: i,
 			startTime,
 			endTime,
+			mimeType: 'audio/wav',
+			fileExtension: 'wav',
 		});
 
 		logger.debug(COMPONENT, 'Chunk created', {
