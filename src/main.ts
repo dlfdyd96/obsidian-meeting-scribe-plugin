@@ -106,7 +106,9 @@ export default class MeetingScribePlugin extends Plugin {
 			id: 'start-recording',
 			name: 'Start recording',
 			callback: () => {
-				if (stateManager.getState() === PluginState.Idle) {
+				const state = stateManager.getState();
+				if (state === PluginState.Idle || state === PluginState.Error) {
+					if (state === PluginState.Error) stateManager.setState(PluginState.Idle);
 					startRecordingFlow();
 				}
 			},
@@ -127,7 +129,8 @@ export default class MeetingScribePlugin extends Plugin {
 			name: 'Toggle recording',
 			callback: () => {
 				const state = stateManager.getState();
-				if (state === PluginState.Idle) {
+				if (state === PluginState.Idle || state === PluginState.Error) {
+					if (state === PluginState.Error) stateManager.setState(PluginState.Idle);
 					startRecordingFlow();
 				} else if (state === PluginState.Recording) {
 					stopRecordingFlow();
@@ -139,7 +142,9 @@ export default class MeetingScribePlugin extends Plugin {
 			id: 'import-audio',
 			name: 'Import audio file',
 			callback: () => {
-				if (stateManager.getState() === PluginState.Idle) {
+				const state = stateManager.getState();
+				if (state === PluginState.Idle || state === PluginState.Error) {
+					if (state === PluginState.Error) stateManager.setState(PluginState.Idle);
 					const modal = new AudioSuggestModal(this.app, (filePath: string) => {
 						this.startProcessingFlow(filePath);
 					});

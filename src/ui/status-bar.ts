@@ -48,6 +48,7 @@ export class StatusBar {
 				if (this.currentContext.error) {
 					this.onShowError(this.currentContext.error, this.currentContext.step);
 				}
+				this.stateManager.setState(PluginState.Idle);
 			}
 		};
 		this.el.addEventListener('click', this.handleClick);

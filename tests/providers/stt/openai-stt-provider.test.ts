@@ -3,6 +3,7 @@ import { OpenAISTTProvider } from '../../../src/providers/stt/openai-stt-provide
 import { TransientError, ConfigError, DataError } from '../../../src/utils/errors';
 import { logger } from '../../../src/utils/logger';
 import {
+	createSimpleJsonResponse,
 	createVerboseJsonResponse,
 	createDiarizedJsonResponse,
 	createRequestUrlSuccess,
@@ -23,9 +24,17 @@ describe('OpenAISTTProvider', () => {
 	});
 
 	describe('getSupportedModels', () => {
-		it('returns both supported models', () => {
+		it('returns all supported models', () => {
 			const models = provider.getSupportedModels();
-			expect(models).toHaveLength(2);
+			expect(models).toHaveLength(3);
+		});
+
+		it('returns whisper-1 without diarization', () => {
+			const models = provider.getSupportedModels();
+			const whisperModel = models.find((m) => m.id === 'whisper-1');
+			expect(whisperModel).toBeDefined();
+			expect(whisperModel!.name).toBe('Whisper v1');
+			expect(whisperModel!.supportsDiarization).toBe(false);
 		});
 
 		it('returns gpt-4o-mini-transcribe without diarization', () => {
@@ -45,9 +54,9 @@ describe('OpenAISTTProvider', () => {
 		});
 	});
 
-	describe('transcribe - non-diarization model', () => {
-		it('sends correct multipart request', async () => {
-			const responseData = createVerboseJsonResponse();
+	describe('transcribe - gpt-4o-mini-transcribe', () => {
+		it('sends json response_format (not verbose_json)', async () => {
+			const responseData = createSimpleJsonResponse();
 			vi.mocked(requestUrl).mockResolvedValue(createRequestUrlSuccess(responseData));
 
 			await provider.transcribe(mockAudio, { model: 'gpt-4o-mini-transcribe' });
@@ -65,20 +74,19 @@ describe('OpenAISTTProvider', () => {
 			expect(call.contentType).toContain('multipart/form-data; boundary=');
 			expect(call.headers['Authorization']).toBe('Bearer sk-test-key');
 
-			// Verify body contains expected fields
 			const bodyText = new TextDecoder().decode(call.body);
 			expect(bodyText).toContain('name="model"');
 			expect(bodyText).toContain('gpt-4o-mini-transcribe');
 			expect(bodyText).toContain('name="response_format"');
-			expect(bodyText).toContain('verbose_json');
-			expect(bodyText).toContain('name="timestamp_granularities[]"');
-			expect(bodyText).toContain('segment');
+			expect(bodyText).toContain('json');
+			expect(bodyText).not.toContain('verbose_json');
+			expect(bodyText).not.toContain('timestamp_granularities');
 			expect(bodyText).toContain('name="file"');
 			expect(bodyText).toContain('filename="audio.webm"');
 		});
 
-		it('parses verbose_json response into TranscriptionResult', async () => {
-			const responseData = createVerboseJsonResponse();
+		it('parses simple json response into single-segment TranscriptionResult', async () => {
+			const responseData = createSimpleJsonResponse();
 			vi.mocked(requestUrl).mockResolvedValue(createRequestUrlSuccess(responseData));
 
 			const result = await provider.transcribe(mockAudio, { model: 'gpt-4o-mini-transcribe' });
@@ -86,6 +94,41 @@ describe('OpenAISTTProvider', () => {
 			expect(result.version).toBe(1);
 			expect(result.provider).toBe('openai');
 			expect(result.model).toBe('gpt-4o-mini-transcribe');
+			expect(result.language).toBe('auto');
+			expect(result.fullText).toBe('Hello, this is a test transcription.');
+			expect(result.segments).toHaveLength(1);
+			expect(result.segments[0]).toEqual({
+				start: 0,
+				end: 0,
+				text: 'Hello, this is a test transcription.',
+			});
+			expect(result.createdAt).toBeDefined();
+		});
+	});
+
+	describe('transcribe - whisper-1', () => {
+		it('sends verbose_json with timestamp_granularities', async () => {
+			const responseData = createVerboseJsonResponse();
+			vi.mocked(requestUrl).mockResolvedValue(createRequestUrlSuccess(responseData));
+
+			await provider.transcribe(mockAudio, { model: 'whisper-1' });
+
+			const call = vi.mocked(requestUrl).mock.calls[0]![0] as { body: ArrayBuffer };
+			const bodyText = new TextDecoder().decode(call.body);
+			expect(bodyText).toContain('whisper-1');
+			expect(bodyText).toContain('verbose_json');
+			expect(bodyText).toContain('name="timestamp_granularities[]"');
+			expect(bodyText).toContain('segment');
+		});
+
+		it('parses verbose_json response with segments', async () => {
+			const responseData = createVerboseJsonResponse();
+			vi.mocked(requestUrl).mockResolvedValue(createRequestUrlSuccess(responseData));
+
+			const result = await provider.transcribe(mockAudio, { model: 'whisper-1' });
+
+			expect(result.provider).toBe('openai');
+			expect(result.model).toBe('whisper-1');
 			expect(result.language).toBe('en');
 			expect(result.fullText).toBe('Hello, this is a test transcription.');
 			expect(result.segments).toHaveLength(2);
@@ -99,8 +142,6 @@ describe('OpenAISTTProvider', () => {
 				end: 5.0,
 				text: 'a test transcription.',
 			});
-			expect(result.segments[0]!.speaker).toBeUndefined();
-			expect(result.createdAt).toBeDefined();
 		});
 	});
 
@@ -163,7 +204,7 @@ describe('OpenAISTTProvider', () => {
 
 	describe('language parameter', () => {
 		it('forwards language parameter when set', async () => {
-			const responseData = createVerboseJsonResponse({ language: 'ko' });
+			const responseData = createSimpleJsonResponse();
 			vi.mocked(requestUrl).mockResolvedValue(createRequestUrlSuccess(responseData));
 
 			await provider.transcribe(mockAudio, { model: 'gpt-4o-mini-transcribe', language: 'ko' });
@@ -175,7 +216,7 @@ describe('OpenAISTTProvider', () => {
 		});
 
 		it('omits language parameter when not set', async () => {
-			const responseData = createVerboseJsonResponse();
+			const responseData = createSimpleJsonResponse();
 			vi.mocked(requestUrl).mockResolvedValue(createRequestUrlSuccess(responseData));
 
 			await provider.transcribe(mockAudio, { model: 'gpt-4o-mini-transcribe' });

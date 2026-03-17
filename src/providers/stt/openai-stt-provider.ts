@@ -9,11 +9,17 @@ const TRANSCRIPTION_ENDPOINT = `${API_BASE}/audio/transcriptions`;
 const MODELS_ENDPOINT = `${API_BASE}/models`;
 
 const SUPPORTED_MODELS: STTModel[] = [
+	{ id: 'whisper-1', name: 'Whisper v1', supportsDiarization: false },
 	{ id: 'gpt-4o-mini-transcribe', name: 'GPT-4o Mini Transcribe', supportsDiarization: false },
 	{ id: 'gpt-4o-transcribe-diarize', name: 'GPT-4o Transcribe (Diarization)', supportsDiarization: true },
 ];
 
 const DIARIZATION_MODEL = 'gpt-4o-transcribe-diarize';
+const WHISPER_MODEL = 'whisper-1';
+
+interface SimpleJsonApiResponse {
+	text: string;
+}
 
 interface VerboseJsonApiResponse {
 	text: string;
@@ -84,6 +90,7 @@ export class OpenAISTTProvider implements STTProvider {
 			audioSize: audio.byteLength,
 		});
 
+		const isWhisper = options.model === WHISPER_MODEL;
 		const fields: Record<string, string> = {
 			model: options.model,
 		};
@@ -91,9 +98,12 @@ export class OpenAISTTProvider implements STTProvider {
 		if (isDiarization) {
 			fields['response_format'] = 'diarized_json';
 			fields['chunking_strategy'] = 'auto';
-		} else {
+		} else if (isWhisper) {
 			fields['response_format'] = 'verbose_json';
 			fields['timestamp_granularities[]'] = 'segment';
+		} else {
+			// gpt-4o-mini-transcribe and other newer models only support json/text
+			fields['response_format'] = 'json';
 		}
 
 		if (options.language) {
@@ -118,7 +128,7 @@ export class OpenAISTTProvider implements STTProvider {
 				},
 			});
 
-			const json = response.json as VerboseJsonApiResponse | DiarizedJsonApiResponse;
+			const json = response.json as SimpleJsonApiResponse | VerboseJsonApiResponse | DiarizedJsonApiResponse;
 
 			let segments: TranscriptionSegment[];
 			let language: string;
@@ -132,7 +142,7 @@ export class OpenAISTTProvider implements STTProvider {
 					speaker: seg.speaker,
 				}));
 				language = options.language ?? 'auto';
-			} else {
+			} else if (isWhisper) {
 				const verbose = json as VerboseJsonApiResponse;
 				segments = verbose.segments.map((seg) => ({
 					start: seg.start,
@@ -140,6 +150,15 @@ export class OpenAISTTProvider implements STTProvider {
 					text: seg.text,
 				}));
 				language = verbose.language;
+			} else {
+				// gpt-4o-mini-transcribe returns { text: "..." } only — no segments
+				const simple = json as SimpleJsonApiResponse;
+				segments = [{
+					start: 0,
+					end: 0,
+					text: simple.text,
+				}];
+				language = options.language ?? 'auto';
 			}
 
 			const result: TranscriptionResult = {

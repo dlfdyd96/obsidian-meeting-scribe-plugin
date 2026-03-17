@@ -1,3 +1,7 @@
+export interface SimpleJsonResponse {
+	text: string;
+}
+
 export interface VerboseJsonResponse {
 	text: string;
 	language: string;
@@ -7,6 +11,15 @@ export interface VerboseJsonResponse {
 export interface DiarizedJsonResponse {
 	text: string;
 	segments: { start: number; end: number; text: string; speaker: string }[];
+}
+
+export function createSimpleJsonResponse(
+	overrides?: Partial<SimpleJsonResponse>,
+): SimpleJsonResponse {
+	return {
+		text: 'Hello, this is a test transcription.',
+		...overrides,
+	};
 }
 
 export function createVerboseJsonResponse(
