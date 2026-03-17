@@ -48,6 +48,10 @@ describe('StatusBar', () => {
 		it('should set aria-live attribute for accessibility', () => {
 			expect(el.getAttribute('aria-live')).toBe('polite');
 		});
+
+		it('should set role="status" for screen reader semantics', () => {
+			expect(el.getAttribute('role')).toBe('status');
+		});
 	});
 
 	describe('Recording state display', () => {

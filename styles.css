@@ -9,3 +9,43 @@ Meeting Scribe plugin styles.
 .meeting-scribe-ribbon-processing {
 	opacity: 0.4;
 }
+
+.meeting-scribe-api-status-valid {
+	color: var(--interactive-accent);
+}
+
+.meeting-scribe-api-status-error {
+	color: var(--text-error);
+}
+
+.meeting-scribe-test-result {
+	padding: 0 0 8px 0;
+	font-size: var(--font-ui-small);
+}
+
+.meeting-scribe-test-result > div {
+	margin-top: 4px;
+}
+
+.meeting-scribe-notice-link {
+	cursor: pointer;
+	text-decoration: underline;
+	color: var(--interactive-accent);
+}
+
+/* Respect user's reduced-motion preference */
+@media (prefers-reduced-motion: reduce) {
+	.meeting-scribe-ribbon-recording,
+	.meeting-scribe-ribbon-processing {
+		animation: none;
+		transition: none;
+	}
+}
+
+.meeting-scribe-test-transcript {
+	color: var(--text-muted);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	max-width: 400px;
+}

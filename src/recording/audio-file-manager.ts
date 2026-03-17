@@ -20,6 +20,17 @@ export class AudioFileManager {
 		return path;
 	}
 
+	async saveRecordingToPath(blob: Blob, path: string): Promise<string> {
+		const folder = path.substring(0, path.lastIndexOf('/'));
+		if (folder) {
+			await this.ensureFolder(folder);
+		}
+		const buffer = await blob.arrayBuffer();
+		await this.vault.createBinary(path, new Uint8Array(buffer));
+		logger.debug('AudioFileManager', 'Recording saved to path', { path });
+		return path;
+	}
+
 	private generateFilename(): string {
 		const now = new Date();
 		const dateStr = now.toISOString().slice(0, 10);

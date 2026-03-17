@@ -1,4 +1,4 @@
-import { Notice, Plugin, TFile } from 'obsidian';
+import { Notice, Platform, Plugin, TFile } from 'obsidian';
 import { migrateSettings } from './settings/settings-migration';
 import { MeetingScribeSettingTab } from './settings/settings-tab';
 import { Recorder } from './recording/recorder';
@@ -17,12 +17,20 @@ import { providerRegistry } from './providers/provider-registry';
 import { OpenAISTTProvider } from './providers/stt/openai-stt-provider';
 import { OpenAILLMProvider } from './providers/llm/openai-llm-provider';
 import { AnthropicLLMProvider } from './providers/llm/anthropic-llm-provider';
-import { PLUGIN_ID, PLUGIN_NAME, NOTICE_RETRY_TIMEOUT_MS } from './constants';
+import { PLUGIN_ID, PLUGIN_NAME, NOTICE_RETRY_TIMEOUT_MS, TEST_RECORDING_DURATION_MS } from './constants';
 import { logger } from './utils/logger';
 import type { MeetingScribeSettings } from './settings/settings';
 import type { PipelineContext } from './pipeline/pipeline-types';
 
 const COMPONENT = 'MeetingScribePlugin';
+
+export interface TestRecordingResult {
+	success: boolean;
+	transcriptPreview?: string;
+	noteFilePath?: string;
+	error?: string;
+	failedStep?: string;
+}
 
 export default class MeetingScribePlugin extends Plugin {
 	settings!: MeetingScribeSettings;
@@ -30,9 +38,10 @@ export default class MeetingScribePlugin extends Plugin {
 	private audioFileManager!: AudioFileManager;
 	private statusBar!: StatusBar;
 	private ribbonHandler!: RibbonHandler;
-	private noticeManager!: NoticeManager;
+	noticeManager!: NoticeManager;
 	private lastPipelineAudioPath: string | null = null;
 	private pipelineAborted = false;
+	private recordingAvailable = true;
 
 	async onload() {
 		const data: unknown = await this.loadData();
@@ -51,6 +60,14 @@ export default class MeetingScribePlugin extends Plugin {
 		);
 
 		const startRecordingFlow = (): void => {
+			if (!this.recordingAvailable) {
+				this.noticeManager.showRecordingUnavailable();
+				return;
+			}
+			if (!this.settings.sttApiKey || !this.settings.llmApiKey) {
+				this.noticeManager.showMissingApiKeys();
+				return;
+			}
 			void this.recorder.startRecording();
 		};
 
@@ -153,6 +170,32 @@ export default class MeetingScribePlugin extends Plugin {
 			},
 		});
 
+		if (Platform.isMobile && (typeof MediaRecorder === 'undefined')) {
+			this.recordingAvailable = false;
+			this.noticeManager.showRecordingUnavailable();
+		}
+
+		// Passive microphone availability check (non-blocking, warning only)
+		void navigator.mediaDevices?.enumerateDevices().then(devices => {
+			const hasMic = devices.some(d => d.kind === 'audioinput');
+			if (!hasMic) {
+				logger.warn(COMPONENT, 'No microphone detected');
+			}
+		}).catch(() => {
+			logger.warn(COMPONENT, 'Could not enumerate media devices');
+		});
+
+		if (!this.settings.onboardingComplete && this.settings.sttApiKey === '' && this.settings.llmApiKey === '') {
+			this.app.workspace.onLayoutReady(() => {
+				this.noticeManager.showWelcome();
+				const setting = (this.app as unknown as { setting: { open: () => void; openTabById: (id: string) => void } }).setting;
+				setting.open();
+				setting.openTabById(PLUGIN_ID);
+			});
+			this.settings.onboardingComplete = true;
+			void this.saveSettings();
+		}
+
 		logger.debug(COMPONENT, 'Plugin loaded');
 	}
 
@@ -208,6 +251,63 @@ export default class MeetingScribePlugin extends Plugin {
 				await this.app.fileManager.trashFile(file);
 				logger.info(COMPONENT, 'Audio file trashed per retention policy', { audioFilePath });
 			}
+		}
+	}
+
+	async runTestRecording(onProgress?: (step: string) => void): Promise<TestRecordingResult> {
+		const STEP_NAMES = ['transcribing', 'summarizing', 'generating'];
+
+		try {
+			await this.recorder.startRecording();
+			await new Promise(resolve => setTimeout(resolve, TEST_RECORDING_DURATION_MS));
+			const blob = await this.recorder.stopRecording();
+
+			if (!blob) {
+				return { success: false, error: 'No audio recorded', failedStep: 'recording' };
+			}
+
+			const testAudioPath = `${this.settings.audioFolder}/_test-recording.webm`;
+			await this.audioFileManager.saveRecordingToPath(blob, testAudioPath);
+
+			const context: PipelineContext = {
+				audioFilePath: testAudioPath,
+				vault: this.app.vault,
+				settings: this.settings,
+				onProgress: (step: string) => {
+					onProgress?.(step);
+					logger.debug(COMPONENT, 'Test pipeline progress', { step });
+				},
+				isAborted: () => false,
+			};
+
+			const steps = [new TranscribeStep(), new SummarizeStep(), new GenerateNoteStep()];
+			const pipeline = new Pipeline();
+			const result = await pipeline.execute(steps, context);
+
+			// Clean up test audio file
+			const audioFile = this.app.vault.getAbstractFileByPath(testAudioPath);
+			if (audioFile instanceof TFile) {
+				await this.app.fileManager.trashFile(audioFile);
+			}
+
+			if (result.failedStepIndex !== undefined) {
+				const failedStep = STEP_NAMES[result.failedStepIndex] ?? 'unknown';
+				return { success: false, error: 'Pipeline step failed', failedStep };
+			}
+
+			const transcriptPreview = result.context.transcriptionResult?.fullText
+				? result.context.transcriptionResult.fullText.substring(0, 100)
+				: '';
+
+			return {
+				success: true,
+				transcriptPreview,
+				noteFilePath: result.context.noteFilePath,
+			};
+		} catch (err) {
+			const error = err instanceof Error ? err.message : String(err);
+			logger.error(COMPONENT, 'Test recording failed', { error });
+			return { success: false, error, failedStep: 'recording' };
 		}
 	}
 

@@ -4,6 +4,7 @@ import {
 	NOTICE_SUCCESS_TIMEOUT_MS,
 	NOTICE_RETRY_TIMEOUT_MS,
 	NOTICE_PERSISTENT_TIMEOUT,
+	NOTICE_WELCOME_TIMEOUT_MS,
 } from '../constants';
 
 const STEP_DISPLAY_NAMES: Record<string, string> = {
@@ -12,18 +13,16 @@ const STEP_DISPLAY_NAMES: Record<string, string> = {
 	generating: 'Note generation',
 };
 
-function createClickableSpan(text: string, onClick: (e: MouseEvent) => void): HTMLSpanElement {
-	const span = document.createElement('span');
-	span.textContent = text;
-	span.className = 'meeting-scribe-notice-link';
-	span.style.cursor = 'pointer';
-	span.style.textDecoration = 'underline';
-	span.style.color = 'var(--interactive-accent)';
-	span.addEventListener('click', (e: MouseEvent) => {
+function createClickableLink(text: string, onClick: (e: MouseEvent) => void): HTMLAnchorElement {
+	const link = document.createElement('a');
+	link.textContent = text;
+	link.className = 'meeting-scribe-notice-link';
+	link.addEventListener('click', (e: MouseEvent) => {
+		e.preventDefault();
 		e.stopPropagation();
 		onClick(e);
 	});
-	return span;
+	return link;
 }
 
 export class NoticeManager {
@@ -40,7 +39,7 @@ export class NoticeManager {
 		msg.textContent = '✓ Meeting note created — ';
 		fragment.appendChild(msg);
 
-		const link = createClickableSpan('click to open', () => {
+		const link = createClickableLink('click to open', () => {
 			void (this.app as { workspace: { openLinkText: (link: string, sourcePath: string, newLeaf: boolean) => Promise<void> } }).workspace.openLinkText(filePath, '', true);
 			notice.hide();
 		});
@@ -74,7 +73,7 @@ export class NoticeManager {
 		fragment.appendChild(safe);
 
 		if (this.onRetry) {
-			const retryLink = createClickableSpan('Retry', () => {
+			const retryLink = createClickableLink('Retry', () => {
 				this.onRetry!();
 				notice.hide();
 			});
@@ -100,7 +99,7 @@ export class NoticeManager {
 		safe.style.marginTop = '4px';
 		fragment.appendChild(safe);
 
-		const link = createClickableSpan('Open Settings', () => {
+		const link = createClickableLink('Open Settings', () => {
 			const setting = (this.app as unknown as { setting: { open: () => void; openTabById: (id: string) => void } }).setting;
 			setting.open();
 			setting.openTabById(this.pluginId);
@@ -116,5 +115,42 @@ export class NoticeManager {
 
 	showTestSuccess(): Notice {
 		return new Notice('✓ Test complete — setup is working', NOTICE_SUCCESS_TIMEOUT_MS);
+	}
+
+	showWelcome(): Notice {
+		return new Notice(
+			// eslint-disable-next-line obsidianmd/ui/sentence-case
+			'Welcome to Meeting Scribe! Set up your API keys to get started.',
+			NOTICE_WELCOME_TIMEOUT_MS,
+		);
+	}
+
+	showRecordingUnavailable(): Notice {
+		return new Notice(
+			'Recording is not available on this device — you can import audio files instead',
+			NOTICE_SUCCESS_TIMEOUT_MS,
+		);
+	}
+
+	showMissingApiKeys(): Notice {
+		const fragment = document.createDocumentFragment();
+
+		const msg = document.createElement('div');
+		// eslint-disable-next-line obsidianmd/ui/sentence-case
+		msg.textContent = 'Set up API keys in Settings to start recording';
+		fragment.appendChild(msg);
+
+		const link = createClickableLink('Open Settings', () => {
+			const setting = (this.app as unknown as { setting: { open: () => void; openTabById: (id: string) => void } }).setting;
+			setting.open();
+			setting.openTabById(this.pluginId);
+			notice.hide();
+		});
+		link.style.marginTop = '4px';
+		link.style.display = 'inline-block';
+		fragment.appendChild(link);
+
+		const notice = new Notice(fragment, NOTICE_PERSISTENT_TIMEOUT);
+		return notice;
 	}
 }

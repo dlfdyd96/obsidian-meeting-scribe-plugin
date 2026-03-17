@@ -29,7 +29,7 @@ describe('MeetingScribePlugin settings lifecycle', () => {
 
 		expect(plugin.settings).toBeDefined();
 		expect(plugin.settings.sttApiKey).toBe('sk-test');
-		expect(plugin.settings.settingsVersion).toBe(3);
+		expect(plugin.settings.settingsVersion).toBe(4);
 		expect(plugin.settings.sttProvider).toBe('openai');
 	});
 
@@ -41,7 +41,8 @@ describe('MeetingScribePlugin settings lifecycle', () => {
 
 		await plugin.onload();
 
-		expect(plugin.settings).toEqual(DEFAULT_SETTINGS);
+		// onboarding sets onboardingComplete to true for first-run users
+		expect(plugin.settings).toEqual({ ...DEFAULT_SETTINGS, onboardingComplete: true });
 	});
 
 	it('should wire debugMode to logger', async () => {

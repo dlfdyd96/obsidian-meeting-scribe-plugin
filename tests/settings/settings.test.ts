@@ -4,14 +4,14 @@ import type { MeetingScribeSettings } from '../../src/settings/settings';
 
 describe('MeetingScribeSettings', () => {
 	describe('CURRENT_SETTINGS_VERSION', () => {
-		it('should be 3', () => {
-			expect(CURRENT_SETTINGS_VERSION).toBe(3);
+		it('should be 4', () => {
+			expect(CURRENT_SETTINGS_VERSION).toBe(4);
 		});
 	});
 
 	describe('DEFAULT_SETTINGS', () => {
-		it('should have settingsVersion set to 3', () => {
-			expect(DEFAULT_SETTINGS.settingsVersion).toBe(3);
+		it('should have settingsVersion set to 4', () => {
+			expect(DEFAULT_SETTINGS.settingsVersion).toBe(4);
 		});
 
 		it('should have sttProvider set to openai', () => {
@@ -66,8 +66,12 @@ describe('MeetingScribeSettings', () => {
 			expect(DEFAULT_SETTINGS.debugMode).toBe(false);
 		});
 
-		it('should have exactly 14 fields', () => {
-			expect(Object.keys(DEFAULT_SETTINGS)).toHaveLength(14);
+		it('should have onboardingComplete set to false', () => {
+			expect(DEFAULT_SETTINGS.onboardingComplete).toBe(false);
+		});
+
+		it('should have exactly 15 fields', () => {
+			expect(Object.keys(DEFAULT_SETTINGS)).toHaveLength(15);
 		});
 
 		it('should satisfy the MeetingScribeSettings type', () => {

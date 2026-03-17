@@ -4,6 +4,7 @@ import { Setting } from 'obsidian';
 import { MeetingScribeSettingTab } from '../../src/settings/settings-tab';
 import { DEFAULT_SETTINGS } from '../../src/settings/settings';
 import type { MeetingScribeSettings } from '../../src/settings/settings';
+import { providerRegistry } from '../../src/providers/provider-registry';
 import { logger } from '../../src/utils/logger';
 
 function createMockPlugin(settingsOverrides?: Partial<MeetingScribeSettings>) {
@@ -21,6 +22,12 @@ function createMockPlugin(settingsOverrides?: Partial<MeetingScribeSettings>) {
 		addSettingTab: vi.fn(),
 		registerDomEvent: vi.fn(),
 		registerInterval: vi.fn(),
+		runTestRecording: vi.fn().mockResolvedValue({ success: true, transcriptPreview: 'Hello world', noteFilePath: 'Meeting Notes/test.md' }),
+		noticeManager: {
+			showTestSuccess: vi.fn(),
+			showWelcome: vi.fn(),
+			showMissingApiKeys: vi.fn(),
+		},
 	};
 }
 
@@ -43,17 +50,18 @@ describe('MeetingScribeSettingTab', () => {
 			expect(emptySpy).toHaveBeenCalled();
 		});
 
-		it('should create all 4 section headings', () => {
+		it('should create all section headings', () => {
 			tab.display();
 			const settingInstances = collectSettings(tab.containerEl);
 			const headings = settingInstances.filter(s => s.isHeading());
-			expect(headings).toHaveLength(3);
+			expect(headings).toHaveLength(4);
 			expect(headings.map(h => h.getName())).toEqual([
 				'API configuration',
 				'Output',
 				'Recording',
+				'Test setup',
 			]);
-			// 4th section is the <details> Advanced section
+			// Advanced section is the <details> element
 			const details = tab.containerEl.querySelector('details');
 			expect(details).not.toBeNull();
 		});
@@ -253,6 +261,261 @@ describe('MeetingScribeSettingTab', () => {
 			expect(options).toHaveProperty('claude-sonnet-4-5-20250514');
 			expect(options).toHaveProperty('claude-haiku-4-5-20251001');
 			expect(options).not.toHaveProperty('gpt-4o');
+		});
+	});
+
+	describe('API key validation', () => {
+		const mockValidateApiKey = vi.fn<(key: string) => Promise<boolean>>();
+
+		beforeEach(() => {
+			mockValidateApiKey.mockReset();
+			vi.spyOn(providerRegistry, 'getSTTProvider').mockReturnValue({
+				name: 'openai',
+				validateApiKey: mockValidateApiKey,
+				transcribe: vi.fn(),
+				getSupportedModels: vi.fn().mockReturnValue([]),
+			});
+			vi.spyOn(providerRegistry, 'getLLMProvider').mockReturnValue({
+				name: 'anthropic',
+				validateApiKey: mockValidateApiKey,
+				summarize: vi.fn(),
+				getSupportedModels: vi.fn().mockReturnValue([]),
+			});
+		});
+
+		it('should have a Test button on STT API key setting', () => {
+			tab.display();
+			const settingInstances = collectSettings(tab.containerEl);
+			const sttKeySetting = settingInstances.find(s => s.nameEl.textContent === 'Speech-to-text API key');
+			expect(sttKeySetting).toBeDefined();
+			expect(sttKeySetting!.buttonComponents).toHaveLength(1);
+			expect(sttKeySetting!.buttonComponents[0].buttonEl.textContent).toBe('Test');
+		});
+
+		it('should have a Test button on LLM API key setting', () => {
+			tab.display();
+			const settingInstances = collectSettings(tab.containerEl);
+			const llmKeySetting = settingInstances.find(s => s.nameEl.textContent === 'Language model API key');
+			expect(llmKeySetting).toBeDefined();
+			expect(llmKeySetting!.buttonComponents).toHaveLength(1);
+			expect(llmKeySetting!.buttonComponents[0].buttonEl.textContent).toBe('Test');
+		});
+
+		it('should show ✓ Valid when STT key validation succeeds', async () => {
+			mockPlugin.settings.sttApiKey = 'sk-valid-key';
+			mockValidateApiKey.mockResolvedValue(true);
+			tab.display();
+			const settingInstances = collectSettings(tab.containerEl);
+			const sttKeySetting = settingInstances.find(s => s.nameEl.textContent === 'Speech-to-text API key');
+			const button = sttKeySetting!.buttonComponents[0];
+
+			button.triggerClick();
+			await flushPromises();
+
+			expect(sttKeySetting!.descEl.textContent).toBe('✓ Valid');
+			expect(sttKeySetting!.descEl.classList.contains('meeting-scribe-api-status-valid')).toBe(true);
+		});
+
+		it('should show ✗ Invalid when STT key validation fails', async () => {
+			mockPlugin.settings.sttApiKey = 'sk-bad-key';
+			mockValidateApiKey.mockResolvedValue(false);
+			tab.display();
+			const settingInstances = collectSettings(tab.containerEl);
+			const sttKeySetting = settingInstances.find(s => s.nameEl.textContent === 'Speech-to-text API key');
+			const button = sttKeySetting!.buttonComponents[0];
+
+			button.triggerClick();
+			await flushPromises();
+
+			expect(sttKeySetting!.descEl.textContent).toBe('✗ Invalid — key not recognized');
+			expect(sttKeySetting!.descEl.classList.contains('meeting-scribe-api-status-error')).toBe(true);
+		});
+
+		it('should show ✗ Connection failed when validation throws', async () => {
+			mockPlugin.settings.sttApiKey = 'sk-network-error';
+			mockValidateApiKey.mockRejectedValue(new Error('Network error'));
+			tab.display();
+			const settingInstances = collectSettings(tab.containerEl);
+			const sttKeySetting = settingInstances.find(s => s.nameEl.textContent === 'Speech-to-text API key');
+			const button = sttKeySetting!.buttonComponents[0];
+
+			button.triggerClick();
+			await flushPromises();
+
+			expect(sttKeySetting!.descEl.textContent).toBe('✗ Connection failed — check your network');
+			expect(sttKeySetting!.descEl.classList.contains('meeting-scribe-api-status-error')).toBe(true);
+		});
+
+		it('should show loading state during validation', async () => {
+			mockPlugin.settings.sttApiKey = 'sk-valid-key';
+			let resolveValidation!: (value: boolean) => void;
+			mockValidateApiKey.mockImplementation(() => new Promise(r => { resolveValidation = r; }));
+			tab.display();
+			const settingInstances = collectSettings(tab.containerEl);
+			const sttKeySetting = settingInstances.find(s => s.nameEl.textContent === 'Speech-to-text API key');
+			const button = sttKeySetting!.buttonComponents[0];
+
+			button.triggerClick();
+			// Button should be in loading state immediately
+			await flushPromises();
+			expect(button.buttonEl.textContent).toBe('Checking...');
+			expect(button.buttonEl.disabled).toBe(true);
+
+			// Resolve the validation
+			resolveValidation(true);
+			await flushPromises();
+			expect(button.buttonEl.textContent).toBe('Test');
+			expect(button.buttonEl.disabled).toBe(false);
+		});
+
+		it('should show error when no API key is entered', async () => {
+			mockPlugin.settings.sttApiKey = '';
+			tab.display();
+			const settingInstances = collectSettings(tab.containerEl);
+			const sttKeySetting = settingInstances.find(s => s.nameEl.textContent === 'Speech-to-text API key');
+			const button = sttKeySetting!.buttonComponents[0];
+
+			button.triggerClick();
+			await flushPromises();
+
+			expect(sttKeySetting!.descEl.textContent).toBe('✗ Enter an API key first');
+			expect(sttKeySetting!.descEl.classList.contains('meeting-scribe-api-status-error')).toBe(true);
+			expect(mockValidateApiKey).not.toHaveBeenCalled();
+		});
+
+		it('should show provider-specific API key URL in STT description', () => {
+			tab.display();
+			const settingInstances = collectSettings(tab.containerEl);
+			const sttKeySetting = settingInstances.find(s => s.nameEl.textContent === 'Speech-to-text API key');
+			expect(sttKeySetting!.descEl.textContent).toContain('platform.openai.com/api-keys');
+		});
+
+		it('should show provider-specific API key URL in LLM description', () => {
+			mockPlugin.settings.llmProvider = 'anthropic';
+			tab.display();
+			const settingInstances = collectSettings(tab.containerEl);
+			const llmKeySetting = settingInstances.find(s => s.nameEl.textContent === 'Language model API key');
+			expect(llmKeySetting!.descEl.textContent).toContain('console.anthropic.com/settings/keys');
+		});
+
+		it('should show OpenAI URL when LLM provider is openai', () => {
+			mockPlugin.settings.llmProvider = 'openai';
+			tab.display();
+			const settingInstances = collectSettings(tab.containerEl);
+			const llmKeySetting = settingInstances.find(s => s.nameEl.textContent === 'Language model API key');
+			expect(llmKeySetting!.descEl.textContent).toContain('platform.openai.com/api-keys');
+		});
+
+		it('should show ✓ Valid when LLM key validation succeeds', async () => {
+			mockPlugin.settings.llmApiKey = 'sk-valid-key';
+			mockValidateApiKey.mockResolvedValue(true);
+			tab.display();
+			const settingInstances = collectSettings(tab.containerEl);
+			const llmKeySetting = settingInstances.find(s => s.nameEl.textContent === 'Language model API key');
+			const button = llmKeySetting!.buttonComponents[0];
+
+			button.triggerClick();
+			await flushPromises();
+
+			expect(llmKeySetting!.descEl.textContent).toBe('✓ Valid');
+			expect(llmKeySetting!.descEl.classList.contains('meeting-scribe-api-status-valid')).toBe(true);
+		});
+	});
+
+	describe('Test recording button', () => {
+		it('should have a Run Test button in test setup section', () => {
+			tab.display();
+			const settingInstances = collectSettings(tab.containerEl);
+			const testSetting = settingInstances.find(s => s.nameEl.textContent === 'Run test recording');
+			expect(testSetting).toBeDefined();
+			expect(testSetting!.buttonComponents).toHaveLength(1);
+			expect(testSetting!.buttonComponents[0].buttonEl.textContent).toBe('Run Test');
+		});
+
+		it('should show error when API keys are missing', async () => {
+			mockPlugin.settings.sttApiKey = '';
+			mockPlugin.settings.llmApiKey = '';
+			tab.display();
+			const settingInstances = collectSettings(tab.containerEl);
+			const testSetting = settingInstances.find(s => s.nameEl.textContent === 'Run test recording');
+			const button = testSetting!.buttonComponents[0];
+
+			button.triggerClick();
+			await flushPromises();
+
+			expect(testSetting!.descEl.textContent).toBe('✗ Enter API keys first');
+			expect(testSetting!.descEl.classList.contains('meeting-scribe-api-status-error')).toBe(true);
+			expect(mockPlugin.runTestRecording).not.toHaveBeenCalled();
+		});
+
+		it('should call runTestRecording when API keys are present', async () => {
+			mockPlugin.settings.sttApiKey = 'sk-stt';
+			mockPlugin.settings.llmApiKey = 'sk-llm';
+			tab.display();
+			const settingInstances = collectSettings(tab.containerEl);
+			const testSetting = settingInstances.find(s => s.nameEl.textContent === 'Run test recording');
+			const button = testSetting!.buttonComponents[0];
+
+			button.triggerClick();
+			await flushPromises();
+
+			expect(mockPlugin.runTestRecording).toHaveBeenCalled();
+		});
+
+		it('should show success result after successful test', async () => {
+			mockPlugin.settings.sttApiKey = 'sk-stt';
+			mockPlugin.settings.llmApiKey = 'sk-llm';
+			mockPlugin.runTestRecording.mockResolvedValue({
+				success: true,
+				transcriptPreview: 'Hello world test',
+				noteFilePath: 'Meeting Notes/test.md',
+			});
+			tab.display();
+			const settingInstances = collectSettings(tab.containerEl);
+			const testSetting = settingInstances.find(s => s.nameEl.textContent === 'Run test recording');
+			const button = testSetting!.buttonComponents[0];
+
+			button.triggerClick();
+			await flushPromises();
+
+			expect(testSetting!.descEl.textContent).toBe('✓ Test passed');
+			expect(testSetting!.descEl.classList.contains('meeting-scribe-api-status-valid')).toBe(true);
+			expect(mockPlugin.noticeManager.showTestSuccess).toHaveBeenCalled();
+		});
+
+		it('should show failure result after failed test', async () => {
+			mockPlugin.settings.sttApiKey = 'sk-stt';
+			mockPlugin.settings.llmApiKey = 'sk-llm';
+			mockPlugin.runTestRecording.mockResolvedValue({
+				success: false,
+				error: 'API rate limit exceeded',
+				failedStep: 'transcribing',
+			});
+			tab.display();
+			const settingInstances = collectSettings(tab.containerEl);
+			const testSetting = settingInstances.find(s => s.nameEl.textContent === 'Run test recording');
+			const button = testSetting!.buttonComponents[0];
+
+			button.triggerClick();
+			await flushPromises();
+
+			expect(testSetting!.descEl.textContent).toBe('✗ Test failed at transcribing');
+			expect(testSetting!.descEl.classList.contains('meeting-scribe-api-status-error')).toBe(true);
+		});
+
+		it('should re-enable button after test completes', async () => {
+			mockPlugin.settings.sttApiKey = 'sk-stt';
+			mockPlugin.settings.llmApiKey = 'sk-llm';
+			tab.display();
+			const settingInstances = collectSettings(tab.containerEl);
+			const testSetting = settingInstances.find(s => s.nameEl.textContent === 'Run test recording');
+			const button = testSetting!.buttonComponents[0];
+
+			button.triggerClick();
+			await flushPromises();
+
+			expect(button.buttonEl.textContent).toBe('Run Test');
+			expect(button.buttonEl.disabled).toBe(false);
 		});
 	});
 });

@@ -10,6 +10,32 @@ if (typeof HTMLElement !== 'undefined') {
 			}
 		};
 	}
+	if (!HTMLElement.prototype.addClass) {
+		HTMLElement.prototype.addClass = function (...classes: string[]) {
+			this.classList.add(...classes);
+		};
+	}
+	if (!HTMLElement.prototype.removeClass) {
+		HTMLElement.prototype.removeClass = function (...classes: string[]) {
+			this.classList.remove(...classes);
+		};
+	}
+	if (!HTMLElement.prototype.createDiv) {
+		HTMLElement.prototype.createDiv = function (
+			o?: { cls?: string; text?: string; attr?: Record<string, string> },
+		): HTMLDivElement {
+			const el = document.createElement('div');
+			if (o?.cls) el.className = o.cls;
+			if (o?.text) el.textContent = o.text;
+			if (o?.attr) {
+				for (const [k, v] of Object.entries(o.attr)) {
+					el.setAttribute(k, v);
+				}
+			}
+			this.appendChild(el);
+			return el;
+		};
+	}
 	if (!HTMLElement.prototype.createEl) {
 		HTMLElement.prototype.createEl = function (
 			tag: string,
@@ -32,7 +58,10 @@ if (typeof HTMLElement !== 'undefined') {
 declare global {
 	interface HTMLElement {
 		empty(): void;
+		createDiv(o?: { cls?: string; text?: string; attr?: Record<string, string> }): HTMLDivElement;
 		createEl(tag: string, o?: { text?: string; cls?: string; attr?: Record<string, string> }): HTMLElement;
+		addClass(...classes: string[]): void;
+		removeClass(...classes: string[]): void;
 	}
 }
 
@@ -45,7 +74,18 @@ export function setIcon(el: HTMLElement, iconId: string): void {
 }
 
 export class Plugin {
-	app: unknown = {};
+	app: unknown = {
+		workspace: {
+			onLayoutReady: (cb: () => void) => { cb(); },
+			openLinkText: async () => {},
+		},
+		vault: new Vault(),
+		fileManager: new FileManager(),
+		setting: {
+			open: () => {},
+			openTabById: () => {},
+		},
+	};
 	manifest: unknown = {};
 	commands: { id: string; name: string; callback: () => void }[] = [];
 	async loadData(): Promise<unknown> { return null; }
@@ -139,6 +179,12 @@ export class SuggestModal<T> {
 	onChooseSuggestion(_item: T, _evt: MouseEvent | KeyboardEvent): void {}
 }
 
+export const Platform = {
+	isMobile: false,
+	isDesktop: true,
+	isDesktopApp: true,
+};
+
 export class PluginSettingTab {
 	app: App;
 	containerEl: HTMLElement;
@@ -190,6 +236,20 @@ class ToggleComponent {
 	triggerChange(value: boolean): void { if (this._onChange) this._onChange(value); }
 }
 
+export class ButtonComponent {
+	buttonEl: HTMLButtonElement = document.createElement('button');
+	private _onClick?: (evt: MouseEvent) => void;
+	private _text = '';
+
+	setButtonText(text: string): this { this._text = text; this.buttonEl.textContent = text; return this; }
+	getButtonText(): string { return this._text; }
+	setDisabled(disabled: boolean): this { this.buttonEl.disabled = disabled; return this; }
+	setCta(): this { return this; }
+	setWarning(): this { return this; }
+	onClick(cb: (evt: MouseEvent) => void): this { this._onClick = cb; return this; }
+	triggerClick(): void { if (this._onClick) this._onClick(new MouseEvent('click')); }
+}
+
 export interface RequestUrlParam {
 	url: string;
 	method?: string;
@@ -218,6 +278,7 @@ export class Setting {
 	textComponents: TextComponent[] = [];
 	dropdownComponents: DropdownComponent[] = [];
 	toggleComponents: ToggleComponent[] = [];
+	buttonComponents: ButtonComponent[] = [];
 
 	constructor(containerEl: HTMLElement) {
 		this.settingEl = document.createElement('div');
@@ -229,7 +290,8 @@ export class Setting {
 
 	setName(name: string): this { this._name = name; this.nameEl.textContent = name; return this; }
 	getName(): string { return this._name; }
-	setDesc(_desc: string): this { return this; }
+	setDesc(desc: string): this { this.descEl.textContent = desc; return this; }
+	getDesc(): string { return this.descEl.textContent ?? ''; }
 	setHeading(): this { this._heading = true; return this; }
 	isHeading(): boolean { return this._heading; }
 
@@ -251,6 +313,13 @@ export class Setting {
 		const toggle = new ToggleComponent();
 		this.toggleComponents.push(toggle);
 		cb(toggle);
+		return this;
+	}
+
+	addButton(cb: (button: ButtonComponent) => void): this {
+		const button = new ButtonComponent();
+		this.buttonComponents.push(button);
+		cb(button);
 		return this;
 	}
 }

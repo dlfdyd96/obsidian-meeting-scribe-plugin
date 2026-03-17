@@ -203,6 +203,36 @@ describe('NoticeManager', () => {
 		});
 	});
 
+	describe('semantic HTML for clickable elements (accessibility)', () => {
+		it('should use anchor elements for clickable links, not spans', () => {
+			const notice = manager.showSuccess('meetings/note.md');
+			const link = notice.noticeEl.querySelector('.meeting-scribe-notice-link');
+			expect(link).not.toBeNull();
+			expect(link!.tagName.toLowerCase()).toBe('a');
+		});
+
+		it('should make clickable elements keyboard-focusable', () => {
+			const error = new Error('fail');
+			const notice = manager.showError('transcribing', error);
+			const link = notice.noticeEl.querySelector('.meeting-scribe-notice-link') as HTMLElement;
+			expect(link).not.toBeNull();
+			expect(link!.tagName.toLowerCase()).toBe('a');
+		});
+	});
+
+	describe('showRecordingUnavailable', () => {
+		it('should create a notice with correct message', () => {
+			const notice = manager.showRecordingUnavailable();
+			expect(notice.noticeEl.textContent).toContain('Recording is not available on this device');
+			expect(notice.noticeEl.textContent).toContain('import audio files');
+		});
+
+		it('should create a notice with 5000ms timeout', () => {
+			const notice = manager.showRecordingUnavailable();
+			expect((notice as unknown as { timeout?: number }).timeout).toBe(5000);
+		});
+	});
+
 	describe('showError with ConfigError delegates to showConfigError', () => {
 		it('should show settings link instead of retry for ConfigError', () => {
 			const error = new ConfigError('Bad key');

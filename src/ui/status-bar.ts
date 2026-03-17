@@ -29,6 +29,7 @@ export class StatusBar {
 		private readonly warningThresholdSeconds: number = 0,
 	) {
 		this.el.setAttribute('aria-live', 'polite');
+		this.el.setAttribute('role', 'status');
 
 		this.observer = (newState: PluginState, _oldState: PluginState, context: StateContext) =>
 			this.onStateChange(newState, context);

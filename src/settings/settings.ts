@@ -13,9 +13,10 @@ export interface MeetingScribeSettings {
 	summaryLanguage: string;
 	includeTranscript: boolean;
 	debugMode: boolean;
+	onboardingComplete: boolean;
 }
 
-export const CURRENT_SETTINGS_VERSION = 3;
+export const CURRENT_SETTINGS_VERSION = 4;
 
 export const DEFAULT_SETTINGS: MeetingScribeSettings = {
 	settingsVersion: CURRENT_SETTINGS_VERSION,
@@ -32,4 +33,5 @@ export const DEFAULT_SETTINGS: MeetingScribeSettings = {
 	summaryLanguage: 'auto',
 	includeTranscript: true,
 	debugMode: false,
+	onboardingComplete: false,
 };

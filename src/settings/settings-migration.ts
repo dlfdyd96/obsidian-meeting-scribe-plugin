@@ -21,10 +21,18 @@ function migrateV2ToV3(data: Record<string, unknown>): Record<string, unknown> {
 	});
 }
 
+function migrateV3ToV4(data: Record<string, unknown>): Record<string, unknown> {
+	return Object.assign({}, data, {
+		settingsVersion: 4,
+		onboardingComplete: data['onboardingComplete'] ?? false,
+	});
+}
+
 const migrations: Migration[] = [
 	migrateV0ToV1,
 	migrateV1ToV2,
 	migrateV2ToV3,
+	migrateV3ToV4,
 ];
 
 export function migrateSettings(data: unknown): MeetingScribeSettings {

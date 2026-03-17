@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { Notice } from 'obsidian';
+import { Notice, Platform } from 'obsidian';
 import { logger } from '../src/utils/logger';
 import { stateManager } from '../src/state/state-manager';
 import { PluginState } from '../src/state/types';
@@ -93,7 +93,7 @@ describe('MeetingScribePlugin integration flow', () => {
 		const { default: MeetingScribePlugin } = await import('../src/main');
 		const plugin = new MeetingScribePlugin();
 
-		vi.spyOn(plugin, 'loadData').mockResolvedValue(null);
+		vi.spyOn(plugin, 'loadData').mockResolvedValue({ sttApiKey: 'sk-test', llmApiKey: 'sk-test' });
 		await plugin.onload();
 
 		const recorder = (plugin as any).recorder;
@@ -105,6 +105,42 @@ describe('MeetingScribePlugin integration flow', () => {
 		statusBar.onStartRecording();
 
 		expect(startSpy).toHaveBeenCalledOnce();
+	});
+
+	it('should block recording and show notice when API keys are missing', async () => {
+		const { default: MeetingScribePlugin } = await import('../src/main');
+		const plugin = new MeetingScribePlugin();
+
+		vi.spyOn(plugin, 'loadData').mockResolvedValue({ sttApiKey: '', llmApiKey: '' });
+		await plugin.onload();
+
+		const recorder = (plugin as any).recorder;
+		const startSpy = vi.spyOn(recorder, 'startRecording').mockResolvedValue(undefined);
+		const noticeSpy = vi.spyOn(plugin.noticeManager, 'showMissingApiKeys').mockReturnValue(new Notice(''));
+
+		const statusBar = (plugin as any).statusBar;
+		statusBar.onStartRecording();
+
+		expect(startSpy).not.toHaveBeenCalled();
+		expect(noticeSpy).toHaveBeenCalledOnce();
+	});
+
+	it('should block start-recording command and show notice when API keys are missing', async () => {
+		const { default: MeetingScribePlugin } = await import('../src/main');
+		const plugin = new MeetingScribePlugin();
+
+		vi.spyOn(plugin, 'loadData').mockResolvedValue({ sttApiKey: '', llmApiKey: '' });
+		await plugin.onload();
+
+		const recorder = (plugin as any).recorder;
+		const startSpy = vi.spyOn(recorder, 'startRecording').mockResolvedValue(undefined);
+		const noticeSpy = vi.spyOn(plugin.noticeManager, 'showMissingApiKeys').mockReturnValue(new Notice(''));
+
+		const cmd = plugin.commands.find(c => c.id === 'start-recording');
+		cmd!.callback();
+
+		expect(startSpy).not.toHaveBeenCalled();
+		expect(noticeSpy).toHaveBeenCalledOnce();
 	});
 
 	it('should wire StatusBar onStopRecording to recorder.stopRecording + audioFileManager.saveRecording', async () => {
@@ -260,7 +296,7 @@ describe('MeetingScribePlugin command registration', () => {
 	it('should toggle command start recording when in Idle state', async () => {
 		const { default: MeetingScribePlugin } = await import('../src/main');
 		const plugin = new MeetingScribePlugin();
-		vi.spyOn(plugin, 'loadData').mockResolvedValue(null);
+		vi.spyOn(plugin, 'loadData').mockResolvedValue({ sttApiKey: 'sk-test', llmApiKey: 'sk-test' });
 		await plugin.onload();
 
 		const recorder = (plugin as any).recorder;
@@ -607,5 +643,136 @@ describe('MeetingScribePlugin pipeline integration', () => {
 		await vi.waitFor(() => {
 			expect(executeSpy).toHaveBeenCalledOnce();
 		});
+	});
+});
+
+describe('MeetingScribePlugin platform detection', () => {
+	let debugSpy: ReturnType<typeof vi.spyOn>;
+
+	beforeEach(() => {
+		debugSpy = vi.spyOn(console, 'debug').mockImplementation(() => {});
+		vi.spyOn(console, 'warn').mockImplementation(() => {});
+		logger.setDebugMode(false);
+		stateManager.reset();
+		resetProviderRegistry();
+		// Default: desktop
+		Platform.isMobile = false;
+		Platform.isDesktop = true;
+	});
+
+	afterEach(() => {
+		vi.restoreAllMocks();
+		Platform.isMobile = false;
+		Platform.isDesktop = true;
+	});
+
+	it('should block recording and show notice on mobile when MediaRecorder is missing', async () => {
+		Platform.isMobile = true;
+		Platform.isDesktop = false;
+
+		const originalMediaRecorder = globalThis.MediaRecorder;
+		// @ts-expect-error — removing global for test
+		delete globalThis.MediaRecorder;
+
+		try {
+			const { default: MeetingScribePlugin } = await import('../src/main');
+			const plugin = new MeetingScribePlugin();
+			vi.spyOn(plugin, 'loadData').mockResolvedValue({ sttApiKey: 'sk-test', llmApiKey: 'sk-test' });
+			await plugin.onload();
+
+			// Recording should be blocked — try to start via command
+			const recorder = (plugin as any).recorder;
+			const startSpy = vi.spyOn(recorder, 'startRecording').mockResolvedValue(undefined);
+			const unavailableSpy = vi.spyOn(plugin.noticeManager, 'showRecordingUnavailable').mockReturnValue(new Notice(''));
+
+			const cmd = plugin.commands.find(c => c.id === 'start-recording');
+			cmd!.callback();
+
+			expect(startSpy).not.toHaveBeenCalled();
+			expect(unavailableSpy).toHaveBeenCalled();
+		} finally {
+			globalThis.MediaRecorder = originalMediaRecorder;
+		}
+	});
+
+	it('should not show recording unavailable notice on desktop', async () => {
+		Platform.isMobile = false;
+		Platform.isDesktop = true;
+
+		const { default: MeetingScribePlugin } = await import('../src/main');
+		const plugin = new MeetingScribePlugin();
+		vi.spyOn(plugin, 'loadData').mockResolvedValue({ sttApiKey: 'sk-test', llmApiKey: 'sk-test' });
+		await plugin.onload();
+
+		const recorder = (plugin as any).recorder;
+		const startSpy = vi.spyOn(recorder, 'startRecording').mockResolvedValue(undefined);
+
+		const cmd = plugin.commands.find(c => c.id === 'start-recording');
+		cmd!.callback();
+
+		// Desktop should start recording normally
+		expect(startSpy).toHaveBeenCalledOnce();
+	});
+
+	it('should always register import-audio command regardless of platform', async () => {
+		Platform.isMobile = true;
+		Platform.isDesktop = false;
+
+		const originalMediaRecorder = globalThis.MediaRecorder;
+		// @ts-expect-error — removing global for test
+		delete globalThis.MediaRecorder;
+
+		try {
+			const { default: MeetingScribePlugin } = await import('../src/main');
+			const plugin = new MeetingScribePlugin();
+			vi.spyOn(plugin, 'loadData').mockResolvedValue(null);
+			await plugin.onload();
+
+			const cmd = plugin.commands.find(c => c.id === 'import-audio');
+			expect(cmd).toBeDefined();
+			expect(cmd!.name).toBe('Import audio file');
+		} finally {
+			globalThis.MediaRecorder = originalMediaRecorder;
+		}
+	});
+});
+
+describe('MeetingScribePlugin microphone detection', () => {
+	let debugSpy: ReturnType<typeof vi.spyOn>;
+
+	beforeEach(() => {
+		debugSpy = vi.spyOn(console, 'debug').mockImplementation(() => {});
+		logger.setDebugMode(false);
+		stateManager.reset();
+		resetProviderRegistry();
+		Platform.isMobile = false;
+		Platform.isDesktop = true;
+	});
+
+	afterEach(() => {
+		vi.restoreAllMocks();
+	});
+
+	it('should log warning when no audio input devices are found', async () => {
+		const warnSpy = vi.spyOn(logger, 'warn').mockImplementation(() => {});
+
+		// Mock navigator.mediaDevices.enumerateDevices to return no audio inputs
+		const enumerateDevicesSpy = vi.fn().mockResolvedValue([
+			{ kind: 'videoinput', deviceId: 'cam1', label: '', groupId: '' },
+		]);
+		Object.defineProperty(navigator, 'mediaDevices', {
+			value: { enumerateDevices: enumerateDevicesSpy, getUserMedia: vi.fn() },
+			configurable: true,
+		});
+
+		const { default: MeetingScribePlugin } = await import('../src/main');
+		const plugin = new MeetingScribePlugin();
+		vi.spyOn(plugin, 'loadData').mockResolvedValue(null);
+		await plugin.onload();
+
+		// Wait for async enumeration
+		await new Promise(r => setTimeout(r, 50));
+
+		expect(warnSpy).toHaveBeenCalledWith('MeetingScribePlugin', 'No microphone detected');
 	});
 });

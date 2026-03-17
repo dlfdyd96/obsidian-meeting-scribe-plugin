@@ -22,7 +22,7 @@ describe('migrateSettings', () => {
 		const result = migrateSettings({ sttApiKey: 'sk-123' });
 		expect(result.sttApiKey).toBe('sk-123');
 		expect(result.sttProvider).toBe('openai');
-		expect(result.settingsVersion).toBe(3);
+		expect(result.settingsVersion).toBe(4);
 		expect(result.llmProvider).toBe('anthropic');
 	});
 
@@ -56,7 +56,7 @@ describe('migrateSettings', () => {
 
 	it('should treat data without settingsVersion as version 0', () => {
 		const result = migrateSettings({ sttProvider: 'whisper' });
-		expect(result.settingsVersion).toBe(3);
+		expect(result.settingsVersion).toBe(4);
 		expect(result.sttProvider).toBe('whisper');
 	});
 
@@ -83,7 +83,7 @@ describe('migrateSettings', () => {
 				debugMode: false,
 			};
 			const result = migrateSettings(v1Data);
-			expect(result.settingsVersion).toBe(3);
+			expect(result.settingsVersion).toBe(4);
 			expect(result.includeTranscript).toBe(true);
 			expect(result.summaryLanguage).toBe('auto');
 		});
@@ -94,7 +94,7 @@ describe('migrateSettings', () => {
 				includeTranscript: false,
 			};
 			const result = migrateSettings(v1Data);
-			expect(result.settingsVersion).toBe(3);
+			expect(result.settingsVersion).toBe(4);
 			expect(result.includeTranscript).toBe(false);
 		});
 	});
@@ -117,7 +117,7 @@ describe('migrateSettings', () => {
 				debugMode: false,
 			};
 			const result = migrateSettings(v2Data);
-			expect(result.settingsVersion).toBe(3);
+			expect(result.settingsVersion).toBe(4);
 			expect(result.summaryLanguage).toBe('auto');
 		});
 
@@ -127,16 +127,60 @@ describe('migrateSettings', () => {
 				summaryLanguage: 'ko',
 			};
 			const result = migrateSettings(v2Data);
-			expect(result.settingsVersion).toBe(3);
+			expect(result.settingsVersion).toBe(4);
 			expect(result.summaryLanguage).toBe('ko');
 		});
 
-		it('should migrate V0 data through all versions to V3 with summaryLanguage', () => {
+		it('should migrate V0 data through all versions with summaryLanguage', () => {
 			const v0Data = { sttApiKey: 'sk-old' };
 			const result = migrateSettings(v0Data);
-			expect(result.settingsVersion).toBe(3);
+			expect(result.settingsVersion).toBe(4);
 			expect(result.includeTranscript).toBe(true);
 			expect(result.summaryLanguage).toBe('auto');
+			expect(result.sttApiKey).toBe('sk-old');
+		});
+	});
+
+	describe('V3 to V4 migration (onboardingComplete)', () => {
+		it('should add onboardingComplete: false to V3 settings', () => {
+			const v3Data = {
+				settingsVersion: 3,
+				sttProvider: 'openai',
+				sttApiKey: 'sk-test',
+				sttModel: 'gpt-4o-mini-transcribe',
+				sttLanguage: 'auto',
+				llmProvider: 'anthropic',
+				llmApiKey: 'key-test',
+				llmModel: '',
+				outputFolder: 'Meeting Notes',
+				audioFolder: '_attachments/audio',
+				audioRetentionPolicy: 'keep',
+				includeTranscript: true,
+				summaryLanguage: 'auto',
+				debugMode: false,
+			};
+			const result = migrateSettings(v3Data);
+			expect(result.settingsVersion).toBe(4);
+			expect(result.onboardingComplete).toBe(false);
+		});
+
+		it('should preserve onboardingComplete value if already set in V3 data', () => {
+			const v3Data = {
+				settingsVersion: 3,
+				onboardingComplete: true,
+			};
+			const result = migrateSettings(v3Data);
+			expect(result.settingsVersion).toBe(4);
+			expect(result.onboardingComplete).toBe(true);
+		});
+
+		it('should migrate V0 data through all versions to V4 with onboardingComplete', () => {
+			const v0Data = { sttApiKey: 'sk-old' };
+			const result = migrateSettings(v0Data);
+			expect(result.settingsVersion).toBe(4);
+			expect(result.includeTranscript).toBe(true);
+			expect(result.summaryLanguage).toBe('auto');
+			expect(result.onboardingComplete).toBe(false);
 			expect(result.sttApiKey).toBe('sk-old');
 		});
 	});
