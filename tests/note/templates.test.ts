@@ -3,9 +3,12 @@ import {
 	getDefaultPreset,
 	buildUserPrompt,
 	formatSummaryBody,
+	formatTranscriptSection,
+	formatTimestamp,
 	type SummaryPreset,
 	type LLMNoteOutput,
 } from '../../src/note/templates';
+import type { TranscriptionResult } from '../../src/providers/types';
 
 describe('templates', () => {
 	describe('SummaryPreset', () => {
@@ -170,6 +173,133 @@ describe('templates', () => {
 			expect(result).toContain('- [ ] @Alice: Do something');
 			expect(result).not.toContain('(by null)');
 			expect(result).not.toContain('(by )');
+		});
+	});
+
+	describe('formatTimestamp', () => {
+		it('should format 0 seconds as [00:00:00]', () => {
+			expect(formatTimestamp(0)).toBe('[00:00:00]');
+		});
+
+		it('should format seconds only', () => {
+			expect(formatTimestamp(45)).toBe('[00:00:45]');
+		});
+
+		it('should format minutes and seconds', () => {
+			expect(formatTimestamp(125)).toBe('[00:02:05]');
+		});
+
+		it('should format hours, minutes, and seconds', () => {
+			expect(formatTimestamp(3661)).toBe('[01:01:01]');
+		});
+
+		it('should handle fractional seconds by flooring', () => {
+			expect(formatTimestamp(15.7)).toBe('[00:00:15]');
+		});
+	});
+
+	describe('formatTranscriptSection', () => {
+		it('should format diarized transcript with speaker names and timestamps', () => {
+			const result: TranscriptionResult = {
+				version: 1,
+				audioFile: 'test.webm',
+				provider: 'openai',
+				model: 'gpt-4o-transcribe',
+				language: 'en',
+				segments: [
+					{ speaker: 'Alice', start: 15, end: 30, text: 'Good morning everyone.' },
+					{ speaker: 'Bob', start: 22, end: 40, text: 'Sure, I finished the API integration.' },
+				],
+				fullText: 'Good morning everyone. Sure, I finished the API integration.',
+				createdAt: '2026-03-18T10:00:00Z',
+			};
+
+			const output = formatTranscriptSection(result);
+
+			expect(output).toContain('[00:00:15] **Alice:** Good morning everyone.');
+			expect(output).toContain('[00:00:22] **Bob:** Sure, I finished the API integration.');
+		});
+
+		it('should format non-diarized transcript using fullText', () => {
+			const result: TranscriptionResult = {
+				version: 1,
+				audioFile: 'test.webm',
+				provider: 'openai',
+				model: 'gpt-4o-mini-transcribe',
+				language: 'en',
+				segments: [
+					{ start: 0, end: 30, text: 'Good morning everyone.' },
+					{ start: 30, end: 60, text: 'More content.' },
+				],
+				fullText: 'Good morning everyone. More content.',
+				createdAt: '2026-03-18T10:00:00Z',
+			};
+
+			const output = formatTranscriptSection(result);
+
+			expect(output).toBe('Good morning everyone. More content.');
+		});
+
+		it('should detect diarization when any segment has a speaker', () => {
+			const result: TranscriptionResult = {
+				version: 1,
+				audioFile: 'test.webm',
+				provider: 'openai',
+				model: 'gpt-4o-transcribe',
+				language: 'en',
+				segments: [
+					{ start: 0, end: 10, text: 'No speaker here.' },
+					{ speaker: 'Alice', start: 10, end: 20, text: 'I have a speaker.' },
+				],
+				fullText: 'No speaker here. I have a speaker.',
+				createdAt: '2026-03-18T10:00:00Z',
+			};
+
+			const output = formatTranscriptSection(result);
+
+			expect(output).toContain('**Alice:**');
+		});
+
+		it('should order segments by start time', () => {
+			const result: TranscriptionResult = {
+				version: 1,
+				audioFile: 'test.webm',
+				provider: 'openai',
+				model: 'gpt-4o-transcribe',
+				language: 'en',
+				segments: [
+					{ speaker: 'Bob', start: 60, end: 90, text: 'Second.' },
+					{ speaker: 'Alice', start: 15, end: 30, text: 'First.' },
+				],
+				fullText: 'First. Second.',
+				createdAt: '2026-03-18T10:00:00Z',
+			};
+
+			const output = formatTranscriptSection(result);
+			const aliceIndex = output.indexOf('**Alice:**');
+			const bobIndex = output.indexOf('**Bob:**');
+
+			expect(aliceIndex).toBeLessThan(bobIndex);
+		});
+
+		it('should not treat empty speaker strings as diarized', () => {
+			const result: TranscriptionResult = {
+				version: 1,
+				audioFile: 'test.webm',
+				provider: 'openai',
+				model: 'gpt-4o-mini-transcribe',
+				language: 'en',
+				segments: [
+					{ speaker: '', start: 0, end: 30, text: 'Some text.' },
+					{ speaker: '  ', start: 30, end: 60, text: 'More text.' },
+				],
+				fullText: 'Some text. More text.',
+				createdAt: '2026-03-18T10:00:00Z',
+			};
+
+			const output = formatTranscriptSection(result);
+
+			expect(output).toBe('Some text. More text.');
 		});
 	});
 });

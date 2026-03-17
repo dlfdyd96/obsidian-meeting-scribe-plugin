@@ -7,9 +7,16 @@ function migrateV0ToV1(data: Record<string, unknown>): Record<string, unknown> {
 	return Object.assign({}, DEFAULT_SETTINGS, data, { settingsVersion: 1 });
 }
 
+function migrateV1ToV2(data: Record<string, unknown>): Record<string, unknown> {
+	return Object.assign({}, data, {
+		settingsVersion: 2,
+		includeTranscript: data['includeTranscript'] ?? true,
+	});
+}
+
 const migrations: Migration[] = [
 	migrateV0ToV1,
-	// Future: migrateV1ToV2, etc.
+	migrateV1ToV2,
 ];
 
 export function migrateSettings(data: unknown): MeetingScribeSettings {
@@ -31,10 +38,8 @@ export function migrateSettings(data: unknown): MeetingScribeSettings {
 		}
 	}
 
-	// For future versions or already-current, merge with defaults to fill any missing fields
-	if (currentVersion >= CURRENT_SETTINGS_VERSION) {
-		result = Object.assign({}, DEFAULT_SETTINGS, result);
-	}
+	// Merge with defaults to fill any missing fields
+	result = Object.assign({}, DEFAULT_SETTINGS, result);
 
 	return result as unknown as MeetingScribeSettings;
 }

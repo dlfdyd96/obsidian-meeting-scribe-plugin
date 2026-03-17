@@ -1,3 +1,5 @@
+import type { TranscriptionResult } from '../providers/types';
+
 export interface LLMNoteOutput {
 	metadata: {
 		title: string;
@@ -86,6 +88,32 @@ export function getDefaultPreset(): SummaryPreset {
 
 export function buildUserPrompt(template: string, transcript: string): string {
 	return template.split('{{transcript}}').join(transcript);
+}
+
+export function formatTimestamp(seconds: number): string {
+	const h = Math.floor(seconds / 3600);
+	const m = Math.floor((seconds % 3600) / 60);
+	const s = Math.floor(seconds % 60);
+	return `[${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}]`;
+}
+
+export function formatTranscriptSection(transcriptionResult: TranscriptionResult): string {
+	const hasDiarization = transcriptionResult.segments.some(
+		s => s.speaker && s.speaker.trim() !== ''
+	);
+
+	if (!hasDiarization) {
+		return transcriptionResult.fullText;
+	}
+
+	const sorted = [...transcriptionResult.segments].sort((a, b) => a.start - b.start);
+	const lines = sorted.map(segment => {
+		const timestamp = formatTimestamp(segment.start);
+		const speaker = segment.speaker && segment.speaker.trim() !== '' ? segment.speaker : 'Unknown';
+		return `${timestamp} **${speaker}:** ${segment.text}`;
+	});
+
+	return lines.join('\n');
 }
 
 export function formatSummaryBody(output: LLMNoteOutput): string {

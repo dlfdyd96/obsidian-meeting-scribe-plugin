@@ -13,16 +13,16 @@ describe('migrateSettings', () => {
 		expect(result).toEqual(DEFAULT_SETTINGS);
 	});
 
-	it('should return DEFAULT_SETTINGS with settingsVersion 1 when given empty object', () => {
+	it('should return DEFAULT_SETTINGS with current version when given empty object', () => {
 		const result = migrateSettings({});
-		expect(result).toEqual({ ...DEFAULT_SETTINGS, settingsVersion: 1 });
+		expect(result).toEqual(DEFAULT_SETTINGS);
 	});
 
 	it('should merge partial data with defaults (sttApiKey set)', () => {
 		const result = migrateSettings({ sttApiKey: 'sk-123' });
 		expect(result.sttApiKey).toBe('sk-123');
 		expect(result.sttProvider).toBe('openai');
-		expect(result.settingsVersion).toBe(1);
+		expect(result.settingsVersion).toBe(2);
 		expect(result.llmProvider).toBe('anthropic');
 	});
 
@@ -56,7 +56,7 @@ describe('migrateSettings', () => {
 
 	it('should treat data without settingsVersion as version 0', () => {
 		const result = migrateSettings({ sttProvider: 'whisper' });
-		expect(result.settingsVersion).toBe(1);
+		expect(result.settingsVersion).toBe(2);
 		expect(result.sttProvider).toBe('whisper');
 	});
 
@@ -64,5 +64,37 @@ describe('migrateSettings', () => {
 		const result = migrateSettings(null);
 		expect(result).not.toBe(DEFAULT_SETTINGS);
 		expect(result).toEqual(DEFAULT_SETTINGS);
+	});
+
+	describe('V1 to V2 migration (includeTranscript)', () => {
+		it('should add includeTranscript: true to V1 settings', () => {
+			const v1Data = {
+				settingsVersion: 1,
+				sttProvider: 'openai',
+				sttApiKey: 'sk-test',
+				sttModel: 'gpt-4o-mini-transcribe',
+				sttLanguage: 'auto',
+				llmProvider: 'anthropic',
+				llmApiKey: 'key-test',
+				llmModel: '',
+				outputFolder: 'Meeting Notes',
+				audioFolder: '_attachments/audio',
+				audioRetentionPolicy: 'keep',
+				debugMode: false,
+			};
+			const result = migrateSettings(v1Data);
+			expect(result.settingsVersion).toBe(2);
+			expect(result.includeTranscript).toBe(true);
+		});
+
+		it('should preserve includeTranscript value if already set in V1 data', () => {
+			const v1Data = {
+				settingsVersion: 1,
+				includeTranscript: false,
+			};
+			const result = migrateSettings(v1Data);
+			expect(result.settingsVersion).toBe(2);
+			expect(result.includeTranscript).toBe(false);
+		});
 	});
 });

@@ -10,10 +10,11 @@ export interface MeetingScribeSettings {
 	outputFolder: string;
 	audioFolder: string;
 	audioRetentionPolicy: 'keep' | 'delete';
+	includeTranscript: boolean;
 	debugMode: boolean;
 }
 
-export const CURRENT_SETTINGS_VERSION = 1;
+export const CURRENT_SETTINGS_VERSION = 2;
 
 export const DEFAULT_SETTINGS: MeetingScribeSettings = {
 	settingsVersion: CURRENT_SETTINGS_VERSION,
@@ -27,5 +28,6 @@ export const DEFAULT_SETTINGS: MeetingScribeSettings = {
 	outputFolder: 'Meeting Notes',
 	audioFolder: '_attachments/audio',
 	audioRetentionPolicy: 'keep',
+	includeTranscript: true,
 	debugMode: false,
 };

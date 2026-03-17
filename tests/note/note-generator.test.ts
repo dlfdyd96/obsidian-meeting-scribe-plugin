@@ -87,6 +87,88 @@ describe('generateNote', () => {
 
 		expect(result).toContain(customBody);
 	});
+
+	it('appends transcript section when includeTranscript is true', () => {
+		const result = generateNote({
+			summaryResult: createMockSummaryResult(),
+			transcriptionResult: createMockTranscriptionResult(),
+			audioFilePath: 'test/audio.webm',
+			includeTranscript: true,
+		});
+
+		expect(result).toContain('## Transcript');
+		expect(result).toContain('Meeting content.');
+	});
+
+	it('does not include transcript section when includeTranscript is false', () => {
+		const result = generateNote({
+			summaryResult: createMockSummaryResult(),
+			transcriptionResult: createMockTranscriptionResult(),
+			audioFilePath: 'test/audio.webm',
+			includeTranscript: false,
+		});
+
+		expect(result).not.toContain('## Transcript');
+	});
+
+	it('does not include transcript when includeTranscript is not specified (backwards compatible)', () => {
+		const result = generateNote({
+			summaryResult: createMockSummaryResult(),
+			transcriptionResult: createMockTranscriptionResult(),
+			audioFilePath: 'test/audio.webm',
+		});
+
+		// Default behavior: no transcript (backwards compatible)
+		expect(result).not.toContain('## Transcript');
+	});
+
+	it('formats diarized transcript with speaker names and timestamps', () => {
+		const transcription = createMockTranscriptionResult({
+			segments: [
+				{ speaker: 'Alice', start: 15, end: 30, text: 'Good morning.' },
+				{ speaker: 'Bob', start: 22, end: 40, text: 'Hello!' },
+			],
+			fullText: 'Good morning. Hello!',
+		});
+
+		const result = generateNote({
+			summaryResult: createMockSummaryResult(),
+			transcriptionResult: transcription,
+			audioFilePath: 'test/audio.webm',
+			includeTranscript: true,
+		});
+
+		expect(result).toContain('[00:00:15] **Alice:** Good morning.');
+		expect(result).toContain('[00:00:22] **Bob:** Hello!');
+	});
+
+	it('formats non-diarized transcript as continuous text', () => {
+		const result = generateNote({
+			summaryResult: createMockSummaryResult(),
+			transcriptionResult: createMockTranscriptionResult(),
+			audioFilePath: 'test/audio.webm',
+			includeTranscript: true,
+		});
+
+		expect(result).toContain('## Transcript');
+		expect(result).toContain('Meeting content. More content.');
+	});
+
+	it('has correct note structure: frontmatter → summary → transcript', () => {
+		const result = generateNote({
+			summaryResult: createMockSummaryResult(),
+			transcriptionResult: createMockTranscriptionResult(),
+			audioFilePath: 'test/audio.webm',
+			includeTranscript: true,
+		});
+
+		const summaryIndex = result.indexOf('## Summary');
+		const transcriptIndex = result.indexOf('## Transcript');
+
+		expect(result.startsWith('---\n')).toBe(true);
+		expect(summaryIndex).toBeGreaterThan(0);
+		expect(transcriptIndex).toBeGreaterThan(summaryIndex);
+	});
 });
 
 describe('generateFilename', () => {

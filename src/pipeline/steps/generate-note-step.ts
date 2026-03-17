@@ -28,6 +28,7 @@ export class GenerateNoteStep implements PipelineStep {
 			summaryResult: context.summaryResult,
 			transcriptionResult: context.transcriptionResult,
 			audioFilePath,
+			includeTranscript: settings.includeTranscript,
 		});
 
 		// Generate filename

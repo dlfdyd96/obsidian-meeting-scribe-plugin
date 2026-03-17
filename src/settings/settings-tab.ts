@@ -141,6 +141,16 @@ export class MeetingScribeSettingTab extends PluginSettingTab {
 		advancedEl.createEl('summary', { text: 'Advanced settings' });
 
 		new Setting(advancedEl)
+			.setName('Include transcript in notes')
+			.setDesc('Append the full STT transcript below the summary in generated notes')
+			.addToggle(cb => cb
+				.setValue(this.plugin.settings.includeTranscript)
+				.onChange(async (value) => {
+					this.plugin.settings.includeTranscript = value;
+					await this.plugin.saveSettings();
+				}));
+
+		new Setting(advancedEl)
 			.setName('Audio retention policy')
 			.setDesc('What to do with audio files after processing')
 			.addDropdown(cb => cb
