@@ -16,10 +16,43 @@ export interface ChunkerOptions {
 }
 
 const COMPONENT = 'Chunker';
+
+/** Yield control back to the main thread so the UI doesn't freeze */
+function yieldToMain(): Promise<void> {
+	return new Promise(resolve => setTimeout(resolve, 0));
+}
 const SILENCE_SEARCH_WINDOW_SECONDS = 30;
 const SILENCE_WINDOW_SIZE_SECONDS = 0.1;
 const SILENCE_THRESHOLD = 0.01;
 const TARGET_SAMPLE_RATE = 16000;
+
+function detectAudioFormat(data: ArrayBuffer): { mimeType: string; fileExtension: string } {
+	const header = new Uint8Array(data, 0, Math.min(12, data.byteLength));
+
+	// Check for ftyp box (MP4/M4A): bytes 4-7 = "ftyp"
+	if (header.length >= 8 &&
+		header[4] === 0x66 && header[5] === 0x74 && header[6] === 0x79 && header[7] === 0x70) {
+		return { mimeType: 'audio/mp4', fileExtension: 'm4a' };
+	}
+	// Check for RIFF/WAV: bytes 0-3 = "RIFF"
+	if (header.length >= 4 &&
+		header[0] === 0x52 && header[1] === 0x49 && header[2] === 0x46 && header[3] === 0x46) {
+		return { mimeType: 'audio/wav', fileExtension: 'wav' };
+	}
+	// Check for OGG: bytes 0-3 = "OggS"
+	if (header.length >= 4 &&
+		header[0] === 0x4F && header[1] === 0x67 && header[2] === 0x67 && header[3] === 0x53) {
+		return { mimeType: 'audio/ogg', fileExtension: 'ogg' };
+	}
+	// Check for MP3: ID3 tag or sync word
+	if (header.length >= 3 &&
+		((header[0] === 0x49 && header[1] === 0x44 && header[2] === 0x33) || // ID3
+		 (header[0] === 0xFF && (header[1]! & 0xE0) === 0xE0))) { // sync
+		return { mimeType: 'audio/mpeg', fileExtension: 'mp3' };
+	}
+	// Default: webm (plugin's recording format)
+	return { mimeType: 'audio/webm', fileExtension: 'webm' };
+}
 
 function writeString(view: DataView, offset: number, str: string): void {
 	for (let i = 0; i < str.length; i++) {
@@ -143,17 +176,18 @@ export async function chunkAudio(
 
 	logger.info(COMPONENT, 'Audio loaded', { duration, sampleRate });
 
-	// No split needed for short audio
+	// No split needed for short audio — detect format from file header
 	if (duration <= maxDuration) {
 		logger.debug(COMPONENT, 'No splitting needed', { duration, maxDuration });
+		const { mimeType, fileExtension } = detectAudioFormat(audio);
 		return [
 			{
 				data: audio,
 				chunkIndex: 0,
 				startTime: 0,
 				endTime: duration,
-				mimeType: 'audio/webm',
-				fileExtension: 'webm',
+				mimeType,
+				fileExtension,
 			},
 		];
 	}
@@ -169,6 +203,8 @@ export async function chunkAudio(
 		const targetTime = i * maxDuration;
 		const boundary = findSilenceBoundary(pcmData, sampleRate, targetTime);
 		splitPoints.push(boundary);
+		// Yield after each silence search to prevent UI freeze
+		await yieldToMain();
 	}
 	splitPoints.push(duration);
 
@@ -177,7 +213,7 @@ export async function chunkAudio(
 	// Determine output sample rate (downsample if needed)
 	const outputSampleRate = sampleRate > TARGET_SAMPLE_RATE ? TARGET_SAMPLE_RATE : sampleRate;
 
-	// Create chunks
+	// Create chunks — yield between each to keep UI responsive
 	const chunks: AudioChunk[] = [];
 	for (let i = 0; i < chunkCount; i++) {
 		const startTime = splitPoints[i]!;
@@ -205,6 +241,9 @@ export async function chunkAudio(
 			samples: downsampledPcm.length,
 			sizeBytes: wavData.byteLength,
 		});
+
+		// Yield after each chunk creation to prevent UI freeze
+		await yieldToMain();
 	}
 
 	return chunks;
