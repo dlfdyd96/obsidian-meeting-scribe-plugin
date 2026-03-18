@@ -1,4 +1,4 @@
-import { TFile } from 'obsidian';
+import { TFile, normalizePath } from 'obsidian';
 import type { PipelineStep, PipelineContext } from '../pipeline-types';
 import type { TranscriptionResult, TranscriptionSegment } from '../../providers/types';
 import { chunkAudio } from '../chunker';
@@ -9,7 +9,7 @@ import { logger } from '../../utils/logger';
 const COMPONENT = 'TranscribeStep';
 
 function getTranscriptPath(audioFilePath: string): string {
-	return `${audioFilePath}.transcript.json`;
+	return normalizePath(`${audioFilePath}.transcript.json`);
 }
 
 export class TranscribeStep implements PipelineStep {

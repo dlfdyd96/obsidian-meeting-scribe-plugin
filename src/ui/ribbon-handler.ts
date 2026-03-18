@@ -50,14 +50,14 @@ export class RibbonHandler {
 	private renderIdle(): void {
 		setIcon(this.el, 'mic');
 		this.el.classList.remove('meeting-scribe-ribbon-recording', 'meeting-scribe-ribbon-processing');
-		this.setTooltipAndAria(`${PLUGIN_NAME}: Start Recording`);
+		this.setTooltipAndAria(`${PLUGIN_NAME}: Start recording`);
 	}
 
 	private renderRecording(): void {
 		setIcon(this.el, 'mic-off');
 		this.el.classList.remove('meeting-scribe-ribbon-processing');
 		this.el.classList.add('meeting-scribe-ribbon-recording');
-		this.setTooltipAndAria(`${PLUGIN_NAME}: Stop Recording`);
+		this.setTooltipAndAria(`${PLUGIN_NAME}: Stop recording`);
 	}
 
 	private renderProcessing(): void {

@@ -36,8 +36,8 @@ describe('StatusBar', () => {
 			expect(el.textContent).toBe('🎙 Meeting Scribe');
 		});
 
-		it('should apply --text-muted color via CSS variable', () => {
-			expect(el.style.color).toBe('var(--text-muted)');
+		it('should apply idle CSS class', () => {
+			expect(el.classList.contains('meeting-scribe-status-idle')).toBe(true);
 		});
 
 		it('should start recording on click', () => {
@@ -60,9 +60,9 @@ describe('StatusBar', () => {
 			expect(el.textContent).toBe('🔴 Recording 0:00');
 		});
 
-		it('should apply --text-error color via CSS variable', () => {
+		it('should apply recording CSS class', () => {
 			stateManager.setState(PluginState.Recording);
-			expect(el.style.color).toBe('var(--text-error)');
+			expect(el.classList.contains('meeting-scribe-status-recording')).toBe(true);
 		});
 
 		it('should stop recording on click', () => {
@@ -128,18 +128,18 @@ describe('StatusBar', () => {
 			vi.useRealTimers();
 		});
 
-		it('should apply --text-warning color when elapsed time exceeds threshold', () => {
+		it('should apply warning CSS class when elapsed time exceeds threshold', () => {
 			const warningBar = new StatusBar(el, stateManager, onStart, onStop, onOpenNote, onShowError, 5);
 			stateManager.setState(PluginState.Recording);
 			vi.advanceTimersByTime(5000);
-			expect(el.style.color).toBe('var(--text-warning)');
+			expect(el.classList.contains('meeting-scribe-status-recording-warning')).toBe(true);
 			warningBar.destroy();
 		});
 
 		it('should not apply warning when threshold is 0 (disabled)', () => {
 			stateManager.setState(PluginState.Recording);
 			vi.advanceTimersByTime(10000);
-			expect(el.style.color).toBe('var(--text-error)');
+			expect(el.classList.contains('meeting-scribe-status-recording')).toBe(true);
 		});
 	});
 
@@ -159,10 +159,10 @@ describe('StatusBar', () => {
 	});
 
 	describe('Processing state display', () => {
-		it('should display step name with hourglass emoji and muted color', () => {
+		it('should display step name with hourglass emoji and processing class', () => {
 			stateManager.setState(PluginState.Processing, { step: 'transcribing' });
 			expect(el.textContent).toBe('⏳ Transcribing...');
-			expect(el.style.color).toBe('var(--text-muted)');
+			expect(el.classList.contains('meeting-scribe-status-processing')).toBe(true);
 		});
 
 		it('should update text when context.step changes', () => {
@@ -197,10 +197,10 @@ describe('StatusBar', () => {
 	});
 
 	describe('Complete state display', () => {
-		it('should display "✅ Note ready" with accent color', () => {
+		it('should display "✅ Note ready" with complete class', () => {
 			stateManager.setState(PluginState.Complete, { noteFilePath: 'notes/meeting.md' });
 			expect(el.textContent).toBe('✅ Note ready');
-			expect(el.style.color).toBe('var(--interactive-accent)');
+			expect(el.classList.contains('meeting-scribe-status-complete')).toBe(true);
 		});
 
 		it('should call onOpenNote with noteFilePath on click', () => {
@@ -242,11 +242,11 @@ describe('StatusBar', () => {
 	});
 
 	describe('Error state display', () => {
-		it('should display "⚠️ Processing failed" with error color', () => {
+		it('should display "⚠️ Processing failed" with error class', () => {
 			const testError = new Error('API timeout');
 			stateManager.setState(PluginState.Error, { error: testError });
 			expect(el.textContent).toBe('⚠️ Processing failed');
-			expect(el.style.color).toBe('var(--text-error)');
+			expect(el.classList.contains('meeting-scribe-status-error')).toBe(true);
 		});
 
 		it('should call onShowError with error and step on click', () => {

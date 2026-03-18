@@ -164,7 +164,7 @@ describe('AudioFileManager', () => {
 			await emptyFolderManager.saveRecording(blob);
 
 			const callArgs = mockVault.createBinary.mock.calls[0] as [string, Uint8Array];
-			expect(callArgs[0]).toMatch(/^\/.+-recording\.webm$/);
+			expect(callArgs[0]).toMatch(/.+-recording\.webm$/);
 			expect(mockVault.getAbstractFileByPath).toHaveBeenCalledWith('');
 		});
 	});

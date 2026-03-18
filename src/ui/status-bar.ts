@@ -89,9 +89,25 @@ export class StatusBar {
 		logger.debug('StatusBar', 'State changed', { newState });
 	}
 
+	private static readonly STATE_CLASSES = [
+		'meeting-scribe-status-idle',
+		'meeting-scribe-status-recording',
+		'meeting-scribe-status-recording-warning',
+		'meeting-scribe-status-processing',
+		'meeting-scribe-status-complete',
+		'meeting-scribe-status-error',
+	];
+
+	private setStateClass(cls: string): void {
+		for (const c of StatusBar.STATE_CLASSES) {
+			this.el.classList.remove(c);
+		}
+		this.el.classList.add(cls);
+	}
+
 	private renderIdle(): void {
 		this.el.textContent = `🎙 ${PLUGIN_NAME}`;
-		this.el.style.color = 'var(--text-muted)';
+		this.setStateClass('meeting-scribe-status-idle');
 	}
 
 	private renderRecording(elapsedSeconds: number): void {
@@ -99,9 +115,9 @@ export class StatusBar {
 		this.el.textContent = `🔴 Recording ${timeStr}`;
 
 		if (this.warningThresholdSeconds > 0 && elapsedSeconds >= this.warningThresholdSeconds) {
-			this.el.style.color = 'var(--text-warning)';
+			this.setStateClass('meeting-scribe-status-recording-warning');
 		} else {
-			this.el.style.color = 'var(--text-error)';
+			this.setStateClass('meeting-scribe-status-recording');
 		}
 	}
 
@@ -112,17 +128,17 @@ export class StatusBar {
 			text += ` (${context.progress}/${context.totalSteps})`;
 		}
 		this.el.textContent = text;
-		this.el.style.color = 'var(--text-muted)';
+		this.setStateClass('meeting-scribe-status-processing');
 	}
 
 	private renderComplete(): void {
 		this.el.textContent = '✅ Note ready';
-		this.el.style.color = 'var(--interactive-accent)';
+		this.setStateClass('meeting-scribe-status-complete');
 	}
 
 	private renderError(): void {
 		this.el.textContent = '⚠️ Processing failed';
-		this.el.style.color = 'var(--text-error)';
+		this.setStateClass('meeting-scribe-status-error');
 	}
 
 	private startCompleteTimer(): void {

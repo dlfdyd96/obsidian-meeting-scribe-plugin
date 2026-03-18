@@ -68,8 +68,7 @@ export class NoticeManager {
 
 		const safe = document.createElement('div');
 		safe.textContent = 'Original audio is safe.';
-		safe.style.color = 'var(--text-muted)';
-		safe.style.marginTop = '4px';
+		safe.className = 'meeting-scribe-notice-safe';
 		fragment.appendChild(safe);
 
 		if (this.onRetry) {
@@ -77,8 +76,7 @@ export class NoticeManager {
 				this.onRetry!();
 				notice.hide();
 			});
-			retryLink.style.marginTop = '4px';
-			retryLink.style.display = 'inline-block';
+			retryLink.classList.add('meeting-scribe-notice-action');
 			fragment.appendChild(retryLink);
 		}
 
@@ -95,8 +93,7 @@ export class NoticeManager {
 
 		const safe = document.createElement('div');
 		safe.textContent = 'Original audio is safe.';
-		safe.style.color = 'var(--text-muted)';
-		safe.style.marginTop = '4px';
+		safe.className = 'meeting-scribe-notice-safe';
 		fragment.appendChild(safe);
 
 		const link = createClickableLink('Open Settings', () => {
@@ -105,8 +102,7 @@ export class NoticeManager {
 			setting.openTabById(this.pluginId);
 			notice.hide();
 		});
-		link.style.marginTop = '4px';
-		link.style.display = 'inline-block';
+		link.classList.add('meeting-scribe-notice-action');
 		fragment.appendChild(link);
 
 		const notice = new Notice(fragment, NOTICE_PERSISTENT_TIMEOUT);
@@ -146,8 +142,7 @@ export class NoticeManager {
 			setting.openTabById(this.pluginId);
 			notice.hide();
 		});
-		link.style.marginTop = '4px';
-		link.style.display = 'inline-block';
+		link.classList.add('meeting-scribe-notice-action');
 		fragment.appendChild(link);
 
 		const notice = new Notice(fragment, NOTICE_PERSISTENT_TIMEOUT);

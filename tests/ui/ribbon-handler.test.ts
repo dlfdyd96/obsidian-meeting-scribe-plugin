@@ -32,8 +32,8 @@ describe('RibbonHandler', () => {
 			expect(el.dataset.icon).toBe('mic');
 		});
 
-		it('should set aria-label to "Meeting Scribe: Start Recording"', () => {
-			expect(el.getAttribute('aria-label')).toBe('Meeting Scribe: Start Recording');
+		it('should set aria-label to "Meeting Scribe: Start recording"', () => {
+			expect(el.getAttribute('aria-label')).toBe('Meeting Scribe: Start recording');
 		});
 	});
 
@@ -48,9 +48,9 @@ describe('RibbonHandler', () => {
 			expect(el.classList.contains('meeting-scribe-ribbon-recording')).toBe(true);
 		});
 
-		it('should update tooltip to "Meeting Scribe: Stop Recording"', () => {
+		it('should update tooltip to "Meeting Scribe: Stop recording"', () => {
 			stateManager.setState(PluginState.Recording);
-			expect(el.getAttribute('aria-label')).toBe('Meeting Scribe: Stop Recording');
+			expect(el.getAttribute('aria-label')).toBe('Meeting Scribe: Stop recording');
 		});
 	});
 
@@ -69,9 +69,9 @@ describe('RibbonHandler', () => {
 			expect(el.classList.contains('meeting-scribe-ribbon-recording')).toBe(false);
 		});
 
-		it('should revert tooltip to "Meeting Scribe: Start Recording"', () => {
+		it('should revert tooltip to "Meeting Scribe: Start recording"', () => {
 			stateManager.setState(PluginState.Idle);
-			expect(el.getAttribute('aria-label')).toBe('Meeting Scribe: Start Recording');
+			expect(el.getAttribute('aria-label')).toBe('Meeting Scribe: Start recording');
 		});
 	});
 
@@ -82,7 +82,7 @@ describe('RibbonHandler', () => {
 			expect(el.dataset.icon).toBe('mic');
 			expect(el.classList.contains('meeting-scribe-ribbon-recording')).toBe(false);
 			expect(el.classList.contains('meeting-scribe-ribbon-processing')).toBe(false);
-			expect(el.getAttribute('aria-label')).toBe('Meeting Scribe: Start Recording');
+			expect(el.getAttribute('aria-label')).toBe('Meeting Scribe: Start recording');
 		});
 	});
 
@@ -93,7 +93,7 @@ describe('RibbonHandler', () => {
 			expect(el.dataset.icon).toBe('mic');
 			expect(el.classList.contains('meeting-scribe-ribbon-recording')).toBe(false);
 			expect(el.classList.contains('meeting-scribe-ribbon-processing')).toBe(false);
-			expect(el.getAttribute('aria-label')).toBe('Meeting Scribe: Start Recording');
+			expect(el.getAttribute('aria-label')).toBe('Meeting Scribe: Start recording');
 		});
 	});
 

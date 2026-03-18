@@ -27,6 +27,40 @@ Meeting Scribe plugin styles.
 	margin-top: 4px;
 }
 
+.meeting-scribe-status-idle {
+	color: var(--text-muted);
+}
+
+.meeting-scribe-status-recording {
+	color: var(--text-error);
+}
+
+.meeting-scribe-status-recording-warning {
+	color: var(--text-warning);
+}
+
+.meeting-scribe-status-processing {
+	color: var(--text-muted);
+}
+
+.meeting-scribe-status-complete {
+	color: var(--interactive-accent);
+}
+
+.meeting-scribe-status-error {
+	color: var(--text-error);
+}
+
+.meeting-scribe-notice-safe {
+	color: var(--text-muted);
+	margin-top: 4px;
+}
+
+.meeting-scribe-notice-action {
+	margin-top: 4px;
+	display: inline-block;
+}
+
 .meeting-scribe-notice-link {
 	cursor: pointer;
 	text-decoration: underline;

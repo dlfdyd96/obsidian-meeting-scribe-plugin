@@ -65,6 +65,10 @@ declare global {
 	}
 }
 
+export function normalizePath(path: string): string {
+	return path.replace(/\\/g, '/').replace(/\/+/g, '/').replace(/^\//, '');
+}
+
 export function setIcon(el: HTMLElement, iconId: string): void {
 	el.dataset.icon = iconId;
 	el.empty();

@@ -1,3 +1,4 @@
+import { normalizePath } from 'obsidian';
 import type { PipelineStep, PipelineContext } from '../pipeline-types';
 import { DataError } from '../../utils/errors';
 import { logger } from '../../utils/logger';
@@ -42,11 +43,11 @@ export class GenerateNoteStep implements PipelineStep {
 		}
 
 		// Handle duplicate filenames
-		let targetPath = `${outputFolder}/${filename}`;
+		let targetPath = normalizePath(`${outputFolder}/${filename}`);
 		let counter = 2;
 		while (vault.getAbstractFileByPath(targetPath)) {
 			const base = filename.replace(/\.md$/, '');
-			targetPath = `${outputFolder}/${base} ${counter}.md`;
+			targetPath = normalizePath(`${outputFolder}/${base} ${counter}.md`);
 			counter++;
 		}
 

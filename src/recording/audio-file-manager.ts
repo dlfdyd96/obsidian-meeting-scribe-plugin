@@ -1,4 +1,4 @@
-import { Vault } from 'obsidian';
+import { Vault, normalizePath } from 'obsidian';
 import { logger } from '../utils/logger';
 
 export class AudioFileManager {
@@ -12,7 +12,7 @@ export class AudioFileManager {
 		await this.ensureFolder(audioFolder);
 
 		const filename = this.generateFilename();
-		const path = `${audioFolder}/${filename}`;
+		const path = normalizePath(`${audioFolder}/${filename}`);
 		const buffer = await blob.arrayBuffer();
 
 		await this.vault.createBinary(path, new Uint8Array(buffer));

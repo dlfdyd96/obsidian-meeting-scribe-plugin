@@ -109,7 +109,7 @@ export default class MeetingScribePlugin extends Plugin {
 			},
 		);
 
-		const ribbonEl = this.addRibbonIcon('mic', `${PLUGIN_NAME}: Start Recording`, () => {
+		const ribbonEl = this.addRibbonIcon('mic', `${PLUGIN_NAME}: Start recording`, () => {
 			// Initial callback — RibbonHandler takes over click behavior
 		});
 		this.ribbonHandler = new RibbonHandler(
