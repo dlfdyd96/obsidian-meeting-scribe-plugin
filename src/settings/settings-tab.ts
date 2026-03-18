@@ -1,5 +1,6 @@
 import { App, ButtonComponent, PluginSettingTab, Setting } from 'obsidian';
 import type MeetingScribePlugin from '../main';
+import { SUPPORTED_AUDIO_FORMATS } from '../constants';
 import { providerRegistry } from '../providers/provider-registry';
 import { logger } from '../utils/logger';
 
@@ -222,6 +223,10 @@ export class MeetingScribeSettingTab extends PluginSettingTab {
 					this.plugin.settings.sttLanguage = value;
 					await this.plugin.saveSettings();
 				}));
+
+		new Setting(containerEl)
+			.setName('Supported formats')
+			.setDesc(`Audio formats accepted for import: ${SUPPORTED_AUDIO_FORMATS.join(', ')}`);
 
 		const llmModels = LLM_MODELS[this.plugin.settings.llmProvider] ?? {};
 		new Setting(containerEl)

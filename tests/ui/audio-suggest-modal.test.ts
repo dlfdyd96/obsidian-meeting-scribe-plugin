@@ -36,10 +36,16 @@ describe('AudioSuggestModal', () => {
 	});
 
 	describe('getSuggestions', () => {
-		it('should return all audio files when query is empty', () => {
+		it('should return only supported audio files when query is empty', () => {
 			const results = modal.getSuggestions('');
-			expect(results).toHaveLength(5);
-			expect(results.every(f => ['webm', 'mp3', 'm4a', 'wav', 'ogg'].includes(f.extension))).toBe(true);
+			expect(results).toHaveLength(4);
+			expect(results.every(f => ['webm', 'mp3', 'm4a', 'wav'].includes(f.extension))).toBe(true);
+		});
+
+		it('should exclude unsupported formats like ogg', () => {
+			const results = modal.getSuggestions('');
+			const extensions = results.map(f => f.extension);
+			expect(extensions).not.toContain('ogg');
 		});
 
 		it('should filter by audio extensions only', () => {
@@ -82,10 +88,10 @@ describe('AudioSuggestModal', () => {
 
 		it('should match query against file path', () => {
 			const results = modal.getSuggestions('audio/');
-			expect(results).toHaveLength(3);
+			expect(results).toHaveLength(2);
 		});
 
-		it('should support all specified audio extensions', () => {
+		it('should support all SUPPORTED_AUDIO_FORMATS', () => {
 			const allAudioApp = createApp([
 				new TFile('a.webm'),
 				new TFile('b.mp3'),
@@ -98,7 +104,11 @@ describe('AudioSuggestModal', () => {
 			]);
 			const allModal = new AudioSuggestModal(allAudioApp, onSelect);
 			const results = allModal.getSuggestions('');
-			expect(results).toHaveLength(8);
+			expect(results).toHaveLength(7);
+			const extensions = results.map(f => f.extension);
+			expect(extensions).not.toContain('ogg');
+			expect(extensions).toContain('mpeg');
+			expect(extensions).toContain('mpga');
 		});
 	});
 

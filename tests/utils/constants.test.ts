@@ -5,6 +5,7 @@ import {
 	RETRY_BASE_DELAY_MS,
 	PLUGIN_ID,
 	PLUGIN_NAME,
+	SUPPORTED_AUDIO_FORMATS,
 } from '../../src/constants';
 
 describe('Constants', () => {
@@ -26,5 +27,13 @@ describe('Constants', () => {
 
 	it('PLUGIN_NAME should be "Meeting Scribe"', () => {
 		expect(PLUGIN_NAME).toBe('Meeting Scribe');
+	});
+
+	it('SUPPORTED_AUDIO_FORMATS should contain all OpenAI-supported formats', () => {
+		expect(SUPPORTED_AUDIO_FORMATS).toEqual(['mp3', 'mp4', 'm4a', 'wav', 'webm', 'mpeg', 'mpga']);
+	});
+
+	it('SUPPORTED_AUDIO_FORMATS should include webm (recorder output format)', () => {
+		expect(SUPPORTED_AUDIO_FORMATS).toContain('webm');
 	});
 });

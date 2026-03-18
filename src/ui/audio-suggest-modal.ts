@@ -1,7 +1,6 @@
 import { SuggestModal, TFile, App, Notice } from 'obsidian';
+import { SUPPORTED_AUDIO_FORMATS } from '../constants';
 import { logger } from '../utils/logger';
-
-const AUDIO_EXTENSIONS = ['webm', 'mp3', 'mp4', 'm4a', 'wav', 'ogg', 'mpeg', 'mpga'];
 
 function formatFileSize(bytes: number): string {
 	if (bytes >= 1024 * 1024) {
@@ -26,7 +25,7 @@ export class AudioSuggestModal extends SuggestModal<TFile> {
 	getSuggestions(query: string): TFile[] {
 		const files = this.app.vault.getFiles();
 		const audioFiles = files.filter((file: TFile) =>
-			AUDIO_EXTENSIONS.includes(file.extension),
+			(SUPPORTED_AUDIO_FORMATS as readonly string[]).includes(file.extension),
 		);
 
 		if (!query) {

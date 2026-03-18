@@ -6,6 +6,8 @@ export const RETRY_BASE_DELAY_MS = 1000;
 
 export const MAX_CHUNK_SIZE_BYTES = 25 * 1024 * 1024;
 
+export const SUPPORTED_AUDIO_FORMATS = ['mp3', 'mp4', 'm4a', 'wav', 'webm', 'mpeg', 'mpga'] as const;
+
 export const NOTICE_SUCCESS_TIMEOUT_MS = 5000;
 export const NOTICE_RETRY_TIMEOUT_MS = 2000;
 export const NOTICE_PERSISTENT_TIMEOUT = 0;

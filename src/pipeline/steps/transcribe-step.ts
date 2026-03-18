@@ -2,6 +2,7 @@ import { TFile, normalizePath } from 'obsidian';
 import type { PipelineStep, PipelineContext } from '../pipeline-types';
 import type { TranscriptionResult, TranscriptionSegment } from '../../providers/types';
 import { chunkAudio } from '../chunker';
+import { SUPPORTED_AUDIO_FORMATS } from '../../constants';
 import { providerRegistry } from '../../providers/provider-registry';
 import { ConfigError, DataError } from '../../utils/errors';
 import { logger } from '../../utils/logger';
@@ -48,6 +49,14 @@ export class TranscribeStep implements PipelineStep {
 		const audioFile = vault.getAbstractFileByPath(audioFilePath);
 		if (!(audioFile instanceof TFile)) {
 			throw new DataError(`Audio file not found: ${audioFilePath}`);
+		}
+
+		// Validate audio format before any processing
+		const ext = audioFilePath.split('.').pop()?.toLowerCase() ?? '';
+		if (!(SUPPORTED_AUDIO_FORMATS as readonly string[]).includes(ext)) {
+			throw new ConfigError(
+				`Unsupported audio format: .${ext}. Supported: mp3, mp4, m4a, wav, webm`
+			);
 		}
 
 		logger.info(COMPONENT, 'Starting transcription', { audioFilePath });

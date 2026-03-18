@@ -427,6 +427,61 @@ describe('TranscribeStep', () => {
 		});
 	});
 
+	describe('audio format validation', () => {
+		it('accepts supported audio formats without error', async () => {
+			const mockProvider = makeMockProvider();
+			vi.mocked(providerRegistry.getSTTProvider).mockReturnValue(mockProvider);
+			vi.mocked(chunkAudio).mockResolvedValue([makeChunk()]);
+
+			for (const ext of ['mp3', 'mp4', 'm4a', 'wav', 'webm', 'mpeg', 'mpga']) {
+				const audioFile = new TFile(`recordings/test.${ext}`);
+				const context = makeContext({ audioFilePath: `recordings/test.${ext}` });
+				vi.mocked(context.vault.getAbstractFileByPath).mockImplementation((path: string) => {
+					if (path === `recordings/test.${ext}`) return audioFile;
+					return null;
+				});
+
+				await expect(step.execute(context)).resolves.toBeDefined();
+			}
+		});
+
+		it('throws ConfigError for unsupported audio format', async () => {
+			const audioFile = new TFile('recordings/test.flac');
+			const context = makeContext({ audioFilePath: 'recordings/test.flac' });
+			vi.mocked(context.vault.getAbstractFileByPath).mockImplementation((path: string) => {
+				if (path === 'recordings/test.flac') return audioFile;
+				return null;
+			});
+
+			await expect(step.execute(context)).rejects.toThrow(ConfigError);
+			await expect(step.execute(context)).rejects.toThrow('Unsupported audio format: .flac. Supported: mp3, mp4, m4a, wav, webm');
+		});
+
+		it('throws ConfigError for ogg format (not supported by OpenAI)', async () => {
+			const audioFile = new TFile('recordings/test.ogg');
+			const context = makeContext({ audioFilePath: 'recordings/test.ogg' });
+			vi.mocked(context.vault.getAbstractFileByPath).mockImplementation((path: string) => {
+				if (path === 'recordings/test.ogg') return audioFile;
+				return null;
+			});
+
+			await expect(step.execute(context)).rejects.toThrow(ConfigError);
+			await expect(step.execute(context)).rejects.toThrow('Unsupported audio format: .ogg');
+		});
+
+		it('validates format before chunking (no wasted processing)', async () => {
+			const audioFile = new TFile('recordings/test.aac');
+			const context = makeContext({ audioFilePath: 'recordings/test.aac' });
+			vi.mocked(context.vault.getAbstractFileByPath).mockImplementation((path: string) => {
+				if (path === 'recordings/test.aac') return audioFile;
+				return null;
+			});
+
+			await expect(step.execute(context)).rejects.toThrow(ConfigError);
+			expect(chunkAudio).not.toHaveBeenCalled();
+		});
+	});
+
 	describe('error propagation', () => {
 		it('throws DataError when audio file not found', async () => {
 			const context = makeContext();
