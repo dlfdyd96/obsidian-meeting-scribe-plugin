@@ -331,6 +331,16 @@ export class MeetingScribeSettingTab extends PluginSettingTab {
 				}));
 
 		new Setting(advancedEl)
+			.setName('Smart chunking')
+			.setDesc('Use silence detection to find natural split points for large audio files. Slower but may improve transcription accuracy at chunk boundaries.')
+			.addToggle(cb => cb
+				.setValue(this.plugin.settings.enableSmartChunking)
+				.onChange(async (value) => {
+					this.plugin.settings.enableSmartChunking = value;
+					await this.plugin.saveSettings();
+				}));
+
+		new Setting(advancedEl)
 			.setName('Audio retention policy')
 			.setDesc('What to do with audio files after processing')
 			.addDropdown(cb => cb

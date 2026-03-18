@@ -55,7 +55,9 @@ export class TranscribeStep implements PipelineStep {
 		const audioData = await vault.readBinary(audioFile);
 
 		// Chunk audio
-		const chunks = await chunkAudio(audioData);
+		const chunks = await chunkAudio(audioData, {
+			enableSmartChunking: settings.enableSmartChunking,
+		});
 		const totalChunks = chunks.length;
 
 		// Get STT provider

@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
 	MAX_RETRY_COUNT,
-	DEFAULT_CHUNK_DURATION_SECONDS,
+	MAX_CHUNK_SIZE_BYTES,
 	RETRY_BASE_DELAY_MS,
 	PLUGIN_ID,
 	PLUGIN_NAME,
@@ -12,8 +12,8 @@ describe('Constants', () => {
 		expect(MAX_RETRY_COUNT).toBe(3);
 	});
 
-	it('DEFAULT_CHUNK_DURATION_SECONDS should be 600', () => {
-		expect(DEFAULT_CHUNK_DURATION_SECONDS).toBe(600);
+	it('MAX_CHUNK_SIZE_BYTES should be 25MB', () => {
+		expect(MAX_CHUNK_SIZE_BYTES).toBe(25 * 1024 * 1024);
 	});
 
 	it('RETRY_BASE_DELAY_MS should be 1000', () => {

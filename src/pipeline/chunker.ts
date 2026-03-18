@@ -1,4 +1,4 @@
-import { DEFAULT_CHUNK_DURATION_SECONDS } from '../constants';
+import { MAX_CHUNK_SIZE_BYTES } from '../constants';
 import { DataError } from '../utils/errors';
 import { logger } from '../utils/logger';
 
@@ -12,7 +12,7 @@ export interface AudioChunk {
 }
 
 export interface ChunkerOptions {
-	maxChunkDurationSeconds?: number;
+	enableSmartChunking?: boolean;
 }
 
 const COMPONENT = 'Chunker';
@@ -158,9 +158,28 @@ export async function chunkAudio(
 	audio: ArrayBuffer,
 	options?: ChunkerOptions,
 ): Promise<AudioChunk[]> {
-	const maxDuration = options?.maxChunkDurationSeconds ?? DEFAULT_CHUNK_DURATION_SECONDS;
+	const enableSmartChunking = options?.enableSmartChunking ?? false;
 
-	// Decode audio to get duration and PCM data
+	// Size-based threshold: skip PCM decoding entirely for files under 25MB
+	if (audio.byteLength <= MAX_CHUNK_SIZE_BYTES) {
+		logger.info(COMPONENT, 'Audio under size limit, skipping decode', {
+			sizeBytes: audio.byteLength,
+			maxBytes: MAX_CHUNK_SIZE_BYTES,
+		});
+		const { mimeType, fileExtension } = detectAudioFormat(audio);
+		return [
+			{
+				data: audio,
+				chunkIndex: 0,
+				startTime: 0,
+				endTime: 0,
+				mimeType,
+				fileExtension,
+			},
+		];
+	}
+
+	// File exceeds 25MB — must decode to split
 	let audioBuffer: AudioBuffer;
 	try {
 		const ctx = new OfflineAudioContext(1, 1, 44100);
@@ -173,26 +192,22 @@ export async function chunkAudio(
 
 	const duration = audioBuffer.duration;
 	const sampleRate = audioBuffer.sampleRate;
+	const outputSampleRate = sampleRate > TARGET_SAMPLE_RATE ? TARGET_SAMPLE_RATE : sampleRate;
 
-	logger.info(COMPONENT, 'Audio loaded', { duration, sampleRate });
+	// Calculate max chunk duration targeting <25MB per WAV chunk
+	// WAV bytes = 44 (header) + duration * sampleRate * 2 (16-bit mono)
+	const wavBytesPerSecond = outputSampleRate * 2;
+	const maxDuration = Math.floor((MAX_CHUNK_SIZE_BYTES - 44) / wavBytesPerSecond);
 
-	// No split needed for short audio — detect format from file header
-	if (duration <= maxDuration) {
-		logger.debug(COMPONENT, 'No splitting needed', { duration, maxDuration });
-		const { mimeType, fileExtension } = detectAudioFormat(audio);
-		return [
-			{
-				data: audio,
-				chunkIndex: 0,
-				startTime: 0,
-				endTime: duration,
-				mimeType,
-				fileExtension,
-			},
-		];
-	}
+	logger.info(COMPONENT, 'Audio loaded, splitting required', {
+		duration,
+		sampleRate,
+		outputSampleRate,
+		maxDurationPerChunk: maxDuration,
+		sizeBytes: audio.byteLength,
+	});
 
-	// Get PCM data for silence detection and re-encoding
+	// Get PCM data for re-encoding (and optionally silence detection)
 	const pcmData = audioBuffer.getChannelData(0);
 
 	// Calculate split points
@@ -201,17 +216,17 @@ export async function chunkAudio(
 
 	for (let i = 1; i < chunkCount; i++) {
 		const targetTime = i * maxDuration;
-		const boundary = findSilenceBoundary(pcmData, sampleRate, targetTime);
-		splitPoints.push(boundary);
-		// Yield after each silence search to prevent UI freeze
+		if (enableSmartChunking) {
+			const boundary = findSilenceBoundary(pcmData, sampleRate, targetTime);
+			splitPoints.push(boundary);
+		} else {
+			splitPoints.push(targetTime);
+		}
 		await yieldToMain();
 	}
 	splitPoints.push(duration);
 
-	logger.info(COMPONENT, 'Splitting audio', { chunkCount, splitPoints });
-
-	// Determine output sample rate (downsample if needed)
-	const outputSampleRate = sampleRate > TARGET_SAMPLE_RATE ? TARGET_SAMPLE_RATE : sampleRate;
+	logger.info(COMPONENT, 'Splitting audio', { chunkCount, splitPoints, enableSmartChunking });
 
 	// Create chunks — yield between each to keep UI responsive
 	const chunks: AudioChunk[] = [];
@@ -242,7 +257,6 @@ export async function chunkAudio(
 			sizeBytes: wavData.byteLength,
 		});
 
-		// Yield after each chunk creation to prevent UI freeze
 		await yieldToMain();
 	}
 

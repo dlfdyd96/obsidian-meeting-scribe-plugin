@@ -25,3 +25,4 @@ data.json
 _bmad*
 .claude
 docs
+.playwright-mcp

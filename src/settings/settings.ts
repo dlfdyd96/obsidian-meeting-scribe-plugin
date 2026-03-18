@@ -12,11 +12,12 @@ export interface MeetingScribeSettings {
 	audioRetentionPolicy: 'keep' | 'delete';
 	summaryLanguage: string;
 	includeTranscript: boolean;
+	enableSmartChunking: boolean;
 	debugMode: boolean;
 	onboardingComplete: boolean;
 }
 
-export const CURRENT_SETTINGS_VERSION = 4;
+export const CURRENT_SETTINGS_VERSION = 5;
 
 export const DEFAULT_SETTINGS: MeetingScribeSettings = {
 	settingsVersion: CURRENT_SETTINGS_VERSION,
@@ -32,6 +33,7 @@ export const DEFAULT_SETTINGS: MeetingScribeSettings = {
 	audioRetentionPolicy: 'keep',
 	summaryLanguage: 'auto',
 	includeTranscript: true,
+	enableSmartChunking: false,
 	debugMode: false,
 	onboardingComplete: false,
 };

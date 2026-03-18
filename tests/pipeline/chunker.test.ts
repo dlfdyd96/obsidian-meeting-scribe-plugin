@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { DataError } from '../../src/utils/errors';
 import { logger } from '../../src/utils/logger';
+import { MAX_CHUNK_SIZE_BYTES } from '../../src/constants';
 
 // Mock logger
 vi.spyOn(logger, 'debug').mockImplementation(() => {});
@@ -57,15 +58,19 @@ function createUniformNoisePcm(durationSec: number, sampleRate: number): Float32
 }
 
 let mockDecodeAudioData: ReturnType<typeof vi.fn>;
+let mockOfflineAudioContextConstructor: ReturnType<typeof vi.fn>;
 
 function setupOfflineAudioContextMock(audioBuffer: ReturnType<typeof createMockAudioBuffer>): void {
 	mockDecodeAudioData = vi.fn().mockResolvedValue(audioBuffer);
-	vi.stubGlobal(
-		'OfflineAudioContext',
-		vi.fn().mockImplementation(() => ({
-			decodeAudioData: mockDecodeAudioData,
-		})),
-	);
+	mockOfflineAudioContextConstructor = vi.fn().mockImplementation(() => ({
+		decodeAudioData: mockDecodeAudioData,
+	}));
+	vi.stubGlobal('OfflineAudioContext', mockOfflineAudioContextConstructor);
+}
+
+/** Create an ArrayBuffer of a specific size */
+function createBufferOfSize(bytes: number): ArrayBuffer {
+	return new ArrayBuffer(bytes);
 }
 
 describe('Audio Chunker', () => {
@@ -77,135 +82,155 @@ describe('Audio Chunker', () => {
 		vi.unstubAllGlobals();
 	});
 
-	describe('chunkAudio', () => {
-		it('should return single chunk for short audio (≤ 600s)', async () => {
-			const sampleRate = 16000;
-			const duration = 300; // 5 minutes
-			const pcm = new Float32Array(duration * sampleRate);
-			const mockBuffer = createMockAudioBuffer({ duration, sampleRate, channelData: pcm });
-			setupOfflineAudioContextMock(mockBuffer);
+	describe('chunkAudio — size-based threshold', () => {
+		it('should return single chunk for file ≤ 25MB without PCM decoding', async () => {
+			mockOfflineAudioContextConstructor = vi.fn();
+			vi.stubGlobal('OfflineAudioContext', mockOfflineAudioContextConstructor);
 
 			const { chunkAudio } = await import('../../src/pipeline/chunker');
-			const inputAudio = new ArrayBuffer(1024);
+			const inputAudio = createBufferOfSize(19 * 1024 * 1024); // 19MB
 			const chunks = await chunkAudio(inputAudio);
 
 			expect(chunks).toHaveLength(1);
 			expect(chunks[0]!.chunkIndex).toBe(0);
 			expect(chunks[0]!.startTime).toBe(0);
-			expect(chunks[0]!.endTime).toBe(300);
-			// For short audio, original ArrayBuffer is returned as-is
+			expect(chunks[0]!.endTime).toBe(0);
 			expect(chunks[0]!.data).toBe(inputAudio);
-			// Short audio keeps original webm format
+			// Default format detection for empty buffer → webm
 			expect(chunks[0]!.mimeType).toBe('audio/webm');
 			expect(chunks[0]!.fileExtension).toBe('webm');
+
+			// OfflineAudioContext should NOT have been instantiated
+			expect(mockOfflineAudioContextConstructor).not.toHaveBeenCalled();
 		});
 
-		it('should return single chunk for audio exactly at limit (600s)', async () => {
-			const sampleRate = 16000;
-			const duration = 600;
-			const pcm = new Float32Array(duration * sampleRate);
-			const mockBuffer = createMockAudioBuffer({ duration, sampleRate, channelData: pcm });
-			setupOfflineAudioContextMock(mockBuffer);
+		it('should return single chunk for file exactly at 25MB limit', async () => {
+			mockOfflineAudioContextConstructor = vi.fn();
+			vi.stubGlobal('OfflineAudioContext', mockOfflineAudioContextConstructor);
 
 			const { chunkAudio } = await import('../../src/pipeline/chunker');
-			const inputAudio = new ArrayBuffer(1024);
+			const inputAudio = createBufferOfSize(MAX_CHUNK_SIZE_BYTES);
 			const chunks = await chunkAudio(inputAudio);
 
 			expect(chunks).toHaveLength(1);
 			expect(chunks[0]!.data).toBe(inputAudio);
-			expect(chunks[0]!.mimeType).toBe('audio/webm');
-			expect(chunks[0]!.fileExtension).toBe('webm');
+			expect(mockOfflineAudioContextConstructor).not.toHaveBeenCalled();
 		});
 
-		it('should split long audio (1500s) into 3 chunks', async () => {
+		it('should detect m4a format for files with ftyp header', async () => {
+			mockOfflineAudioContextConstructor = vi.fn();
+			vi.stubGlobal('OfflineAudioContext', mockOfflineAudioContextConstructor);
+
+			const { chunkAudio } = await import('../../src/pipeline/chunker');
+			const inputAudio = createBufferOfSize(1024);
+			// Write ftyp header at bytes 4-7
+			const view = new Uint8Array(inputAudio);
+			view[4] = 0x66; // f
+			view[5] = 0x74; // t
+			view[6] = 0x79; // y
+			view[7] = 0x70; // p
+
+			const chunks = await chunkAudio(inputAudio);
+			expect(chunks[0]!.mimeType).toBe('audio/mp4');
+			expect(chunks[0]!.fileExtension).toBe('m4a');
+		});
+
+		it('should decode and split files > 25MB', async () => {
 			const sampleRate = 16000;
-			const duration = 1500; // 25 minutes
+			const duration = 3600; // 1 hour
 			const pcm = createUniformNoisePcm(duration, sampleRate);
 			const mockBuffer = createMockAudioBuffer({ duration, sampleRate, channelData: pcm });
 			setupOfflineAudioContextMock(mockBuffer);
 
 			const { chunkAudio } = await import('../../src/pipeline/chunker');
-			const chunks = await chunkAudio(new ArrayBuffer(1024));
+			const inputAudio = createBufferOfSize(26 * 1024 * 1024); // 26MB
+			const chunks = await chunkAudio(inputAudio);
 
-			expect(chunks).toHaveLength(3);
-			expect(chunks[0]!.chunkIndex).toBe(0);
-			expect(chunks[1]!.chunkIndex).toBe(1);
-			expect(chunks[2]!.chunkIndex).toBe(2);
+			expect(chunks.length).toBeGreaterThan(1);
+			expect(mockOfflineAudioContextConstructor).toHaveBeenCalled();
+			// All split chunks are WAV
+			for (const chunk of chunks) {
+				expect(chunk.mimeType).toBe('audio/wav');
+				expect(chunk.fileExtension).toBe('wav');
+			}
 		});
+	});
 
+	describe('chunkAudio — splitting behavior for large files', () => {
 		it('should produce chunks with continuous startTime/endTime (no gaps or overlaps)', async () => {
 			const sampleRate = 16000;
-			const duration = 1500;
+			const duration = 3600;
 			const pcm = createUniformNoisePcm(duration, sampleRate);
 			const mockBuffer = createMockAudioBuffer({ duration, sampleRate, channelData: pcm });
 			setupOfflineAudioContextMock(mockBuffer);
 
 			const { chunkAudio } = await import('../../src/pipeline/chunker');
-			const chunks = await chunkAudio(new ArrayBuffer(1024));
+			const chunks = await chunkAudio(createBufferOfSize(26 * 1024 * 1024));
 
-			// First chunk starts at 0
 			expect(chunks[0]!.startTime).toBe(0);
-			// Last chunk ends at duration
 			expect(chunks[chunks.length - 1]!.endTime).toBe(duration);
-			// Each chunk's startTime matches previous chunk's endTime
 			for (let i = 1; i < chunks.length; i++) {
 				expect(chunks[i]!.startTime).toBe(chunks[i - 1]!.endTime);
 			}
 		});
 
-		it('should align chunk boundaries with silence windows', async () => {
+		it('should split at exact time boundaries when smart chunking is disabled (default)', async () => {
 			const sampleRate = 16000;
-			const duration = 1500;
-			// Place silence near the 600s and 1200s target split points
-			const pcm = createPcmWithSilence(duration, sampleRate, [595, 1190]);
+			const duration = 3600;
+			const pcm = createPcmWithSilence(duration, sampleRate, [400, 800]);
 			const mockBuffer = createMockAudioBuffer({ duration, sampleRate, channelData: pcm });
 			setupOfflineAudioContextMock(mockBuffer);
 
 			const { chunkAudio } = await import('../../src/pipeline/chunker');
-			const chunks = await chunkAudio(new ArrayBuffer(1024));
+			const chunks = await chunkAudio(createBufferOfSize(26 * 1024 * 1024));
 
-			expect(chunks).toHaveLength(3);
-			// First split should be near 595s (silence region), not exactly at 600s
-			expect(chunks[0]!.endTime).toBeGreaterThan(594);
-			expect(chunks[0]!.endTime).toBeLessThan(596);
-			// Second split should be near 1190s
-			expect(chunks[1]!.endTime).toBeGreaterThan(1189);
-			expect(chunks[1]!.endTime).toBeLessThan(1191);
+			// Without smart chunking, boundaries should be at exact calculated times
+			// All chunks except the last should have the same duration (maxDuration)
+			const maxDuration = Math.floor((MAX_CHUNK_SIZE_BYTES - 44) / (sampleRate * 2));
+			for (let i = 0; i < chunks.length - 1; i++) {
+				const chunkDuration = chunks[i]!.endTime - chunks[i]!.startTime;
+				expect(chunkDuration).toBe(maxDuration);
+			}
 		});
 
-		it('should fall back to exact time boundary when no silence found', async () => {
+		it('should use silence detection when enableSmartChunking is true', async () => {
 			const sampleRate = 16000;
-			const duration = 1500;
-			// Uniform noise, no silence at all
-			const pcm = createUniformNoisePcm(duration, sampleRate);
+			const duration = 3600;
+			// Place silence near split boundaries
+			const maxDuration = Math.floor((MAX_CHUNK_SIZE_BYTES - 44) / (sampleRate * 2));
+			const silenceAt = [maxDuration - 5]; // 5 seconds before first split
+			const pcm = createPcmWithSilence(duration, sampleRate, silenceAt);
 			const mockBuffer = createMockAudioBuffer({ duration, sampleRate, channelData: pcm });
 			setupOfflineAudioContextMock(mockBuffer);
 
 			const { chunkAudio } = await import('../../src/pipeline/chunker');
-			const chunks = await chunkAudio(new ArrayBuffer(1024));
-
-			expect(chunks).toHaveLength(3);
-			// Without silence, should split at exact 600s and 1200s
-			expect(chunks[0]!.endTime).toBe(600);
-			expect(chunks[1]!.endTime).toBe(1200);
-		});
-
-		it('should respect custom maxChunkDurationSeconds', async () => {
-			const sampleRate = 16000;
-			const duration = 600;
-			const pcm = createUniformNoisePcm(duration, sampleRate);
-			const mockBuffer = createMockAudioBuffer({ duration, sampleRate, channelData: pcm });
-			setupOfflineAudioContextMock(mockBuffer);
-
-			const { chunkAudio } = await import('../../src/pipeline/chunker');
-			const chunks = await chunkAudio(new ArrayBuffer(1024), {
-				maxChunkDurationSeconds: 200,
+			const chunks = await chunkAudio(createBufferOfSize(26 * 1024 * 1024), {
+				enableSmartChunking: true,
 			});
 
-			expect(chunks).toHaveLength(3);
+			// First chunk should NOT end at exact maxDuration — shifted by silence
+			expect(chunks[0]!.endTime).not.toBe(maxDuration);
+			expect(chunks[0]!.endTime).toBeGreaterThan(maxDuration - 10);
+			expect(chunks[0]!.endTime).toBeLessThan(maxDuration + 10);
 		});
 
-		it('should throw DataError for undecodable audio', async () => {
+		it('should fall back to exact time when smart chunking finds no silence', async () => {
+			const sampleRate = 16000;
+			const duration = 3600;
+			const pcm = createUniformNoisePcm(duration, sampleRate);
+			const mockBuffer = createMockAudioBuffer({ duration, sampleRate, channelData: pcm });
+			setupOfflineAudioContextMock(mockBuffer);
+
+			const { chunkAudio } = await import('../../src/pipeline/chunker');
+			const chunks = await chunkAudio(createBufferOfSize(26 * 1024 * 1024), {
+				enableSmartChunking: true,
+			});
+
+			const maxDuration = Math.floor((MAX_CHUNK_SIZE_BYTES - 44) / (sampleRate * 2));
+			expect(chunks[0]!.endTime).toBe(maxDuration);
+		});
+
+		it('should throw DataError for undecodable audio > 25MB', async () => {
 			mockDecodeAudioData = vi.fn().mockRejectedValue(new Error('Unable to decode audio data'));
 			vi.stubGlobal(
 				'OfflineAudioContext',
@@ -216,19 +241,21 @@ describe('Audio Chunker', () => {
 
 			const { chunkAudio } = await import('../../src/pipeline/chunker');
 
-			await expect(chunkAudio(new ArrayBuffer(0))).rejects.toThrow(DataError);
-			await expect(chunkAudio(new ArrayBuffer(0))).rejects.toThrow('Failed to decode audio');
+			await expect(chunkAudio(createBufferOfSize(26 * 1024 * 1024))).rejects.toThrow(DataError);
+			await expect(chunkAudio(createBufferOfSize(26 * 1024 * 1024))).rejects.toThrow('Failed to decode audio');
 		});
+	});
 
+	describe('chunkAudio — WAV encoding for split chunks', () => {
 		it('should set WAV mimeType and fileExtension for split chunks', async () => {
 			const sampleRate = 16000;
-			const duration = 1500;
+			const duration = 3600;
 			const pcm = createUniformNoisePcm(duration, sampleRate);
 			const mockBuffer = createMockAudioBuffer({ duration, sampleRate, channelData: pcm });
 			setupOfflineAudioContextMock(mockBuffer);
 
 			const { chunkAudio } = await import('../../src/pipeline/chunker');
-			const chunks = await chunkAudio(new ArrayBuffer(1024));
+			const chunks = await chunkAudio(createBufferOfSize(26 * 1024 * 1024));
 
 			expect(chunks.length).toBeGreaterThan(1);
 			for (const chunk of chunks) {
@@ -239,33 +266,24 @@ describe('Audio Chunker', () => {
 
 		it('should produce valid WAV headers in chunked output', async () => {
 			const sampleRate = 16000;
-			const duration = 1500;
+			const duration = 3600;
 			const pcm = createUniformNoisePcm(duration, sampleRate);
 			const mockBuffer = createMockAudioBuffer({ duration, sampleRate, channelData: pcm });
 			setupOfflineAudioContextMock(mockBuffer);
 
 			const { chunkAudio } = await import('../../src/pipeline/chunker');
-			const chunks = await chunkAudio(new ArrayBuffer(1024));
+			const chunks = await chunkAudio(createBufferOfSize(26 * 1024 * 1024));
 
 			for (const chunk of chunks) {
 				const view = new DataView(chunk.data);
-				// RIFF magic
 				expect(String.fromCharCode(view.getUint8(0), view.getUint8(1), view.getUint8(2), view.getUint8(3))).toBe('RIFF');
-				// WAVE format
 				expect(String.fromCharCode(view.getUint8(8), view.getUint8(9), view.getUint8(10), view.getUint8(11))).toBe('WAVE');
-				// fmt subchunk
 				expect(String.fromCharCode(view.getUint8(12), view.getUint8(13), view.getUint8(14), view.getUint8(15))).toBe('fmt ');
-				// PCM format (1)
-				expect(view.getUint16(20, true)).toBe(1);
-				// Mono (1 channel)
-				expect(view.getUint16(22, true)).toBe(1);
-				// Sample rate
+				expect(view.getUint16(20, true)).toBe(1); // PCM
+				expect(view.getUint16(22, true)).toBe(1); // mono
 				expect(view.getUint32(24, true)).toBe(sampleRate);
-				// 16 bits per sample
-				expect(view.getUint16(34, true)).toBe(16);
-				// data subchunk
+				expect(view.getUint16(34, true)).toBe(16); // 16-bit
 				expect(String.fromCharCode(view.getUint8(36), view.getUint8(37), view.getUint8(38), view.getUint8(39))).toBe('data');
-				// data size matches file size - 44
 				const dataSize = view.getUint32(40, true);
 				expect(chunk.data.byteLength).toBe(44 + dataSize);
 			}
@@ -273,39 +291,50 @@ describe('Audio Chunker', () => {
 
 		it('should downsample from higher sample rates to 16kHz', async () => {
 			const sampleRate = 44100;
-			const duration = 1500;
+			const duration = 1800; // Shorter to avoid test timeout with high sample rate
 			const pcm = createUniformNoisePcm(duration, sampleRate);
 			const mockBuffer = createMockAudioBuffer({ duration, sampleRate, channelData: pcm });
 			setupOfflineAudioContextMock(mockBuffer);
 
 			const { chunkAudio } = await import('../../src/pipeline/chunker');
-			const chunks = await chunkAudio(new ArrayBuffer(1024));
+			const chunks = await chunkAudio(createBufferOfSize(26 * 1024 * 1024));
 
 			for (const chunk of chunks) {
 				const view = new DataView(chunk.data);
-				// Should be downsampled to 16kHz
 				expect(view.getUint32(24, true)).toBe(16000);
-				// Each chunk's data size should reflect ~10min @ 16kHz 16-bit mono
-				// ≈ 600s * 16000 * 2 = 19,200,000 bytes (under 25 MB limit)
 				const dataSize = view.getUint32(40, true);
-				expect(dataSize).toBeLessThan(25 * 1024 * 1024);
+				expect(dataSize).toBeLessThan(MAX_CHUNK_SIZE_BYTES);
 			}
 		});
 
 		it('should not downsample if source rate is ≤ 16kHz', async () => {
 			const sampleRate = 8000;
-			const duration = 1500;
+			const duration = 3600;
 			const pcm = createUniformNoisePcm(duration, sampleRate);
 			const mockBuffer = createMockAudioBuffer({ duration, sampleRate, channelData: pcm });
 			setupOfflineAudioContextMock(mockBuffer);
 
 			const { chunkAudio } = await import('../../src/pipeline/chunker');
-			const chunks = await chunkAudio(new ArrayBuffer(1024));
+			const chunks = await chunkAudio(createBufferOfSize(26 * 1024 * 1024));
 
 			for (const chunk of chunks) {
 				const view = new DataView(chunk.data);
-				// Should keep original 8kHz
 				expect(view.getUint32(24, true)).toBe(8000);
+			}
+		});
+
+		it('should ensure each WAV chunk is ≤ 25MB', async () => {
+			const sampleRate = 16000;
+			const duration = 3600;
+			const pcm = createUniformNoisePcm(duration, sampleRate);
+			const mockBuffer = createMockAudioBuffer({ duration, sampleRate, channelData: pcm });
+			setupOfflineAudioContextMock(mockBuffer);
+
+			const { chunkAudio } = await import('../../src/pipeline/chunker');
+			const chunks = await chunkAudio(createBufferOfSize(26 * 1024 * 1024));
+
+			for (const chunk of chunks) {
+				expect(chunk.data.byteLength).toBeLessThanOrEqual(MAX_CHUNK_SIZE_BYTES);
 			}
 		});
 	});
@@ -319,7 +348,6 @@ describe('Audio Chunker', () => {
 			const { findSilenceBoundary } = await import('../../src/pipeline/chunker');
 			const boundary = findSilenceBoundary(pcm, sampleRate, 600);
 
-			// Should find the silence at ~595s
 			expect(boundary).toBeGreaterThan(594);
 			expect(boundary).toBeLessThan(596);
 		});
@@ -338,13 +366,11 @@ describe('Audio Chunker', () => {
 		it('should prefer silence closest to minimum RMS within search window', async () => {
 			const sampleRate = 16000;
 			const duration = 1200;
-			// Two silence regions: one at 580s (quieter) and one at 610s
 			const pcm = createPcmWithSilence(duration, sampleRate, [580, 610]);
 
 			const { findSilenceBoundary } = await import('../../src/pipeline/chunker');
 			const boundary = findSilenceBoundary(pcm, sampleRate, 600);
 
-			// Should pick the one with lowest RMS (both are 0, so either is valid)
 			expect(boundary).toBeGreaterThan(579);
 			expect(boundary).toBeLessThan(611);
 		});
@@ -355,7 +381,6 @@ describe('Audio Chunker', () => {
 			const pcm = createPcmWithSilence(duration, sampleRate, [10]);
 
 			const { findSilenceBoundary } = await import('../../src/pipeline/chunker');
-			// Target at 20s with 30s window — window start would be -10, clamped to 0
 			const boundary = findSilenceBoundary(pcm, sampleRate, 20);
 
 			expect(boundary).toBeGreaterThan(9);
