@@ -77,3 +77,22 @@ export function createRequestUrlError(
 		json: errorBody,
 	};
 }
+
+export function createFetchSuccess(json: unknown): Response {
+	return {
+		ok: true,
+		status: 200,
+		json: () => Promise.resolve(json),
+		text: () => Promise.resolve(JSON.stringify(json)),
+	} as unknown as Response;
+}
+
+export function createFetchError(status: number, body?: unknown): Response {
+	const errorBody = body ?? { error: { message: 'Error', type: 'error' } };
+	return {
+		ok: false,
+		status,
+		json: () => Promise.resolve(errorBody),
+		text: () => Promise.resolve(JSON.stringify(errorBody)),
+	} as unknown as Response;
+}

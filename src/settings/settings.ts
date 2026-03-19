@@ -15,9 +15,29 @@ export interface MeetingScribeSettings {
 	enableSmartChunking: boolean;
 	debugMode: boolean;
 	onboardingComplete: boolean;
+	// CLOVA Speech fields
+	clovaInvokeUrl: string;
+	clovaSecretKey: string;
+	clovaLanguage: string;
+	// Google Cloud STT fields
+	googleProjectId: string;
+	googleApiKey: string;
+	googleLocation: string;
+	googleModel: string;
+	// Consent reminder
+	showConsentReminder: boolean;
 }
 
-export const CURRENT_SETTINGS_VERSION = 5;
+export const CURRENT_SETTINGS_VERSION = 6;
+
+export function hasSTTCredentials(settings: MeetingScribeSettings): boolean {
+	switch (settings.sttProvider) {
+		case 'openai': return !!settings.sttApiKey;
+		case 'clova': return !!settings.clovaInvokeUrl && !!settings.clovaSecretKey;
+		case 'google': return !!settings.googleProjectId && !!settings.googleApiKey;
+		default: return false;
+	}
+}
 
 export const DEFAULT_SETTINGS: MeetingScribeSettings = {
 	settingsVersion: CURRENT_SETTINGS_VERSION,
@@ -36,4 +56,12 @@ export const DEFAULT_SETTINGS: MeetingScribeSettings = {
 	enableSmartChunking: false,
 	debugMode: false,
 	onboardingComplete: false,
+	clovaInvokeUrl: '',
+	clovaSecretKey: '',
+	clovaLanguage: 'ko-KR',
+	googleProjectId: '',
+	googleApiKey: '',
+	googleLocation: 'global',
+	googleModel: 'chirp_3',
+	showConsentReminder: true,
 };

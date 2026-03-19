@@ -35,12 +35,27 @@ function migrateV4ToV5(data: Record<string, unknown>): Record<string, unknown> {
 	});
 }
 
+function migrateV5ToV6(data: Record<string, unknown>): Record<string, unknown> {
+	return Object.assign({}, data, {
+		settingsVersion: 6,
+		clovaInvokeUrl: data['clovaInvokeUrl'] ?? '',
+		clovaSecretKey: data['clovaSecretKey'] ?? '',
+		clovaLanguage: data['clovaLanguage'] ?? 'ko-KR',
+		googleProjectId: data['googleProjectId'] ?? '',
+		googleApiKey: data['googleApiKey'] ?? '',
+		googleLocation: data['googleLocation'] ?? 'global',
+		googleModel: data['googleModel'] ?? 'chirp_3',
+		showConsentReminder: data['showConsentReminder'] ?? true,
+	});
+}
+
 const migrations: Migration[] = [
 	migrateV0ToV1,
 	migrateV1ToV2,
 	migrateV2ToV3,
 	migrateV3ToV4,
 	migrateV4ToV5,
+	migrateV5ToV6,
 ];
 
 export function migrateSettings(data: unknown): MeetingScribeSettings {

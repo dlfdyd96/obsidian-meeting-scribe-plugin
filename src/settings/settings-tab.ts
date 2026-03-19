@@ -1,5 +1,6 @@
 import { App, ButtonComponent, PluginSettingTab, Setting } from 'obsidian';
 import type MeetingScribePlugin from '../main';
+import { hasSTTCredentials } from './settings';
 import { SUPPORTED_AUDIO_FORMATS } from '../constants';
 import { providerRegistry } from '../providers/provider-registry';
 import { logger } from '../utils/logger';
@@ -15,10 +16,24 @@ const LLM_MODELS: Record<string, Record<string, string>> = {
 	},
 };
 
-const STT_MODELS: Record<string, string> = {
+const OPENAI_STT_MODELS: Record<string, string> = {
 	'gpt-4o-mini-transcribe': 'GPT-4o mini transcribe',
 	'gpt-4o-transcribe': 'GPT-4o transcribe',
 	'gpt-4o-transcribe-diarize': 'GPT-4o transcribe (with diarization)',
+};
+
+const CLOVA_LANGUAGE_OPTIONS: Record<string, string> = {
+	'ko-KR': 'Korean (ko-KR)',
+	'en-US': 'English (en-US)',
+	'enko': 'Korean + English (enko)',
+	'ja': 'Japanese (ja)',
+	'zh-cn': 'Chinese Simplified (zh-cn)',
+	'zh-tw': 'Chinese Traditional (zh-tw)',
+};
+
+const GOOGLE_STT_MODELS: Record<string, string> = {
+	'chirp_3': 'Chirp 3 (Recommended)',
+	'chirp_2': 'Chirp 2',
 };
 
 const LANGUAGE_OPTIONS: Record<string, string> = {
@@ -90,6 +105,141 @@ export class MeetingScribeSettingTab extends PluginSettingTab {
 		this.plugin = plugin;
 	}
 
+	private renderSTTProviderFields(containerEl: HTMLElement): void {
+		const settings = this.plugin.settings;
+
+		if (settings.sttProvider === 'openai') {
+			const sttKeySetting = new Setting(containerEl)
+				.setName('Speech-to-text API key')
+				.setDesc(getApiKeyDesc('openai'))
+				.addText(cb => {
+					// eslint-disable-next-line obsidianmd/ui/sentence-case
+					cb.setPlaceholder('sk-...')
+						.setValue(settings.sttApiKey)
+						.onChange(async (value) => {
+							this.plugin.settings.sttApiKey = value;
+							await this.plugin.saveSettings();
+						});
+					cb.inputEl.type = 'password';
+				})
+				.addButton(cb => cb
+					.setButtonText('Test')
+					.onClick(async () => {
+						const provider = providerRegistry.getSTTProvider('openai');
+						if (!provider) return;
+						await validateApiKeyWithUI(
+							cb,
+							sttKeySetting.descEl,
+							(key) => provider.validateApiKey(key),
+							settings.sttApiKey,
+						);
+					}));
+		} else if (settings.sttProvider === 'clova') {
+			new Setting(containerEl)
+				// eslint-disable-next-line obsidianmd/ui/sentence-case
+				.setName('CLOVA Speech invoke URL')
+				// eslint-disable-next-line obsidianmd/ui/sentence-case
+				.setDesc('Your CLOVA Speech custom domain URL')
+				.addText(cb => cb
+					.setPlaceholder('https://clovaspeech-gw.ncloud.com/...')
+					.setValue(settings.clovaInvokeUrl)
+					.onChange(async (value) => {
+						this.plugin.settings.clovaInvokeUrl = value;
+						await this.plugin.saveSettings();
+					}));
+
+			const clovaKeySetting = new Setting(containerEl)
+				.setName('Secret key')
+				// eslint-disable-next-line obsidianmd/ui/sentence-case
+				.setDesc('CLOVA Speech API secret key')
+				.addText(cb => {
+					cb.setValue(settings.clovaSecretKey)
+						.onChange(async (value) => {
+							this.plugin.settings.clovaSecretKey = value;
+							await this.plugin.saveSettings();
+						});
+					cb.inputEl.type = 'password';
+				})
+				.addButton(cb => cb
+					.setButtonText('Test')
+					.onClick(async () => {
+						const provider = providerRegistry.getSTTProvider('clova') as import('../providers/stt/clova-stt-provider').ClovaSpeechSTTProvider | undefined;
+						if (!provider) return;
+						provider.setCredentials(settings.clovaInvokeUrl, settings.clovaSecretKey);
+						await validateApiKeyWithUI(
+							cb,
+							clovaKeySetting.descEl,
+							(key) => provider.validateApiKey(key),
+							settings.clovaSecretKey,
+						);
+					}));
+
+			new Setting(containerEl)
+				.setName('Language')
+				// eslint-disable-next-line obsidianmd/ui/sentence-case
+				.setDesc('Primary language for CLOVA Speech transcription')
+				.addDropdown(cb => cb
+					.addOptions(CLOVA_LANGUAGE_OPTIONS)
+					.setValue(settings.clovaLanguage)
+					.onChange(async (value) => {
+						this.plugin.settings.clovaLanguage = value;
+						await this.plugin.saveSettings();
+					}));
+		} else if (settings.sttProvider === 'google') {
+			new Setting(containerEl)
+				.setName('Project ID')
+				// eslint-disable-next-line obsidianmd/ui/sentence-case
+				.setDesc('Google Cloud project ID')
+				.addText(cb => cb
+					// eslint-disable-next-line obsidianmd/ui/sentence-case
+					.setPlaceholder('my-project-123')
+					.setValue(settings.googleProjectId)
+					.onChange(async (value) => {
+						this.plugin.settings.googleProjectId = value;
+						await this.plugin.saveSettings();
+					}));
+
+			const googleKeySetting = new Setting(containerEl)
+				.setName('API key')
+				// eslint-disable-next-line obsidianmd/ui/sentence-case
+				.setDesc('Google Cloud API key or access token')
+				.addText(cb => {
+					cb.setValue(settings.googleApiKey)
+						.onChange(async (value) => {
+							this.plugin.settings.googleApiKey = value;
+							await this.plugin.saveSettings();
+						});
+					cb.inputEl.type = 'password';
+				})
+				.addButton(cb => cb
+					.setButtonText('Test')
+					.onClick(async () => {
+						const provider = providerRegistry.getSTTProvider('google') as import('../providers/stt/google-stt-provider').GoogleSTTProvider | undefined;
+						if (!provider) return;
+						provider.setCredentials(settings.googleProjectId, settings.googleApiKey, settings.googleLocation);
+						await validateApiKeyWithUI(
+							cb,
+							googleKeySetting.descEl,
+							(key) => provider.validateApiKey(key),
+							settings.googleApiKey,
+						);
+					}));
+
+			new Setting(containerEl)
+				.setName('Location')
+				// eslint-disable-next-line obsidianmd/ui/sentence-case
+				.setDesc('Google Cloud region (default: global)')
+				.addText(cb => cb
+					// eslint-disable-next-line obsidianmd/ui/sentence-case
+					.setPlaceholder('global')
+					.setValue(settings.googleLocation)
+					.onChange(async (value) => {
+						this.plugin.settings.googleLocation = value;
+						await this.plugin.saveSettings();
+					}));
+		}
+	}
+
 	display(): void {
 		const { containerEl } = this;
 		containerEl.empty();
@@ -102,37 +252,18 @@ export class MeetingScribeSettingTab extends PluginSettingTab {
 			.addDropdown(cb => cb
 				// eslint-disable-next-line obsidianmd/ui/sentence-case
 				.addOption('openai', 'OpenAI')
+				// eslint-disable-next-line obsidianmd/ui/sentence-case
+				.addOption('clova', 'CLOVA Speech')
+				// eslint-disable-next-line obsidianmd/ui/sentence-case
+				.addOption('google', 'Google Cloud STT')
 				.setValue(this.plugin.settings.sttProvider)
 				.onChange(async (value) => {
 					this.plugin.settings.sttProvider = value;
 					await this.plugin.saveSettings();
+					this.display();
 				}));
 
-		const sttKeySetting = new Setting(containerEl)
-			.setName('Speech-to-text API key')
-			.setDesc(getApiKeyDesc(this.plugin.settings.sttProvider))
-			.addText(cb => {
-				// eslint-disable-next-line obsidianmd/ui/sentence-case
-				cb.setPlaceholder('sk-...')
-					.setValue(this.plugin.settings.sttApiKey)
-					.onChange(async (value) => {
-						this.plugin.settings.sttApiKey = value;
-						await this.plugin.saveSettings();
-					});
-				cb.inputEl.type = 'password';
-			})
-			.addButton(cb => cb
-				.setButtonText('Test')
-				.onClick(async () => {
-					const provider = providerRegistry.getSTTProvider(this.plugin.settings.sttProvider);
-					if (!provider) return;
-					await validateApiKeyWithUI(
-						cb,
-						sttKeySetting.descEl,
-						(key) => provider.validateApiKey(key),
-						this.plugin.settings.sttApiKey,
-					);
-				}));
+		this.renderSTTProviderFields(containerEl);
 
 		new Setting(containerEl)
 			.setName('Language model provider')
@@ -202,16 +333,29 @@ export class MeetingScribeSettingTab extends PluginSettingTab {
 
 		new Setting(containerEl).setName('Recording').setHeading();
 
-		new Setting(containerEl)
-			.setName('Speech-to-text model')
-			.setDesc('Model for audio transcription')
-			.addDropdown(cb => cb
-				.addOptions(STT_MODELS)
-				.setValue(this.plugin.settings.sttModel)
-				.onChange(async (value) => {
-					this.plugin.settings.sttModel = value;
-					await this.plugin.saveSettings();
-				}));
+		if (this.plugin.settings.sttProvider === 'openai') {
+			new Setting(containerEl)
+				.setName('Speech-to-text model')
+				.setDesc('Model for audio transcription')
+				.addDropdown(cb => cb
+					.addOptions(OPENAI_STT_MODELS)
+					.setValue(this.plugin.settings.sttModel)
+					.onChange(async (value) => {
+						this.plugin.settings.sttModel = value;
+						await this.plugin.saveSettings();
+					}));
+		} else if (this.plugin.settings.sttProvider === 'google') {
+			new Setting(containerEl)
+				.setName('Speech-to-text model')
+				.setDesc('Model for audio transcription')
+				.addDropdown(cb => cb
+					.addOptions(GOOGLE_STT_MODELS)
+					.setValue(this.plugin.settings.googleModel)
+					.onChange(async (value) => {
+						this.plugin.settings.googleModel = value;
+						await this.plugin.saveSettings();
+					}));
+		}
 
 		new Setting(containerEl)
 			.setName('Speech-to-text language')
@@ -260,7 +404,7 @@ export class MeetingScribeSettingTab extends PluginSettingTab {
 				// eslint-disable-next-line obsidianmd/ui/sentence-case
 				.setButtonText('Run Test')
 				.onClick(async () => {
-					if (!this.plugin.settings.sttApiKey || !this.plugin.settings.llmApiKey) {
+					if (!hasSTTCredentials(this.plugin.settings) || !this.plugin.settings.llmApiKey) {
 						setDescStatus(testSetting.descEl, '✗ Enter API keys first', false);
 						return;
 					}

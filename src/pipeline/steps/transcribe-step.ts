@@ -2,7 +2,7 @@ import { TFile, normalizePath } from 'obsidian';
 import type { PipelineStep, PipelineContext } from '../pipeline-types';
 import type { TranscriptionResult, TranscriptionSegment } from '../../providers/types';
 import { chunkAudio } from '../chunker';
-import { SUPPORTED_AUDIO_FORMATS } from '../../constants';
+import { SUPPORTED_AUDIO_FORMATS, DIARIZE_MAX_DURATION_SECONDS } from '../../constants';
 import { providerRegistry } from '../../providers/provider-registry';
 import { ConfigError, DataError } from '../../utils/errors';
 import { logger } from '../../utils/logger';
@@ -63,9 +63,11 @@ export class TranscribeStep implements PipelineStep {
 
 		const audioData = await vault.readBinary(audioFile);
 
-		// Chunk audio
+		// Chunk audio (diarize model has a duration limit)
+		const isDiarization = settings.sttModel === 'gpt-4o-transcribe-diarize';
 		const chunks = await chunkAudio(audioData, {
 			enableSmartChunking: settings.enableSmartChunking,
+			maxDurationSeconds: isDiarization ? DIARIZE_MAX_DURATION_SECONDS : undefined,
 		});
 		const totalChunks = chunks.length;
 

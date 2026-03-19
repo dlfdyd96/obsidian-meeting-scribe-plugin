@@ -13,6 +13,7 @@ export interface AudioChunk {
 
 export interface ChunkerOptions {
 	enableSmartChunking?: boolean;
+	maxDurationSeconds?: number;
 }
 
 const COMPONENT = 'Chunker';
@@ -159,9 +160,11 @@ export async function chunkAudio(
 	options?: ChunkerOptions,
 ): Promise<AudioChunk[]> {
 	const enableSmartChunking = options?.enableSmartChunking ?? false;
+	const maxDurationSeconds = options?.maxDurationSeconds;
 
 	// Size-based threshold: skip PCM decoding entirely for files under 25MB
-	if (audio.byteLength <= MAX_CHUNK_SIZE_BYTES) {
+	// UNLESS a duration limit is set (e.g. diarize model caps at 1400s)
+	if (audio.byteLength <= MAX_CHUNK_SIZE_BYTES && !maxDurationSeconds) {
 		logger.info(COMPONENT, 'Audio under size limit, skipping decode', {
 			sizeBytes: audio.byteLength,
 			maxBytes: MAX_CHUNK_SIZE_BYTES,
@@ -179,7 +182,7 @@ export async function chunkAudio(
 		];
 	}
 
-	// File exceeds 25MB — must decode to split
+	// Must decode: either file exceeds 25MB or duration limit requires checking
 	let audioBuffer: AudioBuffer;
 	try {
 		const ctx = new OfflineAudioContext(1, 1, 44100);
@@ -194,10 +197,35 @@ export async function chunkAudio(
 	const sampleRate = audioBuffer.sampleRate;
 	const outputSampleRate = sampleRate > TARGET_SAMPLE_RATE ? TARGET_SAMPLE_RATE : sampleRate;
 
+	// If under both size and duration limits, return original file as-is
+	if (audio.byteLength <= MAX_CHUNK_SIZE_BYTES && maxDurationSeconds && duration <= maxDurationSeconds) {
+		logger.info(COMPONENT, 'Audio under size and duration limits, skipping split', {
+			sizeBytes: audio.byteLength,
+			duration,
+			maxDurationSeconds,
+		});
+		const { mimeType, fileExtension } = detectAudioFormat(audio);
+		return [
+			{
+				data: audio,
+				chunkIndex: 0,
+				startTime: 0,
+				endTime: duration,
+				mimeType,
+				fileExtension,
+			},
+		];
+	}
+
 	// Calculate max chunk duration targeting <25MB per WAV chunk
 	// WAV bytes = 44 (header) + duration * sampleRate * 2 (16-bit mono)
 	const wavBytesPerSecond = outputSampleRate * 2;
-	const maxDuration = Math.floor((MAX_CHUNK_SIZE_BYTES - 44) / wavBytesPerSecond);
+	let maxDuration = Math.floor((MAX_CHUNK_SIZE_BYTES - 44) / wavBytesPerSecond);
+
+	// Also respect model duration limit if set
+	if (maxDurationSeconds) {
+		maxDuration = Math.min(maxDuration, maxDurationSeconds);
+	}
 
 	logger.info(COMPONENT, 'Audio loaded, splitting required', {
 		duration,

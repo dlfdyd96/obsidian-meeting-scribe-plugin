@@ -33,43 +33,6 @@ interface DiarizedJsonApiResponse {
 	segments: { start: number; end: number; text: string; speaker: string }[];
 }
 
-function concatenateArrayBuffers(arrays: Uint8Array[]): ArrayBuffer {
-	let totalLength = 0;
-	for (const arr of arrays) {
-		totalLength += arr.byteLength;
-	}
-	const result = new Uint8Array(totalLength);
-	let offset = 0;
-	for (const arr of arrays) {
-		result.set(arr, offset);
-		offset += arr.byteLength;
-	}
-	return result.buffer;
-}
-
-function buildMultipartBody(
-	fields: Record<string, string>,
-	fileField: { name: string; filename: string; data: ArrayBuffer; contentType: string },
-	boundary: string,
-): ArrayBuffer {
-	const parts: Uint8Array[] = [];
-	const encoder = new TextEncoder();
-
-	for (const [name, value] of Object.entries(fields)) {
-		const header = `--${boundary}\r\nContent-Disposition: form-data; name="${name}"\r\n\r\n${value}\r\n`;
-		parts.push(encoder.encode(header));
-	}
-
-	const fileHeader = `--${boundary}\r\nContent-Disposition: form-data; name="${fileField.name}"; filename="${fileField.filename}"\r\nContent-Type: ${fileField.contentType}\r\n\r\n`;
-	parts.push(encoder.encode(fileHeader));
-	parts.push(new Uint8Array(fileField.data));
-	parts.push(encoder.encode('\r\n'));
-
-	parts.push(encoder.encode(`--${boundary}--\r\n`));
-
-	return concatenateArrayBuffers(parts);
-}
-
 export class OpenAISTTProvider implements STTProvider {
 	readonly name = 'openai';
 
@@ -92,103 +55,106 @@ export class OpenAISTTProvider implements STTProvider {
 		});
 
 		const isWhisper = options.model === WHISPER_MODEL;
-		const fields: Record<string, string> = {
-			model: options.model,
-		};
-
-		if (isDiarization) {
-			fields['response_format'] = 'diarized_json';
-			fields['chunking_strategy'] = 'auto';
-		} else if (isWhisper) {
-			fields['response_format'] = 'verbose_json';
-			fields['timestamp_granularities[]'] = 'segment';
-		} else {
-			// gpt-4o-transcribe, gpt-4o-mini-transcribe — only json/text supported
-			fields['response_format'] = 'json';
-		}
-
-		if (options.language) {
-			fields['language'] = options.language;
-		}
-
 		const filename = options.audioFileName ?? 'audio.webm';
 		const contentType = options.audioMimeType ?? 'audio/webm';
 
-		const boundary = `----FormBoundary${Date.now()}`;
-		const body = buildMultipartBody(
-			fields,
-			{ name: 'file', filename, data: audio, contentType },
-			boundary,
-		);
+		const formData = new FormData();
+		formData.append('model', options.model);
+		formData.append('file', new Blob([audio], { type: contentType }), filename);
 
+		if (isDiarization) {
+			formData.append('response_format', 'diarized_json');
+			formData.append('chunking_strategy', 'auto');
+		} else if (isWhisper) {
+			formData.append('response_format', 'verbose_json');
+			formData.append('timestamp_granularities[]', 'segment');
+		} else {
+			formData.append('response_format', 'json');
+		}
+
+		if (options.language) {
+			formData.append('language', options.language);
+		}
+
+		let response: Response;
 		try {
-			const response = await requestUrl({
-				url: TRANSCRIPTION_ENDPOINT,
+			response = await fetch(TRANSCRIPTION_ENDPOINT, {
 				method: 'POST',
-				contentType: `multipart/form-data; boundary=${boundary}`,
-				body,
-				headers: {
-					'Authorization': `Bearer ${this.apiKey}`,
-				},
+				headers: { 'Authorization': `Bearer ${this.apiKey}` },
+				body: formData,
 			});
-
-			const json = response.json as SimpleJsonApiResponse | VerboseJsonApiResponse | DiarizedJsonApiResponse;
-
-			let segments: TranscriptionSegment[];
-			let language: string;
-
-			if (isDiarization) {
-				const diarized = json as DiarizedJsonApiResponse;
-				segments = diarized.segments.map((seg) => ({
-					start: seg.start,
-					end: seg.end,
-					text: seg.text,
-					speaker: seg.speaker,
-				}));
-				language = options.language ?? 'auto';
-			} else if (isWhisper) {
-				const verbose = json as VerboseJsonApiResponse;
-				segments = verbose.segments.map((seg) => ({
-					start: seg.start,
-					end: seg.end,
-					text: seg.text,
-				}));
-				language = verbose.language;
-			} else {
-				// gpt-4o-transcribe, gpt-4o-mini-transcribe — text only, no segments
-				const simple = json as SimpleJsonApiResponse;
-				segments = [{
-					start: 0,
-					end: 0,
-					text: simple.text,
-				}];
-				language = options.language ?? 'auto';
-			}
-
-			const result: TranscriptionResult = {
-				version: 1,
-				audioFile: '',
-				provider: this.name,
-				model: options.model,
-				language,
-				segments,
-				fullText: json.text,
-				createdAt: new Date().toISOString(),
-			};
-
-			logger.debug(COMPONENT, 'Transcription complete', {
-				segmentCount: segments.length,
-				textLength: json.text.length,
-			});
-
-			return result;
 		} catch (err) {
-			logger.error(COMPONENT, 'Transcription failed', {
+			logger.error(COMPONENT, 'Transcription network error', {
 				model: options.model,
 				error: err instanceof Error ? err.message : String(err),
 			});
 			classifyOpenAIError(err);
 		}
+
+		if (!response.ok) {
+			let errorBody: unknown;
+			try {
+				errorBody = await response.json();
+			} catch {
+				errorBody = await response.text().catch(() => '');
+			}
+			logger.error(COMPONENT, 'Transcription failed', {
+				model: options.model,
+				status: response.status,
+				errorBody,
+			});
+			classifyOpenAIError({ status: response.status, json: errorBody });
+		}
+
+		const json = await response.json() as SimpleJsonApiResponse | VerboseJsonApiResponse | DiarizedJsonApiResponse;
+
+		let segments: TranscriptionSegment[];
+		let language: string;
+
+		if (isDiarization) {
+			const diarized = json as DiarizedJsonApiResponse;
+			segments = diarized.segments.map((seg) => ({
+				start: seg.start,
+				end: seg.end,
+				text: seg.text,
+				speaker: seg.speaker,
+			}));
+			language = options.language ?? 'auto';
+		} else if (isWhisper) {
+			const verbose = json as VerboseJsonApiResponse;
+			segments = verbose.segments.map((seg) => ({
+				start: seg.start,
+				end: seg.end,
+				text: seg.text,
+			}));
+			language = verbose.language;
+		} else {
+			const simple = json as SimpleJsonApiResponse;
+			segments = [{
+				start: 0,
+				end: 0,
+				text: simple.text,
+			}];
+			language = options.language ?? 'auto';
+		}
+
+		const result: TranscriptionResult = {
+			version: 1,
+			audioFile: '',
+			provider: this.name,
+			model: options.model,
+			language,
+			segments,
+			fullText: json.text,
+			createdAt: new Date().toISOString(),
+		};
+
+		logger.debug(COMPONENT, 'Transcription complete', {
+			segmentCount: segments.length,
+			textLength: json.text.length,
+		});
+
+		return result;
 	}
 
 	async validateApiKey(key: string): Promise<boolean> {

@@ -4,14 +4,14 @@ import type { MeetingScribeSettings } from '../../src/settings/settings';
 
 describe('MeetingScribeSettings', () => {
 	describe('CURRENT_SETTINGS_VERSION', () => {
-		it('should be 5', () => {
-			expect(CURRENT_SETTINGS_VERSION).toBe(5);
+		it('should be 6', () => {
+			expect(CURRENT_SETTINGS_VERSION).toBe(6);
 		});
 	});
 
 	describe('DEFAULT_SETTINGS', () => {
-		it('should have settingsVersion set to 5', () => {
-			expect(DEFAULT_SETTINGS.settingsVersion).toBe(5);
+		it('should have settingsVersion set to 6', () => {
+			expect(DEFAULT_SETTINGS.settingsVersion).toBe(6);
 		});
 
 		it('should have sttProvider set to openai', () => {
@@ -74,8 +74,25 @@ describe('MeetingScribeSettings', () => {
 			expect(DEFAULT_SETTINGS.onboardingComplete).toBe(false);
 		});
 
-		it('should have exactly 16 fields', () => {
-			expect(Object.keys(DEFAULT_SETTINGS)).toHaveLength(16);
+		it('should have exactly 24 fields', () => {
+			expect(Object.keys(DEFAULT_SETTINGS)).toHaveLength(24);
+		});
+
+		it('should have CLOVA Speech defaults', () => {
+			expect(DEFAULT_SETTINGS.clovaInvokeUrl).toBe('');
+			expect(DEFAULT_SETTINGS.clovaSecretKey).toBe('');
+			expect(DEFAULT_SETTINGS.clovaLanguage).toBe('ko-KR');
+		});
+
+		it('should have Google Cloud STT defaults', () => {
+			expect(DEFAULT_SETTINGS.googleProjectId).toBe('');
+			expect(DEFAULT_SETTINGS.googleApiKey).toBe('');
+			expect(DEFAULT_SETTINGS.googleLocation).toBe('global');
+			expect(DEFAULT_SETTINGS.googleModel).toBe('chirp_3');
+		});
+
+		it('should have showConsentReminder set to true', () => {
+			expect(DEFAULT_SETTINGS.showConsentReminder).toBe(true);
 		});
 
 		it('should satisfy the MeetingScribeSettings type', () => {

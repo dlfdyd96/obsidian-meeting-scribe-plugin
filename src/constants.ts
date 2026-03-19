@@ -5,6 +5,7 @@ export const MAX_RETRY_COUNT = 3;
 export const RETRY_BASE_DELAY_MS = 1000;
 
 export const MAX_CHUNK_SIZE_BYTES = 25 * 1024 * 1024;
+export const DIARIZE_MAX_DURATION_SECONDS = 1400;
 
 export const SUPPORTED_AUDIO_FORMATS = ['mp3', 'mp4', 'm4a', 'wav', 'webm', 'mpeg', 'mpga'] as const;
 
