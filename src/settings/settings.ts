@@ -26,9 +26,11 @@ export interface MeetingScribeSettings {
 	googleModel: string;
 	// Consent reminder
 	showConsentReminder: boolean;
+	// Two-file output
+	separateTranscriptFile: boolean;
 }
 
-export const CURRENT_SETTINGS_VERSION = 6;
+export const CURRENT_SETTINGS_VERSION = 7;
 
 export function hasSTTCredentials(settings: MeetingScribeSettings): boolean {
 	switch (settings.sttProvider) {
@@ -64,4 +66,5 @@ export const DEFAULT_SETTINGS: MeetingScribeSettings = {
 	googleLocation: 'global',
 	googleModel: 'chirp_3',
 	showConsentReminder: true,
+	separateTranscriptFile: false,
 };

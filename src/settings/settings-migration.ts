@@ -49,6 +49,13 @@ function migrateV5ToV6(data: Record<string, unknown>): Record<string, unknown> {
 	});
 }
 
+function migrateV6ToV7(data: Record<string, unknown>): Record<string, unknown> {
+	return Object.assign({}, data, {
+		settingsVersion: 7,
+		separateTranscriptFile: data['separateTranscriptFile'] ?? false,
+	});
+}
+
 const migrations: Migration[] = [
 	migrateV0ToV1,
 	migrateV1ToV2,
@@ -56,6 +63,7 @@ const migrations: Migration[] = [
 	migrateV3ToV4,
 	migrateV4ToV5,
 	migrateV5ToV6,
+	migrateV6ToV7,
 ];
 
 export function migrateSettings(data: unknown): MeetingScribeSettings {

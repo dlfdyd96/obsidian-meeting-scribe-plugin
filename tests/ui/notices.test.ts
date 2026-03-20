@@ -242,4 +242,29 @@ describe('NoticeManager', () => {
 			expect(link!.textContent).toBe('Open Settings');
 		});
 	});
+
+	describe('showSuccess with transcript file', () => {
+		it('should show transcript filename when transcriptFilePath is provided', () => {
+			const notice = manager.showSuccess(
+				'meetings/note.md',
+				'meetings/note - Transcript.md',
+			);
+			expect(notice.noticeEl.textContent).toContain('Transcript: note - Transcript.md');
+		});
+
+		it('should not show transcript info when transcriptFilePath is not provided', () => {
+			const notice = manager.showSuccess('meetings/note.md');
+			expect(notice.noticeEl.textContent).not.toContain('Transcript');
+		});
+
+		it('should still open meeting note (not transcript) when clicked', () => {
+			const notice = manager.showSuccess(
+				'meetings/note.md',
+				'meetings/note - Transcript.md',
+			);
+			const link = notice.noticeEl.querySelector('.meeting-scribe-notice-link') as HTMLElement;
+			link.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+			expect(mockApp.workspace.openLinkText).toHaveBeenCalledWith('meetings/note.md', '', true);
+		});
+	});
 });

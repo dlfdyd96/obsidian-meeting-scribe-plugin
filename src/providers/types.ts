@@ -41,6 +41,11 @@ export interface LLMModel {
 	name: string;
 }
 
+export interface ParticipantAlias {
+	alias: string;
+	name: string;
+}
+
 export interface MeetingMetadata {
 	date?: string;
 	title?: string;

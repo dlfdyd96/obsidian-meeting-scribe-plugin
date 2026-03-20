@@ -477,7 +477,20 @@ export class MeetingScribeSettingTab extends PluginSettingTab {
 				.onChange(async (value) => {
 					this.plugin.settings.includeTranscript = value;
 					await this.plugin.saveSettings();
+					this.display();
 				}));
+
+		if (this.plugin.settings.includeTranscript) {
+			new Setting(advancedEl)
+				.setName('Separate transcript file')
+				.setDesc('Generate transcript as a separate file with wiki-links instead of including it inline in the meeting note')
+				.addToggle(cb => cb
+					.setValue(this.plugin.settings.separateTranscriptFile)
+					.onChange(async (value) => {
+						this.plugin.settings.separateTranscriptFile = value;
+						await this.plugin.saveSettings();
+					}));
+		}
 
 		new Setting(advancedEl)
 			.setName('Smart chunking')

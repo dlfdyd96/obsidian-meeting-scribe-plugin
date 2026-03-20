@@ -9,6 +9,7 @@ export interface PipelineContext {
 	transcriptionResult?: TranscriptionResult;
 	summaryResult?: SummaryResult;
 	noteFilePath?: string;
+	transcriptFilePath?: string;
 	onProgress?: (step: string, current: number, total: number) => void;
 	forceRetranscribe?: boolean;
 	maxDurationOverride?: number;

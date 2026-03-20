@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { generateNote, generateFilename } from '../../src/note/note-generator';
-import type { SummaryResult, TranscriptionResult, MeetingMetadata } from '../../src/providers/types';
+import { generateNote, generateFilename, generateTranscriptNote, generateTranscriptFilename, extractParticipants, applyParticipantReplacements, parseFrontmatter, parseParticipantsFromYaml } from '../../src/note/note-generator';
+import type { SummaryResult, TranscriptionResult, MeetingMetadata, ParticipantAlias } from '../../src/providers/types';
 
 function createMockSummaryResult(overrides?: Partial<SummaryResult>): SummaryResult {
 	return {
@@ -138,8 +138,8 @@ describe('generateNote', () => {
 			includeTranscript: true,
 		});
 
-		expect(result).toContain('[00:00:15] **Alice:** Good morning.');
-		expect(result).toContain('[00:00:22] **Bob:** Hello!');
+		expect(result).toContain('[00:00:15] **[[Alice]]:** Good morning.');
+		expect(result).toContain('[00:00:22] **[[Bob]]:** Hello!');
 	});
 
 	it('formats non-diarized transcript as continuous text', () => {
@@ -234,5 +234,494 @@ describe('generateFilename', () => {
 
 		const result = generateFilename(metadata);
 		expect(result).toBe('2026-03-16 팀 주간회의.md');
+	});
+});
+
+describe('generateNote with transcriptLink (two-file mode)', () => {
+	beforeEach(() => {
+		vi.useFakeTimers();
+		vi.setSystemTime(new Date('2026-03-16T10:00:00Z'));
+	});
+
+	afterEach(() => {
+		vi.useRealTimers();
+	});
+
+	it('includes wiki-link to transcript instead of inline transcript', () => {
+		const result = generateNote({
+			summaryResult: createMockSummaryResult(),
+			transcriptionResult: createMockTranscriptionResult(),
+			audioFilePath: 'test/audio.webm',
+			transcriptLink: '[[2026-03-16 Weekly Standup - Transcript]]',
+		});
+
+		expect(result).toContain('> Full transcript: [[2026-03-16 Weekly Standup - Transcript]]');
+		expect(result).not.toContain('## Transcript');
+	});
+
+	it('adds transcript field to frontmatter', () => {
+		const result = generateNote({
+			summaryResult: createMockSummaryResult(),
+			transcriptionResult: createMockTranscriptionResult(),
+			audioFilePath: 'test/audio.webm',
+			transcriptLink: '[[2026-03-16 Weekly Standup - Transcript]]',
+		});
+
+		expect(result).toContain('transcript:');
+	});
+
+	it('still includes audio embed', () => {
+		const result = generateNote({
+			summaryResult: createMockSummaryResult(),
+			transcriptionResult: createMockTranscriptionResult(),
+			audioFilePath: 'test/audio.webm',
+			transcriptLink: '[[2026-03-16 Weekly Standup - Transcript]]',
+		});
+
+		expect(result).toContain('![[audio.webm]]');
+	});
+});
+
+describe('generateTranscriptNote', () => {
+	beforeEach(() => {
+		vi.useFakeTimers();
+		vi.setSystemTime(new Date('2026-03-16T10:00:00Z'));
+	});
+
+	afterEach(() => {
+		vi.useRealTimers();
+	});
+
+	it('generates a transcript note with frontmatter and transcript section', () => {
+		const result = generateTranscriptNote({
+			summaryResult: createMockSummaryResult(),
+			transcriptionResult: createMockTranscriptionResult(),
+			audioFilePath: 'test/audio.webm',
+			meetingNoteLink: '[[2026-03-16 Weekly Standup]]',
+		});
+
+		expect(result).toContain('type: transcript');
+		expect(result).toContain('meeting:');
+		expect(result).toContain('## Transcript');
+		expect(result).toContain('Meeting content. More content.');
+	});
+
+	it('includes meeting back-link in frontmatter', () => {
+		const result = generateTranscriptNote({
+			summaryResult: createMockSummaryResult(),
+			transcriptionResult: createMockTranscriptionResult(),
+			audioFilePath: 'test/audio.webm',
+			meetingNoteLink: '[[2026-03-16 Weekly Standup]]',
+		});
+
+		expect(result).toContain("meeting: '[[2026-03-16 Weekly Standup]]'");
+	});
+
+	it('does not include title field as type:meeting frontmatter', () => {
+		const result = generateTranscriptNote({
+			summaryResult: createMockSummaryResult(),
+			transcriptionResult: createMockTranscriptionResult(),
+			audioFilePath: 'test/audio.webm',
+			meetingNoteLink: '[[2026-03-16 Weekly Standup]]',
+		});
+
+		// Type should be transcript, not meeting
+		expect(result).toContain('type: transcript');
+		expect(result).not.toMatch(/^type: meeting$/m);
+	});
+
+	it('formats diarized transcript with speaker labels', () => {
+		const transcription = createMockTranscriptionResult({
+			segments: [
+				{ speaker: 'Participant 1', start: 0, end: 45, text: 'Hello everyone.' },
+				{ speaker: 'Participant 2', start: 45, end: 90, text: 'Good morning.' },
+			],
+			fullText: 'Hello everyone. Good morning.',
+		});
+
+		const result = generateTranscriptNote({
+			summaryResult: createMockSummaryResult(),
+			transcriptionResult: transcription,
+			audioFilePath: 'test/audio.webm',
+			meetingNoteLink: '[[2026-03-16 Weekly Standup]]',
+		});
+
+		expect(result).toContain('**[[Participant 1]]:**');
+		expect(result).toContain('**[[Participant 2]]:**');
+	});
+});
+
+describe('extractParticipants', () => {
+	it('extracts unique speakers in order of first appearance', () => {
+		const transcription = createMockTranscriptionResult({
+			segments: [
+				{ speaker: 'Participant 1', start: 0, end: 10, text: 'Hello.' },
+				{ speaker: 'Participant 2', start: 10, end: 20, text: 'Hi.' },
+				{ speaker: 'Participant 1', start: 20, end: 30, text: 'How are you?' },
+			],
+		});
+
+		const result = extractParticipants(transcription);
+
+		expect(result).toEqual([
+			{ alias: 'Participant 1', name: '' },
+			{ alias: 'Participant 2', name: '' },
+		]);
+	});
+
+	it('returns empty array when no segments have speakers', () => {
+		const transcription = createMockTranscriptionResult({
+			segments: [
+				{ start: 0, end: 10, text: 'No speaker.' },
+				{ start: 10, end: 20, text: 'Still no speaker.' },
+			],
+		});
+
+		const result = extractParticipants(transcription);
+
+		expect(result).toEqual([]);
+	});
+
+	it('ignores empty/whitespace speaker strings', () => {
+		const transcription = createMockTranscriptionResult({
+			segments: [
+				{ speaker: '', start: 0, end: 10, text: 'Empty.' },
+				{ speaker: '  ', start: 10, end: 20, text: 'Whitespace.' },
+				{ speaker: 'Participant 1', start: 20, end: 30, text: 'Real speaker.' },
+			],
+		});
+
+		const result = extractParticipants(transcription);
+
+		expect(result).toEqual([
+			{ alias: 'Participant 1', name: '' },
+		]);
+	});
+
+	it('returns empty array for zero segments', () => {
+		const transcription = createMockTranscriptionResult({ segments: [] });
+
+		const result = extractParticipants(transcription);
+
+		expect(result).toEqual([]);
+	});
+});
+
+describe('generateNote with participants', () => {
+	beforeEach(() => {
+		vi.useFakeTimers();
+		vi.setSystemTime(new Date('2026-03-16T10:00:00Z'));
+	});
+
+	afterEach(() => {
+		vi.useRealTimers();
+	});
+
+	it('passes participants through to frontmatter', () => {
+		const participants = [
+			{ alias: 'Participant 1', name: '' },
+			{ alias: 'Participant 2', name: '' },
+		];
+
+		const result = generateNote({
+			summaryResult: createMockSummaryResult(),
+			transcriptionResult: createMockTranscriptionResult(),
+			audioFilePath: 'test/audio.webm',
+			participants,
+		});
+
+		expect(result).toContain('  - alias: "Participant 1"');
+		expect(result).toContain('  - alias: "Participant 2"');
+	});
+});
+
+describe('generateTranscriptNote with participants', () => {
+	beforeEach(() => {
+		vi.useFakeTimers();
+		vi.setSystemTime(new Date('2026-03-16T10:00:00Z'));
+	});
+
+	afterEach(() => {
+		vi.useRealTimers();
+	});
+
+	it('passes participants through to transcript frontmatter', () => {
+		const participants = [
+			{ alias: 'Participant 1', name: '' },
+		];
+
+		const result = generateTranscriptNote({
+			summaryResult: createMockSummaryResult(),
+			transcriptionResult: createMockTranscriptionResult(),
+			audioFilePath: 'test/audio.webm',
+			meetingNoteLink: '[[2026-03-16 Weekly Standup]]',
+			participants,
+		});
+
+		expect(result).toContain('  - alias: "Participant 1"');
+		expect(result).toContain('type: transcript');
+	});
+});
+
+describe('parseFrontmatter', () => {
+	it('parses frontmatter and body from markdown', () => {
+		const content = '---\ndate: 2026-03-20\ntitle: Test\n---\nBody content here.';
+		const result = parseFrontmatter(content);
+
+		expect(result).not.toBeNull();
+		expect(result!.frontmatter).toContain('date: 2026-03-20');
+		expect(result!.body).toContain('Body content here.');
+	});
+
+	it('returns null for content without frontmatter', () => {
+		const result = parseFrontmatter('No frontmatter here.');
+		expect(result).toBeNull();
+	});
+});
+
+describe('parseParticipantsFromYaml', () => {
+	it('parses participant aliases from YAML frontmatter', () => {
+		const yaml = 'date: 2026-03-20\nparticipants:\n  - alias: "Participant 1"\n    name: ""\n  - alias: "Participant 2"\n    name: "Paul"\ntags:\n  - meeting';
+		const result = parseParticipantsFromYaml(yaml);
+
+		expect(result).toEqual([
+			{ alias: 'Participant 1', name: '' },
+			{ alias: 'Participant 2', name: 'Paul' },
+		]);
+	});
+
+	it('returns null when no participants section exists', () => {
+		const yaml = 'date: 2026-03-20\ntags:\n  - meeting';
+		const result = parseParticipantsFromYaml(yaml);
+		expect(result).toBeNull();
+	});
+});
+
+describe('applyParticipantReplacements', () => {
+	const makeContent = (participants: ParticipantAlias[], body: string) => {
+		const pLines = participants.map(p =>
+			`  - alias: "${p.alias}"\n    name: "${p.name}"`
+		).join('\n');
+		return `---\ndate: 2026-03-20\nparticipants:\n${pLines}\ncreated_by: meeting-scribe\n---\n${body}`;
+	};
+
+	it('replaces [[Participant N]] with [[name]] for plain string names', () => {
+		const participants: ParticipantAlias[] = [
+			{ alias: 'Participant 1', name: 'Paul' },
+			{ alias: 'Participant 2', name: '' },
+		];
+		const body = 'Said by **[[Participant 1]]:** hello. **[[Participant 2]]:** hi.';
+		const content = makeContent(participants, body);
+
+		const result = applyParticipantReplacements(content, participants);
+
+		expect(result.updatedContent).toContain('**[[Paul]]:**');
+		expect(result.updatedContent).toContain('**[[Participant 2]]:**');
+		expect(result.replacementCount).toBe(1);
+	});
+
+	it('replaces with wiki-link name as-is when name starts with [[', () => {
+		const participants: ParticipantAlias[] = [
+			{ alias: 'Participant 1', name: '[[People/Paul]]' },
+		];
+		const body = 'Quote from **[[Participant 1]]:** something.';
+		const content = makeContent(participants, body);
+
+		const result = applyParticipantReplacements(content, participants);
+
+		expect(result.updatedContent).toContain('**[[People/Paul]]:**');
+		expect(result.updatedParticipants[0]!.alias).toBe('People/Paul');
+	});
+
+	it('handles idempotent replacement (re-run with different name)', () => {
+		const participants: ParticipantAlias[] = [
+			{ alias: 'Paul', name: 'Kim' },
+		];
+		const body = 'Said by **[[Paul]]:** hello.';
+		const content = makeContent(participants, body);
+
+		const result = applyParticipantReplacements(content, participants);
+
+		expect(result.updatedContent).toContain('**[[Kim]]:**');
+		expect(result.updatedParticipants[0]!.alias).toBe('Kim');
+		expect(result.replacementCount).toBe(1);
+	});
+
+	it('skips participants with empty names', () => {
+		const participants: ParticipantAlias[] = [
+			{ alias: 'Participant 1', name: '' },
+		];
+		const body = '**[[Participant 1]]:** hello.';
+		const content = makeContent(participants, body);
+
+		const result = applyParticipantReplacements(content, participants);
+
+		expect(result.updatedContent).toContain('**[[Participant 1]]:**');
+		expect(result.replacementCount).toBe(0);
+	});
+
+	it('returns original content when no frontmatter exists', () => {
+		const content = 'No frontmatter here.';
+		const result = applyParticipantReplacements(content, []);
+
+		expect(result.updatedContent).toBe(content);
+		expect(result.replacementCount).toBe(0);
+	});
+
+	it('handles multiple occurrences of the same participant', () => {
+		const participants: ParticipantAlias[] = [
+			{ alias: 'Participant 1', name: 'Alice' },
+		];
+		const body = '**[[Participant 1]]:** hello. Later, **[[Participant 1]]:** goodbye.';
+		const content = makeContent(participants, body);
+
+		const result = applyParticipantReplacements(content, participants);
+
+		expect(result.replacementCount).toBe(2);
+		expect(result.updatedContent).not.toContain('[[Participant 1]]');
+		expect(result.updatedContent).toContain('**[[Alice]]:**');
+	});
+
+	it('updates frontmatter participants with new alias values', () => {
+		const participants: ParticipantAlias[] = [
+			{ alias: 'Participant 1', name: 'Paul' },
+			{ alias: 'Participant 2', name: '[[People/Kim]]' },
+		];
+		const body = '**[[Participant 1]]:** a **[[Participant 2]]:** b';
+		const content = makeContent(participants, body);
+
+		const result = applyParticipantReplacements(content, participants);
+
+		expect(result.updatedContent).toContain('alias: "Paul"');
+		expect(result.updatedContent).toContain('alias: "People/Kim"');
+	});
+});
+
+describe('generateTranscriptFilename', () => {
+	it('appends - Transcript before .md extension', () => {
+		expect(generateTranscriptFilename('2026-03-16 Weekly Standup.md'))
+			.toBe('2026-03-16 Weekly Standup - Transcript.md');
+	});
+
+	it('handles Korean titles', () => {
+		expect(generateTranscriptFilename('2026-03-16 팀 주간회의.md'))
+			.toBe('2026-03-16 팀 주간회의 - Transcript.md');
+	});
+});
+
+describe('Integration: full pipeline flow → replacement', () => {
+	beforeEach(() => {
+		vi.useFakeTimers();
+		vi.setSystemTime(new Date('2026-03-20T10:00:00Z'));
+	});
+
+	afterEach(() => {
+		vi.useRealTimers();
+	});
+
+	it('generates note with participant aliases, then replacement updates both note and transcript content', () => {
+		const transcription = createMockTranscriptionResult({
+			segments: [
+				{ speaker: 'Participant 1', start: 0, end: 30, text: 'Hello everyone.' },
+				{ speaker: 'Participant 2', start: 30, end: 60, text: 'Good morning.' },
+			],
+			fullText: 'Hello everyone. Good morning.',
+		});
+		const participants = extractParticipants(transcription);
+
+		// Generate meeting note
+		const note = generateNote({
+			summaryResult: createMockSummaryResult({ summary: '## Summary\n\n[[Participant 1]] led the meeting. [[Participant 2]] took notes.' }),
+			transcriptionResult: transcription,
+			audioFilePath: 'audio/test.webm',
+			transcriptLink: '[[2026-03-20 Test - Transcript]]',
+			participants,
+		});
+
+		// Generate transcript note
+		const transcript = generateTranscriptNote({
+			summaryResult: createMockSummaryResult(),
+			transcriptionResult: transcription,
+			audioFilePath: 'audio/test.webm',
+			meetingNoteLink: '[[2026-03-20 Test]]',
+			participants,
+		});
+
+		// Verify initial state
+		expect(note).toContain('alias: "Participant 1"');
+		expect(note).toContain('alias: "Participant 2"');
+		expect(transcript).toContain('**[[Participant 1]]:**');
+		expect(transcript).toContain('**[[Participant 2]]:**');
+
+		// Simulate user editing names
+		const editedParticipants: ParticipantAlias[] = [
+			{ alias: 'Participant 1', name: 'Paul' },
+			{ alias: 'Participant 2', name: '[[People/김과장]]' },
+		];
+
+		// Apply replacements to meeting note
+		const noteResult = applyParticipantReplacements(note, editedParticipants);
+		expect(noteResult.updatedContent).toContain('[[Paul]]');
+		expect(noteResult.updatedContent).toContain('[[People/김과장]]');
+		expect(noteResult.updatedContent).not.toContain('[[Participant 1]]');
+		expect(noteResult.updatedContent).not.toContain('[[Participant 2]]');
+
+		// Apply replacements to transcript
+		const transcriptResult = applyParticipantReplacements(transcript, editedParticipants);
+		expect(transcriptResult.updatedContent).toContain('**[[Paul]]:**');
+		expect(transcriptResult.updatedContent).toContain('**[[People/김과장]]:**');
+	});
+
+	it('idempotent: re-run with different names works correctly', () => {
+		const transcription = createMockTranscriptionResult({
+			segments: [
+				{ speaker: 'Participant 1', start: 0, end: 30, text: 'Hello.' },
+			],
+			fullText: 'Hello.',
+		});
+		const participants = extractParticipants(transcription);
+
+		const note = generateNote({
+			summaryResult: createMockSummaryResult({ summary: '## Summary\n\n[[Participant 1]] spoke.' }),
+			transcriptionResult: transcription,
+			audioFilePath: 'audio/test.webm',
+			participants,
+		});
+
+		// First replacement: Participant 1 → Paul
+		const first = applyParticipantReplacements(note, [
+			{ alias: 'Participant 1', name: 'Paul' },
+		]);
+		expect(first.updatedContent).toContain('[[Paul]]');
+		expect(first.updatedParticipants[0]!.alias).toBe('Paul');
+
+		// Second replacement: Paul → Kim (using updated participants from first run)
+		const secondParticipants = first.updatedParticipants.map(p => ({ ...p, name: 'Kim' }));
+		const second = applyParticipantReplacements(first.updatedContent, secondParticipants);
+		expect(second.updatedContent).toContain('[[Kim]]');
+		expect(second.updatedContent).not.toContain('[[Paul]]');
+	});
+
+	it('no-speaker scenario: empty participants, no wiki-links in transcript', () => {
+		const transcription = createMockTranscriptionResult({
+			segments: [
+				{ start: 0, end: 30, text: 'Hello everyone.' },
+			],
+			fullText: 'Hello everyone.',
+		});
+		const participants = extractParticipants(transcription);
+
+		expect(participants).toEqual([]);
+
+		const note = generateNote({
+			summaryResult: createMockSummaryResult(),
+			transcriptionResult: transcription,
+			audioFilePath: 'audio/test.webm',
+			includeTranscript: true,
+			participants,
+		});
+
+		expect(note).toContain('participants: []');
+		expect(note).not.toContain('[[Participant');
 	});
 });

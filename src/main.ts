@@ -23,6 +23,7 @@ import { PLUGIN_ID, PLUGIN_NAME, NOTICE_RETRY_TIMEOUT_MS, TEST_RECORDING_DURATIO
 import { logger } from './utils/logger';
 import { hasSTTCredentials } from './settings/settings';
 import { checkDurationGuard } from './pipeline/duration-guard';
+import { applyParticipantReplacements, parseParticipantsFromYaml, parseFrontmatter } from './note/note-generator';
 import type { MeetingScribeSettings } from './settings/settings';
 import type { PipelineContext } from './pipeline/pipeline-types';
 
@@ -176,6 +177,14 @@ export default class MeetingScribePlugin extends Plugin {
 			},
 		});
 
+		this.addCommand({
+			id: 'update-participant-names',
+			name: 'Update participant names',
+			callback: () => {
+				void this.updateParticipantNames();
+			},
+		});
+
 		if (Platform.isMobile && (typeof MediaRecorder === 'undefined')) {
 			this.recordingAvailable = false;
 			this.noticeManager.showRecordingUnavailable();
@@ -267,7 +276,7 @@ export default class MeetingScribePlugin extends Plugin {
 			}
 
 			if (result.failedStepIndex === undefined && result.context.noteFilePath) {
-				this.noticeManager.showSuccess(result.context.noteFilePath);
+				this.noticeManager.showSuccess(result.context.noteFilePath, result.context.transcriptFilePath);
 				await this.applyRetentionPolicy(audioFilePath);
 			}
 			// Error case: Pipeline already set Error state → StatusBar → onShowError → NoticeManager
@@ -340,6 +349,71 @@ export default class MeetingScribePlugin extends Plugin {
 			const error = err instanceof Error ? err.message : String(err);
 			logger.error(COMPONENT, 'Test recording failed', { error });
 			return { success: false, error, failedStep: 'recording' };
+		}
+	}
+
+	private async updateParticipantNames(): Promise<void> {
+		const activeFile = this.app.workspace.getActiveFile();
+		if (!activeFile) {
+			new Notice('No active file — open a meeting note first');
+			return;
+		}
+
+		try {
+			const content = await this.app.vault.read(activeFile);
+			const parsed = parseFrontmatter(content);
+			if (!parsed) {
+				new Notice('No frontmatter found in this note');
+				return;
+			}
+
+			if (!parsed.frontmatter.includes('created_by: meeting-scribe')) {
+				new Notice('This note was not created by Meeting Scribe');
+				return;
+			}
+
+			const participants = parseParticipantsFromYaml(parsed.frontmatter);
+			if (!participants) {
+				if (/^participants:/m.test(parsed.frontmatter)) {
+					new Notice('This note uses an older format — re-generate to use participant aliases');
+				} else {
+					new Notice('No participant mappings found in this note');
+				}
+				return;
+			}
+
+			const hasNames = participants.some(p => p.name !== '');
+			if (!hasNames) {
+				new Notice('Fill in participant names first, then run this command again');
+				return;
+			}
+
+			// Apply replacements to meeting note
+			const noteResult = applyParticipantReplacements(content, participants);
+			await this.app.vault.modify(activeFile, noteResult.updatedContent);
+			let totalReplacements = noteResult.replacementCount;
+
+			// Apply replacements to transcript file if linked
+			const transcriptMatch = parsed.frontmatter.match(/transcript:\s*['"]?\[\[(.+?)\]\]['"]?\s*$/m);
+			if (transcriptMatch) {
+				const transcriptName = transcriptMatch[1]!;
+				const transcriptPath = `${activeFile.parent?.path ?? ''}/${transcriptName}.md`;
+				const transcriptFile = this.app.vault.getAbstractFileByPath(transcriptPath);
+
+				if (transcriptFile instanceof TFile) {
+					const transcriptContent = await this.app.vault.read(transcriptFile);
+					const transcriptResult = applyParticipantReplacements(transcriptContent, participants);
+					await this.app.vault.modify(transcriptFile, transcriptResult.updatedContent);
+					totalReplacements += transcriptResult.replacementCount;
+				}
+			}
+
+			new Notice(`Participant names updated (${totalReplacements} replacements)`);
+			logger.info(COMPONENT, 'Participant names updated', { replacements: totalReplacements });
+		} catch (err) {
+			const message = err instanceof Error ? err.message : String(err);
+			logger.error(COMPONENT, 'Failed to update participant names', { error: message });
+			new Notice('Failed to update participant names');
 		}
 	}
 

@@ -449,7 +449,7 @@ describe('MeetingScribePlugin pipeline integration', () => {
 		(plugin as any).startProcessingFlow('audio/test.webm');
 
 		await vi.waitFor(() => {
-			expect(showSuccessSpy).toHaveBeenCalledWith('notes/meeting.md');
+			expect(showSuccessSpy).toHaveBeenCalledWith('notes/meeting.md', undefined);
 		});
 	});
 

@@ -53,7 +53,7 @@ function createMockContext(overrides?: Partial<PipelineContext>): PipelineContex
 		audioFilePath: '_attachments/audio/2026-03-16-recording.webm',
 		vault: createMockVault() as unknown as PipelineContext['vault'],
 		settings: {
-			settingsVersion: 1,
+			settingsVersion: 7,
 			sttProvider: 'openai',
 			sttApiKey: 'test-stt-key',
 			sttModel: 'gpt-4o-mini-transcribe',
@@ -64,7 +64,20 @@ function createMockContext(overrides?: Partial<PipelineContext>): PipelineContex
 			outputFolder: 'Meeting Notes',
 			audioFolder: '_attachments/audio',
 			audioRetentionPolicy: 'keep' as const,
+			summaryLanguage: 'auto',
+			includeTranscript: true,
+			enableSmartChunking: false,
 			debugMode: false,
+			onboardingComplete: false,
+			clovaInvokeUrl: '',
+			clovaSecretKey: '',
+			clovaLanguage: 'ko-KR',
+			googleProjectId: '',
+			googleApiKey: '',
+			googleLocation: 'global',
+			googleModel: 'chirp_3',
+			showConsentReminder: true,
+			separateTranscriptFile: false,
 		} satisfies MeetingScribeSettings,
 		transcriptionResult: createMockTranscriptionResult(),
 		summaryResult: createMockSummaryResult(),
@@ -193,5 +206,137 @@ describe('GenerateNoteStep', () => {
 		expect(result.transcriptionResult).toBe(context.transcriptionResult);
 		expect(result.summaryResult).toBe(context.summaryResult);
 		expect(result.settings).toBe(context.settings);
+	});
+
+	it('includes participant aliases in generated note frontmatter when segments have speakers', async () => {
+		const context = createMockContext({
+			transcriptionResult: createMockTranscriptionResult({
+				segments: [
+					{ speaker: 'Participant 1', start: 0, end: 30, text: 'Hello.' },
+					{ speaker: 'Participant 2', start: 30, end: 60, text: 'Hi.' },
+					{ speaker: 'Participant 1', start: 60, end: 90, text: 'More talk.' },
+				],
+			}),
+		});
+		const vault = context.vault as unknown as ReturnType<typeof createMockVault>;
+
+		await step.execute(context);
+
+		const noteContent = vault.create.mock.calls[0]![1] as string;
+		expect(noteContent).toContain('- alias: "Participant 1"');
+		expect(noteContent).toContain('- alias: "Participant 2"');
+	});
+
+	it('includes empty participants array when no speakers in segments', async () => {
+		const context = createMockContext();
+		const vault = context.vault as unknown as ReturnType<typeof createMockVault>;
+
+		await step.execute(context);
+
+		const noteContent = vault.create.mock.calls[0]![1] as string;
+		expect(noteContent).toContain('participants: []');
+	});
+
+	describe('two-file output (separateTranscriptFile)', () => {
+		it('creates both meeting note and transcript file', async () => {
+			const context = createMockContext();
+			context.settings = { ...context.settings, separateTranscriptFile: true, includeTranscript: true };
+			const vault = context.vault as unknown as ReturnType<typeof createMockVault>;
+
+			const result = await step.execute(context);
+
+			expect(vault.create).toHaveBeenCalledTimes(2);
+			const notePath = vault.create.mock.calls[0]![0];
+			const transcriptPath = vault.create.mock.calls[1]![0];
+			expect(notePath).toBe('Meeting Notes/2026-03-16 Weekly Standup.md');
+			expect(transcriptPath).toBe('Meeting Notes/2026-03-16 Weekly Standup - Transcript.md');
+		});
+
+		it('sets both noteFilePath and transcriptFilePath in context', async () => {
+			const context = createMockContext();
+			context.settings = { ...context.settings, separateTranscriptFile: true, includeTranscript: true };
+
+			const result = await step.execute(context);
+
+			expect(result.noteFilePath).toBe('Meeting Notes/2026-03-16 Weekly Standup.md');
+			expect(result.transcriptFilePath).toBe('Meeting Notes/2026-03-16 Weekly Standup - Transcript.md');
+		});
+
+		it('meeting note contains wiki-link to transcript', async () => {
+			const context = createMockContext();
+			context.settings = { ...context.settings, separateTranscriptFile: true, includeTranscript: true };
+			const vault = context.vault as unknown as ReturnType<typeof createMockVault>;
+
+			await step.execute(context);
+
+			const noteContent = vault.create.mock.calls[0]![1] as string;
+			expect(noteContent).toContain('[[2026-03-16 Weekly Standup - Transcript]]');
+			expect(noteContent).not.toContain('## Transcript');
+		});
+
+		it('transcript file contains back-link to meeting note', async () => {
+			const context = createMockContext();
+			context.settings = { ...context.settings, separateTranscriptFile: true, includeTranscript: true };
+			const vault = context.vault as unknown as ReturnType<typeof createMockVault>;
+
+			await step.execute(context);
+
+			const transcriptContent = vault.create.mock.calls[1]![1] as string;
+			expect(transcriptContent).toContain('[[2026-03-16 Weekly Standup]]');
+			expect(transcriptContent).toContain('type: transcript');
+			expect(transcriptContent).toContain('## Transcript');
+		});
+
+		it('handles duplicate filenames for both files', async () => {
+			const context = createMockContext();
+			context.settings = { ...context.settings, separateTranscriptFile: true, includeTranscript: true };
+			const vault = context.vault as unknown as ReturnType<typeof createMockVault>;
+
+			vault.getAbstractFileByPath.mockImplementation((path: string) => {
+				if (path === 'Meeting Notes') return { path: 'Meeting Notes' };
+				if (path === 'Meeting Notes/2026-03-16 Weekly Standup.md') return { path };
+				if (path === 'Meeting Notes/2026-03-16 Weekly Standup - Transcript.md') return { path };
+				return null;
+			});
+
+			await step.execute(context);
+
+			const notePath = vault.create.mock.calls[0]![0];
+			const transcriptPath = vault.create.mock.calls[1]![0];
+			expect(notePath).toBe('Meeting Notes/2026-03-16 Weekly Standup 2.md');
+			expect(transcriptPath).toBe('Meeting Notes/2026-03-16 Weekly Standup - Transcript 2.md');
+
+			// Wiki-links must reference the deduplicated filenames
+			const noteContent = vault.create.mock.calls[0]![1] as string;
+			const transcriptContent = vault.create.mock.calls[1]![1] as string;
+			expect(noteContent).toContain('[[2026-03-16 Weekly Standup - Transcript 2]]');
+			expect(transcriptContent).toContain('[[2026-03-16 Weekly Standup 2]]');
+		});
+
+		it('uses single-file mode when separateTranscriptFile is false', async () => {
+			const context = createMockContext();
+			context.settings = { ...context.settings, separateTranscriptFile: false, includeTranscript: true };
+			const vault = context.vault as unknown as ReturnType<typeof createMockVault>;
+
+			const result = await step.execute(context);
+
+			expect(vault.create).toHaveBeenCalledTimes(1);
+			expect(result.transcriptFilePath).toBeUndefined();
+			const noteContent = vault.create.mock.calls[0]![1] as string;
+			expect(noteContent).toContain('## Transcript');
+		});
+
+		it('only creates meeting note when includeTranscript is false even if separateTranscriptFile is true', async () => {
+			const context = createMockContext();
+			context.settings = { ...context.settings, separateTranscriptFile: true, includeTranscript: false };
+			const vault = context.vault as unknown as ReturnType<typeof createMockVault>;
+
+			const result = await step.execute(context);
+
+			expect(vault.create).toHaveBeenCalledTimes(1);
+			expect(result.transcriptFilePath).toBeUndefined();
+			const noteContent = vault.create.mock.calls[0]![1] as string;
+			expect(noteContent).not.toContain('## Transcript');
+		});
 	});
 });

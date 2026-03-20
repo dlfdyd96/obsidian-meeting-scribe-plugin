@@ -32,7 +32,7 @@ export class NoticeManager {
 		private readonly pluginId: string = 'meeting-scribe',
 	) {}
 
-	showSuccess(filePath: string): Notice {
+	showSuccess(filePath: string, transcriptFilePath?: string): Notice {
 		const fragment = document.createDocumentFragment();
 
 		const msg = document.createElement('span');
@@ -44,6 +44,14 @@ export class NoticeManager {
 			notice.hide();
 		});
 		fragment.appendChild(link);
+
+		if (transcriptFilePath) {
+			const transcriptInfo = document.createElement('div');
+			const transcriptFilename = transcriptFilePath.split('/').pop() ?? transcriptFilePath;
+			transcriptInfo.textContent = `📄 Transcript: ${transcriptFilename}`;
+			transcriptInfo.className = 'meeting-scribe-notice-transcript';
+			fragment.appendChild(transcriptInfo);
+		}
 
 		const notice = new Notice(fragment, NOTICE_SUCCESS_TIMEOUT_MS);
 		return notice;

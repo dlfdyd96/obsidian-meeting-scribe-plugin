@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { buildFrontmatter } from '../../src/note/frontmatter-builder';
-import type { SummaryResult, TranscriptionResult } from '../../src/providers/types';
+import type { SummaryResult, TranscriptionResult, ParticipantAlias } from '../../src/providers/types';
 
 function createMockSummaryResult(overrides?: Partial<SummaryResult>): SummaryResult {
 	return {
@@ -214,5 +214,72 @@ describe('buildFrontmatter', () => {
 		expect(result).toContain('participants:\n  - Alice\n  - Bob');
 		expect(result).toContain('tags:\n  - meeting\n  - standup');
 		expect(result).toContain('topics:\n  - sprint progress\n  - blockers');
+	});
+});
+
+describe('buildFrontmatter with ParticipantAlias[]', () => {
+	beforeEach(() => {
+		vi.useFakeTimers();
+		vi.setSystemTime(new Date('2026-03-16T10:00:00Z'));
+	});
+
+	afterEach(() => {
+		vi.useRealTimers();
+	});
+
+	it('emits nested YAML for participant aliases', () => {
+		const participants: ParticipantAlias[] = [
+			{ alias: 'Participant 1', name: '' },
+			{ alias: 'Participant 2', name: '' },
+		];
+
+		const result = buildFrontmatter({
+			summaryResult: createMockSummaryResult(),
+			transcriptionResult: createMockTranscriptionResult(),
+			audioFilePath: 'test/audio.webm',
+			participants,
+		});
+
+		expect(result).toContain('participants:\n  - alias: "Participant 1"\n    name: ""');
+		expect(result).toContain('  - alias: "Participant 2"\n    name: ""');
+	});
+
+	it('emits empty array when participants is empty', () => {
+		const result = buildFrontmatter({
+			summaryResult: createMockSummaryResult(),
+			transcriptionResult: createMockTranscriptionResult(),
+			audioFilePath: 'test/audio.webm',
+			participants: [],
+		});
+
+		expect(result).toContain('participants: []');
+	});
+
+	it('emits participant aliases with filled names', () => {
+		const participants: ParticipantAlias[] = [
+			{ alias: 'Paul', name: 'Paul' },
+			{ alias: '[[People/김과장]]', name: '[[People/김과장]]' },
+		];
+
+		const result = buildFrontmatter({
+			summaryResult: createMockSummaryResult(),
+			transcriptionResult: createMockTranscriptionResult(),
+			audioFilePath: 'test/audio.webm',
+			participants,
+		});
+
+		expect(result).toContain('  - alias: "Paul"\n    name: "Paul"');
+		expect(result).toContain('  - alias: "[[People/김과장]]"\n    name: "[[People/김과장]]"');
+	});
+
+	it('falls back to metadata.participants when participants field is not provided', () => {
+		const result = buildFrontmatter({
+			summaryResult: createMockSummaryResult(),
+			transcriptionResult: createMockTranscriptionResult(),
+			audioFilePath: 'test/audio.webm',
+		});
+
+		// Old format: simple string array
+		expect(result).toContain('participants:\n  - Alice\n  - Bob');
 	});
 });
