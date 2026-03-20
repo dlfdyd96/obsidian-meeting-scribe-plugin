@@ -165,6 +165,23 @@ export class TFile {
 	}
 }
 
+export class Modal {
+	app: App;
+	contentEl: HTMLElement;
+	modalEl: HTMLElement;
+
+	constructor(app: App) {
+		this.app = app;
+		this.contentEl = document.createElement('div');
+		this.modalEl = document.createElement('div');
+	}
+
+	open(): void {}
+	close(): void {}
+	onOpen(): void {}
+	onClose(): void {}
+}
+
 export class SuggestModal<T> {
 	app: App;
 	emptyStateText = '';

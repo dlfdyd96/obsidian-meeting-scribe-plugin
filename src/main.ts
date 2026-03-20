@@ -22,6 +22,7 @@ import { AnthropicLLMProvider } from './providers/llm/anthropic-llm-provider';
 import { PLUGIN_ID, PLUGIN_NAME, NOTICE_RETRY_TIMEOUT_MS, TEST_RECORDING_DURATION_MS } from './constants';
 import { logger } from './utils/logger';
 import { hasSTTCredentials } from './settings/settings';
+import { checkDurationGuard } from './pipeline/duration-guard';
 import type { MeetingScribeSettings } from './settings/settings';
 import type { PipelineContext } from './pipeline/pipeline-types';
 
@@ -216,10 +217,36 @@ export default class MeetingScribePlugin extends Plugin {
 	private async executePipeline(audioFilePath: string): Promise<void> {
 		this.pipelineAborted = false;
 
+		// Duration guard: check audio duration against provider limits before processing
+		const audioFile = this.app.vault.getAbstractFileByPath(audioFilePath);
+		if (!(audioFile instanceof TFile)) {
+			logger.error(COMPONENT, 'Audio file not found', { audioFilePath });
+			return;
+		}
+
+		const audioData = await this.app.vault.readBinary(audioFile);
+		const guardResult = await checkDurationGuard(audioData, this.settings, this.app);
+
+		if (guardResult.action === 'cancel') {
+			logger.info(COMPONENT, 'Pipeline cancelled by duration guard');
+			return;
+		}
+
+		// Apply duration guard decisions
+		let effectiveSettings = this.settings;
+		if (guardResult.action === 'switch' && guardResult.switchedProvider) {
+			effectiveSettings = {
+				...this.settings,
+				sttProvider: guardResult.switchedProvider,
+				...(guardResult.switchedModel ? { sttModel: guardResult.switchedModel } : {}),
+			};
+		}
+
 		const context: PipelineContext = {
 			audioFilePath,
 			vault: this.app.vault,
-			settings: this.settings,
+			settings: effectiveSettings,
+			maxDurationOverride: guardResult.action === 'split' ? guardResult.maxDurationSeconds : undefined,
 			onProgress: (step: string, current: number, total: number) => {
 				logger.debug(COMPONENT, 'Pipeline progress', { step, current, total });
 			},

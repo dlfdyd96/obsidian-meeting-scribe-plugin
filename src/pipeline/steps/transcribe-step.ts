@@ -63,11 +63,13 @@ export class TranscribeStep implements PipelineStep {
 
 		const audioData = await vault.readBinary(audioFile);
 
-		// Chunk audio (diarize model has a duration limit)
+		// Chunk audio — use duration guard override if set, otherwise fall back to diarize limit
 		const isDiarization = settings.sttModel === 'gpt-4o-transcribe-diarize';
+		const maxDurationSeconds = context.maxDurationOverride
+			?? (isDiarization ? DIARIZE_MAX_DURATION_SECONDS : undefined);
 		const chunks = await chunkAudio(audioData, {
 			enableSmartChunking: settings.enableSmartChunking,
-			maxDurationSeconds: isDiarization ? DIARIZE_MAX_DURATION_SECONDS : undefined,
+			maxDurationSeconds,
 		});
 		const totalChunks = chunks.length;
 

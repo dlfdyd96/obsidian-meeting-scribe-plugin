@@ -1,11 +1,17 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { Notice, Platform } from 'obsidian';
+import { Notice, Platform, TFile, Vault } from 'obsidian';
 import { logger } from '../src/utils/logger';
 import { stateManager } from '../src/state/state-manager';
 import { PluginState } from '../src/state/types';
 import { providerRegistry } from '../src/providers/provider-registry';
 import { Pipeline } from '../src/pipeline/pipeline';
+
+// Mock duration guard to always proceed — pipeline integration tests don't test guard logic
+import { checkDurationGuard } from '../src/pipeline/duration-guard';
+vi.mock('../src/pipeline/duration-guard', () => ({
+	checkDurationGuard: vi.fn().mockResolvedValue({ action: 'proceed' }),
+}));
 
 function resetProviderRegistry(): void {
 	(providerRegistry as any).sttProviders = new Map();
@@ -382,17 +388,28 @@ describe('MeetingScribePlugin pipeline integration', () => {
 		logger.setDebugMode(false);
 		stateManager.reset();
 		resetProviderRegistry();
+		// Re-mock duration guard after restoreAllMocks clears it
+		vi.mocked(checkDurationGuard).mockResolvedValue({ action: 'proceed' });
 	});
 
 	afterEach(() => {
 		vi.restoreAllMocks();
 	});
 
+	/** Set up vault mocks so executePipeline can read the audio file for the duration guard. */
+	function setupVaultForPipeline(plugin: any): void {
+		const vault = plugin.app.vault;
+		const mockFile = new TFile('audio/test.webm', 1024);
+		vi.spyOn(vault, 'getAbstractFileByPath').mockReturnValue(mockFile);
+		vi.spyOn(vault, 'readBinary').mockResolvedValue(new ArrayBuffer(1024));
+	}
+
 	it('should trigger pipeline after recording stop saves audio', async () => {
 		const { default: MeetingScribePlugin } = await import('../src/main');
 		const plugin = new MeetingScribePlugin();
 		vi.spyOn(plugin, 'loadData').mockResolvedValue(null);
 		await plugin.onload();
+		setupVaultForPipeline(plugin);
 
 		const recorder = (plugin as any).recorder;
 		const audioFileManager = (plugin as any).audioFileManager;
@@ -420,6 +437,7 @@ describe('MeetingScribePlugin pipeline integration', () => {
 		const plugin = new MeetingScribePlugin();
 		vi.spyOn(plugin, 'loadData').mockResolvedValue(null);
 		await plugin.onload();
+		setupVaultForPipeline(plugin);
 
 		const noticeManager = (plugin as any).noticeManager;
 		const showSuccessSpy = vi.spyOn(noticeManager, 'showSuccess').mockReturnValue(new Notice(''));
@@ -440,6 +458,7 @@ describe('MeetingScribePlugin pipeline integration', () => {
 		const plugin = new MeetingScribePlugin();
 		vi.spyOn(plugin, 'loadData').mockResolvedValue(null);
 		await plugin.onload();
+		setupVaultForPipeline(plugin);
 
 		const noticeManager = (plugin as any).noticeManager;
 		const showSuccessSpy = vi.spyOn(noticeManager, 'showSuccess').mockReturnValue(new Notice(''));
@@ -500,6 +519,7 @@ describe('MeetingScribePlugin pipeline integration', () => {
 
 		const mockFile = new TFile('audio/test.webm');
 		vi.spyOn(mockVault, 'getAbstractFileByPath').mockReturnValue(mockFile);
+		vi.spyOn(mockVault, 'readBinary').mockResolvedValue(new ArrayBuffer(1024));
 
 		(plugin as any).startProcessingFlow('audio/test.webm');
 
@@ -522,6 +542,7 @@ describe('MeetingScribePlugin pipeline integration', () => {
 			audioRetentionPolicy: 'keep',
 		});
 		await plugin.onload();
+		setupVaultForPipeline(plugin);
 
 		vi.spyOn(Pipeline.prototype, 'execute').mockResolvedValue({
 			context: { audioFilePath: 'audio/test.webm', vault: mockVault, settings: plugin.settings, noteFilePath: 'notes/meeting.md' },
@@ -541,6 +562,7 @@ describe('MeetingScribePlugin pipeline integration', () => {
 		const plugin = new MeetingScribePlugin();
 		vi.spyOn(plugin, 'loadData').mockResolvedValue(null);
 		await plugin.onload();
+		setupVaultForPipeline(plugin);
 
 		// Set the last pipeline audio path by calling startProcessingFlow
 		const executeSpy = vi.spyOn(Pipeline.prototype, 'execute').mockResolvedValue({
@@ -590,6 +612,7 @@ describe('MeetingScribePlugin pipeline integration', () => {
 		const plugin = new MeetingScribePlugin();
 		vi.spyOn(plugin, 'loadData').mockResolvedValue(null);
 		await plugin.onload();
+		setupVaultForPipeline(plugin);
 
 		const executeSpy = vi.spyOn(Pipeline.prototype, 'execute').mockResolvedValue({
 			context: { audioFilePath: 'audio/test.webm', vault: {} as any, settings: plugin.settings, noteFilePath: 'notes/test.md' },
@@ -617,6 +640,7 @@ describe('MeetingScribePlugin pipeline integration', () => {
 		const plugin = new MeetingScribePlugin();
 		vi.spyOn(plugin, 'loadData').mockResolvedValue(null);
 		await plugin.onload();
+		setupVaultForPipeline(plugin);
 
 		const startProcessingSpy = vi.spyOn(plugin as any, 'startProcessingFlow').mockImplementation(() => {});
 
