@@ -79,20 +79,31 @@ export class TranscribeStep implements PipelineStep {
 			throw new ConfigError(`STT provider not found: ${settings.sttProvider}`);
 		}
 
-		// Set API key on provider
-		if (!settings.sttApiKey) {
-			throw new ConfigError('STT API key is not configured');
-		}
-		if ('setApiKey' in provider && typeof (provider as { setApiKey: (k: string) => void }).setApiKey === 'function') {
-			(provider as { setApiKey: (k: string) => void }).setApiKey(settings.sttApiKey);
+		// Set credentials on provider based on provider type
+		if (settings.sttProvider === 'clova' && 'setCredentials' in provider) {
+			(provider as { setCredentials: (invokeUrl: string, secretKey: string) => void }).setCredentials(settings.clovaInvokeUrl, settings.clovaSecretKey);
+		} else if (settings.sttProvider === 'google' && 'setCredentials' in provider) {
+			(provider as { setCredentials: (projectId: string, apiKey: string, location: string) => void }).setCredentials(settings.googleProjectId, settings.googleApiKey, settings.googleLocation);
+		} else {
+			if (!settings.sttApiKey) {
+				throw new ConfigError('STT API key is not configured');
+			}
+			if ('setApiKey' in provider && typeof (provider as { setApiKey: (k: string) => void }).setApiKey === 'function') {
+				(provider as { setApiKey: (k: string) => void }).setApiKey(settings.sttApiKey);
+			}
 		}
 
 		// Transcribe each chunk
 		const results: TranscriptionResult[] = [];
 		for (const chunk of chunks) {
+			// Use provider-specific language setting when available
+			const language = settings.sttProvider === 'clova'
+				? settings.clovaLanguage
+				: settings.sttLanguage === 'auto' ? undefined : settings.sttLanguage;
+
 			const result = await provider.transcribe(chunk.data, {
 				model: settings.sttModel,
-				language: settings.sttLanguage === 'auto' ? undefined : settings.sttLanguage,
+				language,
 				audioMimeType: chunk.mimeType,
 				audioFileName: `audio.${chunk.fileExtension}`,
 			});

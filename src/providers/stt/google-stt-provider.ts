@@ -51,16 +51,18 @@ function arrayBufferToBase64(buffer: ArrayBuffer): string {
 }
 
 function mergeWordsIntoSegments(words: GoogleWordInfo[]): TranscriptionSegment[] {
-	if (words.length === 0) return [];
+	const firstWord = words[0];
+	if (!firstWord) return [];
 
 	const segments: TranscriptionSegment[] = [];
-	let currentSpeaker = words[0].speakerLabel;
-	let currentTexts: string[] = [words[0].word];
-	let currentStart = parseTimestamp(words[0].startOffset);
-	let currentEnd = parseTimestamp(words[0].endOffset);
+	let currentSpeaker = firstWord.speakerLabel;
+	let currentTexts: string[] = [firstWord.word];
+	let currentStart = parseTimestamp(firstWord.startOffset);
+	let currentEnd = parseTimestamp(firstWord.endOffset);
 
 	for (let i = 1; i < words.length; i++) {
 		const word = words[i];
+		if (!word) continue;
 		if (word.speakerLabel === currentSpeaker) {
 			currentTexts.push(word.word);
 			currentEnd = parseTimestamp(word.endOffset);

@@ -1,3 +1,4 @@
+import { requestUrl } from 'obsidian';
 import { classifyClovaError, classifyClovaResultError } from '../clova-error-utils';
 import { logger } from '../../utils/logger';
 import type { STTProvider, STTOptions, STTModel, TranscriptionResult, TranscriptionSegment } from '../types';
@@ -26,6 +27,39 @@ const SUPPORTED_MODELS: STTModel[] = [
 	{ id: 'clova-sync', name: 'CLOVA Speech (Sync)', supportsDiarization: true },
 ];
 
+function buildMultipartBody(
+	audio: ArrayBuffer,
+	contentType: string,
+	filename: string,
+	params: object,
+): { body: ArrayBuffer; boundary: string } {
+	const boundary = '----FormBoundary' + Math.random().toString(36).slice(2);
+	const encoder = new TextEncoder();
+
+	const mediaHeader = encoder.encode(
+		`--${boundary}\r\n` +
+		`Content-Disposition: form-data; name="media"; filename="${filename}"\r\n` +
+		`Content-Type: ${contentType}\r\n\r\n`,
+	);
+
+	const paramsPart = encoder.encode(
+		`\r\n--${boundary}\r\n` +
+		`Content-Disposition: form-data; name="params"\r\n\r\n` +
+		`${JSON.stringify(params)}`,
+	);
+
+	const ending = encoder.encode(`\r\n--${boundary}--\r\n`);
+
+	const audioBytes = new Uint8Array(audio);
+	const body = new Uint8Array(mediaHeader.length + audioBytes.length + paramsPart.length + ending.length);
+	body.set(mediaHeader, 0);
+	body.set(audioBytes, mediaHeader.length);
+	body.set(paramsPart, mediaHeader.length + audioBytes.length);
+	body.set(ending, mediaHeader.length + audioBytes.length + paramsPart.length);
+
+	return { body: body.buffer, boundary };
+}
+
 export class ClovaSpeechSTTProvider implements STTProvider {
 	readonly name = 'clova';
 
@@ -52,47 +86,47 @@ export class ClovaSpeechSTTProvider implements STTProvider {
 			audioSize: audio.byteLength,
 		});
 
-		const formData = new FormData();
-		formData.append('media', new Blob([audio], { type: contentType }), filename);
-		formData.append('params', JSON.stringify({
+		const params = {
 			language,
 			completion: 'sync',
 			fullText: true,
 			diarization: { enable: true },
 			wordAlignment: true,
 			noiseFiltering: true,
-		}));
+		};
 
-		let response: Response;
+		const { body, boundary } = buildMultipartBody(audio, contentType, filename, params);
+
+		let json: ClovaApiResponse;
 		try {
-			// eslint-disable-next-line no-restricted-globals -- fetch required for error body access per architecture decision
-			response = await fetch(`${this.invokeUrl}/recognizer/upload`, {
+			const response = await requestUrl({
+				url: `${this.invokeUrl}/recognizer/upload`,
 				method: 'POST',
-				headers: { 'X-CLOVASPEECH-API-KEY': this.secretKey },
-				body: formData,
+				contentType: `multipart/form-data; boundary=${boundary}`,
+				headers: {
+					'X-CLOVASPEECH-API-KEY': this.secretKey,
+				},
+				body,
+				throw: false,
 			});
+
+			logger.debug(COMPONENT, 'API response', {
+				status: response.status,
+				bodyPreview: response.text.substring(0, 500),
+			});
+
+			if (response.status >= 400) {
+				classifyClovaError({ status: response.status, message: response.text });
+			}
+
+			json = response.json as ClovaApiResponse;
 		} catch (err) {
-			logger.error(COMPONENT, 'Transcription network error', {
+			logger.error(COMPONENT, 'Transcription error', {
 				error: err instanceof Error ? err.message : String(err),
+				status: (err as { status?: number }).status,
 			});
 			classifyClovaError(err);
 		}
-
-		if (!response.ok) {
-			let errorBody: unknown;
-			try {
-				errorBody = await response.json();
-			} catch {
-				errorBody = await response.text().catch(() => '');
-			}
-			logger.error(COMPONENT, 'Transcription failed', {
-				status: response.status,
-				errorBody,
-			});
-			classifyClovaError({ status: response.status, message: typeof errorBody === 'object' && errorBody !== null && 'message' in errorBody ? (errorBody as { message: string }).message : '' });
-		}
-
-		const json = await response.json() as ClovaApiResponse;
 
 		if (json.result !== 'COMPLETED') {
 			classifyClovaResultError(json.result, json.message);
@@ -137,21 +171,27 @@ export class ClovaSpeechSTTProvider implements STTProvider {
 		logger.debug(COMPONENT, 'Validating CLOVA Speech credentials');
 
 		try {
-			// eslint-disable-next-line no-restricted-globals -- fetch required for error body access per architecture decision
-			const response = await fetch(`${this.invokeUrl}/recognizer/upload`, {
+			await requestUrl({
+				url: `${this.invokeUrl}/recognizer/upload`,
 				method: 'POST',
 				headers: {
 					'X-CLOVASPEECH-API-KEY': key,
 				},
-				body: new FormData(),
+				body: '',
 			});
-
-			// 401/403 means invalid credentials; any other response means credentials work
-			if (response.status === 401 || response.status === 403) {
+			// Any non-error response means credentials are valid
+			return true;
+		} catch (err) {
+			const status = (err as { status?: number }).status;
+			// 401/403 means invalid credentials
+			if (status === 401 || status === 403) {
 				return false;
 			}
-			return true;
-		} catch {
+			// Other HTTP errors (400, 500, etc.) mean credentials worked but request was bad — that's fine for validation
+			if (status) {
+				return true;
+			}
+			// Network error
 			return false;
 		}
 	}

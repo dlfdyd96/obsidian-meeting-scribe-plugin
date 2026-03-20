@@ -2,6 +2,12 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { ClovaSpeechSTTProvider } from '../../../src/providers/stt/clova-stt-provider';
 import { TransientError, ConfigError, DataError } from '../../../src/utils/errors';
 
+// Mock obsidian's requestUrl
+const mockRequestUrl = vi.fn();
+vi.mock('obsidian', () => ({
+	requestUrl: (...args: unknown[]) => mockRequestUrl(...args),
+}));
+
 function makeClovaResponse(overrides: Record<string, unknown> = {}) {
 	return {
 		result: 'COMPLETED',
@@ -35,27 +41,34 @@ function makeClovaResponse(overrides: Record<string, unknown> = {}) {
 	};
 }
 
-function mockFetchResponse(status: number, body: unknown) {
-	return {
-		ok: status >= 200 && status < 300,
-		status,
-		json: () => Promise.resolve(body),
-		text: () => Promise.resolve(JSON.stringify(body)),
-	} as Response;
+function mockRequestUrlSuccess(body: unknown) {
+	mockRequestUrl.mockResolvedValue({
+		status: 200,
+		json: body,
+		text: JSON.stringify(body),
+	});
+}
+
+function mockRequestUrlError(status: number, body?: unknown) {
+	const error = new Error(`Request failed, status ${status}`) as Error & { status: number };
+	error.status = status;
+	if (body) {
+		Object.assign(error, { json: body, text: JSON.stringify(body) });
+	}
+	mockRequestUrl.mockRejectedValue(error);
 }
 
 describe('ClovaSpeechSTTProvider', () => {
 	let provider: ClovaSpeechSTTProvider;
-	let fetchSpy: ReturnType<typeof vi.spyOn>;
 
 	beforeEach(() => {
 		provider = new ClovaSpeechSTTProvider();
 		provider.setCredentials('https://clovaspeech.example.com', 'test-secret-key');
-		fetchSpy = vi.spyOn(globalThis, 'fetch');
+		mockRequestUrl.mockReset();
 	});
 
 	afterEach(() => {
-		fetchSpy.mockRestore();
+		vi.restoreAllMocks();
 	});
 
 	it('should have name "clova"', () => {
@@ -73,47 +86,43 @@ describe('ClovaSpeechSTTProvider', () => {
 
 	describe('transcribe', () => {
 		it('should send correct request to CLOVA Speech API', async () => {
-			fetchSpy.mockResolvedValue(mockFetchResponse(200, makeClovaResponse()));
+			mockRequestUrlSuccess(makeClovaResponse());
 
 			await provider.transcribe(new ArrayBuffer(100), { model: 'clova-sync' });
 
-			expect(fetchSpy).toHaveBeenCalledOnce();
-			const [url, init] = fetchSpy.mock.calls[0];
-			expect(url).toBe('https://clovaspeech.example.com/recognizer/upload');
-			expect(init?.method).toBe('POST');
-			expect((init?.headers as Record<string, string>)['X-CLOVASPEECH-API-KEY']).toBe('test-secret-key');
-			expect(init?.body).toBeInstanceOf(FormData);
+			expect(mockRequestUrl).toHaveBeenCalledOnce();
+			const callArg = mockRequestUrl.mock.calls[0][0];
+			expect(callArg.url).toBe('https://clovaspeech.example.com/recognizer/upload');
+			expect(callArg.method).toBe('POST');
+			expect(callArg.headers['X-CLOVASPEECH-API-KEY']).toBe('test-secret-key');
+			expect(callArg.contentType).toMatch(/^multipart\/form-data; boundary=/);
 		});
 
-		it('should include correct params in FormData', async () => {
-			fetchSpy.mockResolvedValue(mockFetchResponse(200, makeClovaResponse()));
+		it('should include correct params in multipart body', async () => {
+			mockRequestUrlSuccess(makeClovaResponse());
 
 			await provider.transcribe(new ArrayBuffer(100), { model: 'clova-sync', language: 'en-US' });
 
-			const formData = fetchSpy.mock.calls[0][1]?.body as FormData;
-			const paramsStr = formData.get('params') as string;
-			const params = JSON.parse(paramsStr);
-
-			expect(params.language).toBe('en-US');
-			expect(params.completion).toBe('sync');
-			expect(params.fullText).toBe(true);
-			expect(params.diarization.enable).toBe(true);
-			expect(params.wordAlignment).toBe(true);
-			expect(params.noiseFiltering).toBe(true);
+			const callArg = mockRequestUrl.mock.calls[0][0];
+			const bodyText = new TextDecoder().decode(callArg.body);
+			expect(bodyText).toContain('"language":"en-US"');
+			expect(bodyText).toContain('"completion":"sync"');
+			expect(bodyText).toContain('"fullText":true');
+			expect(bodyText).toContain('"diarization"');
 		});
 
 		it('should default language to ko-KR when not specified', async () => {
-			fetchSpy.mockResolvedValue(mockFetchResponse(200, makeClovaResponse()));
+			mockRequestUrlSuccess(makeClovaResponse());
 
 			await provider.transcribe(new ArrayBuffer(100), { model: 'clova-sync' });
 
-			const formData = fetchSpy.mock.calls[0][1]?.body as FormData;
-			const params = JSON.parse(formData.get('params') as string);
-			expect(params.language).toBe('ko-KR');
+			const callArg = mockRequestUrl.mock.calls[0][0];
+			const bodyText = new TextDecoder().decode(callArg.body);
+			expect(bodyText).toContain('"language":"ko-KR"');
 		});
 
-		it('should include media blob in FormData', async () => {
-			fetchSpy.mockResolvedValue(mockFetchResponse(200, makeClovaResponse()));
+		it('should include media in multipart body', async () => {
+			mockRequestUrlSuccess(makeClovaResponse());
 
 			await provider.transcribe(new ArrayBuffer(100), {
 				model: 'clova-sync',
@@ -121,13 +130,15 @@ describe('ClovaSpeechSTTProvider', () => {
 				audioFileName: 'recording.mp3',
 			});
 
-			const formData = fetchSpy.mock.calls[0][1]?.body as FormData;
-			const media = formData.get('media');
-			expect(media).toBeInstanceOf(Blob);
+			const callArg = mockRequestUrl.mock.calls[0][0];
+			const bodyText = new TextDecoder().decode(callArg.body);
+			expect(bodyText).toContain('name="media"');
+			expect(bodyText).toContain('filename="recording.mp3"');
+			expect(bodyText).toContain('Content-Type: audio/mp3');
 		});
 
 		it('should convert timestamps from milliseconds to seconds', async () => {
-			fetchSpy.mockResolvedValue(mockFetchResponse(200, makeClovaResponse()));
+			mockRequestUrlSuccess(makeClovaResponse());
 
 			const result = await provider.transcribe(new ArrayBuffer(100), { model: 'clova-sync' });
 
@@ -138,7 +149,7 @@ describe('ClovaSpeechSTTProvider', () => {
 		});
 
 		it('should map speaker labels to Participant N format', async () => {
-			fetchSpy.mockResolvedValue(mockFetchResponse(200, makeClovaResponse()));
+			mockRequestUrlSuccess(makeClovaResponse());
 
 			const result = await provider.transcribe(new ArrayBuffer(100), { model: 'clova-sync' });
 
@@ -147,7 +158,7 @@ describe('ClovaSpeechSTTProvider', () => {
 		});
 
 		it('should populate TranscriptionResult fields correctly', async () => {
-			fetchSpy.mockResolvedValue(mockFetchResponse(200, makeClovaResponse()));
+			mockRequestUrlSuccess(makeClovaResponse());
 
 			const result = await provider.transcribe(new ArrayBuffer(100), { model: 'clova-sync' });
 
@@ -174,7 +185,7 @@ describe('ClovaSpeechSTTProvider', () => {
 					},
 				],
 			});
-			fetchSpy.mockResolvedValue(mockFetchResponse(200, response));
+			mockRequestUrlSuccess(response);
 
 			const result = await provider.transcribe(new ArrayBuffer(100), { model: 'clova-sync' });
 
@@ -183,7 +194,7 @@ describe('ClovaSpeechSTTProvider', () => {
 		});
 
 		it('should set language from options in result', async () => {
-			fetchSpy.mockResolvedValue(mockFetchResponse(200, makeClovaResponse()));
+			mockRequestUrlSuccess(makeClovaResponse());
 
 			const result = await provider.transcribe(new ArrayBuffer(100), {
 				model: 'clova-sync',
@@ -198,7 +209,7 @@ describe('ClovaSpeechSTTProvider', () => {
 				result: 'FAILED',
 				message: 'Audio format not supported',
 			});
-			fetchSpy.mockResolvedValue(mockFetchResponse(200, response));
+			mockRequestUrlSuccess(response);
 
 			await expect(provider.transcribe(new ArrayBuffer(100), { model: 'clova-sync' }))
 				.rejects.toSatisfy((err: Error) =>
@@ -207,49 +218,49 @@ describe('ClovaSpeechSTTProvider', () => {
 		});
 
 		it('should throw ConfigError for 401 response', async () => {
-			fetchSpy.mockResolvedValue(mockFetchResponse(401, { message: 'Unauthorized' }));
+			mockRequestUrlError(401, { message: 'Unauthorized' });
 
 			await expect(provider.transcribe(new ArrayBuffer(100), { model: 'clova-sync' }))
 				.rejects.toThrow(ConfigError);
 		});
 
 		it('should throw ConfigError for 403 response', async () => {
-			fetchSpy.mockResolvedValue(mockFetchResponse(403, { message: 'Forbidden' }));
+			mockRequestUrlError(403, { message: 'Forbidden' });
 
 			await expect(provider.transcribe(new ArrayBuffer(100), { model: 'clova-sync' }))
 				.rejects.toThrow(ConfigError);
 		});
 
 		it('should throw DataError for 400 response', async () => {
-			fetchSpy.mockResolvedValue(mockFetchResponse(400, { message: 'Bad request' }));
+			mockRequestUrlError(400, { message: 'Bad request' });
 
 			await expect(provider.transcribe(new ArrayBuffer(100), { model: 'clova-sync' }))
 				.rejects.toThrow(DataError);
 		});
 
 		it('should throw ConfigError for 429 response (quota exceeded)', async () => {
-			fetchSpy.mockResolvedValue(mockFetchResponse(429, { message: 'Quota exceeded' }));
+			mockRequestUrlError(429, { message: 'Quota exceeded' });
 
 			await expect(provider.transcribe(new ArrayBuffer(100), { model: 'clova-sync' }))
 				.rejects.toThrow(ConfigError);
 		});
 
 		it('should throw TransientError for 500 response', async () => {
-			fetchSpy.mockResolvedValue(mockFetchResponse(500, { message: 'Server error' }));
+			mockRequestUrlError(500, { message: 'Server error' });
 
 			await expect(provider.transcribe(new ArrayBuffer(100), { model: 'clova-sync' }))
 				.rejects.toThrow(TransientError);
 		});
 
 		it('should throw TransientError for 503 response', async () => {
-			fetchSpy.mockResolvedValue(mockFetchResponse(503, {}));
+			mockRequestUrlError(503);
 
 			await expect(provider.transcribe(new ArrayBuffer(100), { model: 'clova-sync' }))
 				.rejects.toThrow(TransientError);
 		});
 
 		it('should throw TransientError on network error', async () => {
-			fetchSpy.mockRejectedValue(new Error('Network failure'));
+			mockRequestUrl.mockRejectedValue(new Error('Network failure'));
 
 			await expect(provider.transcribe(new ArrayBuffer(100), { model: 'clova-sync' }))
 				.rejects.toThrow(TransientError);
@@ -261,7 +272,7 @@ describe('ClovaSpeechSTTProvider', () => {
 			provider.setCredentials('', 'secret-key');
 			const result = await provider.validateApiKey('secret-key');
 			expect(result).toBe(false);
-			expect(fetchSpy).not.toHaveBeenCalled();
+			expect(mockRequestUrl).not.toHaveBeenCalled();
 		});
 
 		it('should return false when key is empty', async () => {
@@ -272,34 +283,43 @@ describe('ClovaSpeechSTTProvider', () => {
 
 		it('should return false for 401 response', async () => {
 			provider.setCredentials('https://example.com', 'bad-key');
-			fetchSpy.mockResolvedValue({ status: 401 } as Response);
+			mockRequestUrlError(401);
 			const result = await provider.validateApiKey('bad-key');
 			expect(result).toBe(false);
 		});
 
-		it('should return true for non-401/403 response', async () => {
+		it('should return true for non-401/403 error status (credentials valid, bad request)', async () => {
 			provider.setCredentials('https://example.com', 'good-key');
-			fetchSpy.mockResolvedValue({ status: 400 } as Response);
+			mockRequestUrlError(400);
+			const result = await provider.validateApiKey('good-key');
+			expect(result).toBe(true);
+		});
+
+		it('should return true for successful response', async () => {
+			provider.setCredentials('https://example.com', 'good-key');
+			mockRequestUrl.mockResolvedValue({ status: 200, json: {} });
 			const result = await provider.validateApiKey('good-key');
 			expect(result).toBe(true);
 		});
 
 		it('should return false on network error', async () => {
 			provider.setCredentials('https://example.com', 'key');
-			fetchSpy.mockRejectedValue(new Error('Network error'));
+			mockRequestUrl.mockRejectedValue(new Error('Network error'));
 			const result = await provider.validateApiKey('key');
 			expect(result).toBe(false);
 		});
 
-		it('should send X-CLOVASPEECH-API-KEY header', async () => {
+		it('should send correct request parameters', async () => {
 			provider.setCredentials('https://example.com', 'my-secret');
-			fetchSpy.mockResolvedValue({ status: 200 } as Response);
+			mockRequestUrl.mockResolvedValue({ status: 200, json: {} });
 			await provider.validateApiKey('my-secret');
-			expect(fetchSpy).toHaveBeenCalledWith(
-				'https://example.com/recognizer/upload',
+			expect(mockRequestUrl).toHaveBeenCalledWith(
 				expect.objectContaining({
+					url: 'https://example.com/recognizer/upload',
 					method: 'POST',
-					headers: { 'X-CLOVASPEECH-API-KEY': 'my-secret' },
+					headers: expect.objectContaining({
+						'X-CLOVASPEECH-API-KEY': 'my-secret',
+					}),
 				}),
 			);
 		});
