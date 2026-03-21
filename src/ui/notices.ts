@@ -1,6 +1,7 @@
 import { App, Notice } from 'obsidian';
 import { ConfigError } from '../utils/errors';
 import {
+	NOTICE_CONSENT_TIMEOUT_MS,
 	NOTICE_SUCCESS_TIMEOUT_MS,
 	NOTICE_RETRY_TIMEOUT_MS,
 	NOTICE_PERSISTENT_TIMEOUT,
@@ -126,6 +127,13 @@ export class NoticeManager {
 			// eslint-disable-next-line obsidianmd/ui/sentence-case
 			'Welcome to Meeting Scribe! Set up your API keys to get started.',
 			NOTICE_WELCOME_TIMEOUT_MS,
+		);
+	}
+
+	showConsentReminder(): Notice {
+		return new Notice(
+			'Recording started. Please ensure all participants are aware of the recording.',
+			NOTICE_CONSENT_TIMEOUT_MS,
 		);
 	}
 

@@ -22,6 +22,7 @@ export function getMaxDuration(provider: string, model: string): number | null {
 	return PROVIDER_MAX_DURATION[`${provider}:${model}`] ?? null;
 }
 
+export const NOTICE_CONSENT_TIMEOUT_MS = 3000;
 export const NOTICE_SUCCESS_TIMEOUT_MS = 5000;
 export const NOTICE_RETRY_TIMEOUT_MS = 2000;
 export const NOTICE_PERSISTENT_TIMEOUT = 0;

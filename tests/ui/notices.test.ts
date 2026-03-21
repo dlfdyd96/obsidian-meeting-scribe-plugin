@@ -233,6 +233,19 @@ describe('NoticeManager', () => {
 		});
 	});
 
+	describe('showConsentReminder', () => {
+		it('should create a notice with 3000ms timeout', () => {
+			const notice = manager.showConsentReminder();
+			expect((notice as unknown as { timeout?: number }).timeout).toBe(3000);
+		});
+
+		it('should display consent reminder message', () => {
+			const notice = manager.showConsentReminder();
+			expect(notice.noticeEl.textContent).toContain('Recording started');
+			expect(notice.noticeEl.textContent).toContain('participants are aware');
+		});
+	});
+
 	describe('showError with ConfigError delegates to showConfigError', () => {
 		it('should show settings link instead of retry for ConfigError', () => {
 			const error = new ConfigError('Bad key');

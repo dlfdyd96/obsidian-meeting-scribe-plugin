@@ -215,6 +215,66 @@ describe('MeetingScribeSettingTab', () => {
 		});
 	});
 
+	describe('Recording consent reminder toggle', () => {
+		it('should call saveSettings when consent reminder toggle changes', async () => {
+			tab.display();
+			const details = tab.containerEl.querySelector('details');
+			expect(details).not.toBeNull();
+			const advancedSettings = collectSettings(details!);
+			const consentSetting = advancedSettings.find(s => s.nameEl.textContent === 'Recording consent reminder');
+			expect(consentSetting).toBeDefined();
+
+			const toggle = consentSetting!.toggleComponents[0];
+			toggle!.triggerChange(false);
+			await flushPromises();
+			expect(mockPlugin.saveSettings).toHaveBeenCalled();
+			expect(mockPlugin.settings.showConsentReminder).toBe(false);
+		});
+	});
+
+	describe('Separate transcript file toggle visibility', () => {
+		it('should show separate transcript toggle when includeTranscript is true', () => {
+			mockPlugin.settings.includeTranscript = true;
+			tab.display();
+			const details = tab.containerEl.querySelector('details');
+			const advancedSettings = collectSettings(details!);
+			const separateSetting = advancedSettings.find(s => s.nameEl.textContent === 'Separate transcript file');
+			expect(separateSetting).toBeDefined();
+			expect(separateSetting!.settingEl.style.display).not.toBe('none');
+		});
+
+		it('should hide separate transcript toggle when includeTranscript is false', () => {
+			mockPlugin.settings.includeTranscript = false;
+			tab.display();
+			const details = tab.containerEl.querySelector('details');
+			const advancedSettings = collectSettings(details!);
+			const separateSetting = advancedSettings.find(s => s.nameEl.textContent === 'Separate transcript file');
+			expect(separateSetting).toBeDefined();
+			expect(separateSetting!.settingEl.style.display).toBe('none');
+		});
+
+		it('should toggle separate transcript visibility without collapsing advanced section', async () => {
+			mockPlugin.settings.includeTranscript = true;
+			tab.display();
+			const details = tab.containerEl.querySelector('details')!;
+			details.open = true;
+
+			const advancedSettings = collectSettings(details);
+			const includeSetting = advancedSettings.find(s => s.nameEl.textContent === 'Include transcript in notes');
+			const toggle = includeSetting!.toggleComponents[0];
+
+			// Turn off includeTranscript
+			toggle!.triggerChange(false);
+			await flushPromises();
+
+			// Advanced section should stay open
+			expect(details.open).toBe(true);
+			// Separate transcript setting should be hidden
+			const separateSetting = advancedSettings.find(s => s.nameEl.textContent === 'Separate transcript file');
+			expect(separateSetting!.settingEl.style.display).toBe('none');
+		});
+	});
+
 	describe('Debug Mode toggle', () => {
 		it('should call logger.setDebugMode when debug toggle changes', async () => {
 			const setDebugSpy = vi.spyOn(logger, 'setDebugMode').mockImplementation(() => {});

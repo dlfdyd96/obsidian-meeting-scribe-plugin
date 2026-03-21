@@ -468,6 +468,8 @@ export class MeetingScribeSettingTab extends PluginSettingTab {
 		const advancedEl = containerEl.createEl('details');
 		advancedEl.createEl('summary', { text: 'Advanced settings' });
 
+		let separateTranscriptSetting: Setting;
+
 		new Setting(advancedEl)
 			.setName('Include transcript in notes')
 			// eslint-disable-next-line obsidianmd/ui/sentence-case
@@ -477,19 +479,21 @@ export class MeetingScribeSettingTab extends PluginSettingTab {
 				.onChange(async (value) => {
 					this.plugin.settings.includeTranscript = value;
 					await this.plugin.saveSettings();
-					this.display();
+					separateTranscriptSetting.settingEl.style.display = value ? '' : 'none';
 				}));
 
-		if (this.plugin.settings.includeTranscript) {
-			new Setting(advancedEl)
-				.setName('Separate transcript file')
-				.setDesc('Generate transcript as a separate file with wiki-links instead of including it inline in the meeting note')
-				.addToggle(cb => cb
-					.setValue(this.plugin.settings.separateTranscriptFile)
-					.onChange(async (value) => {
-						this.plugin.settings.separateTranscriptFile = value;
-						await this.plugin.saveSettings();
-					}));
+		separateTranscriptSetting = new Setting(advancedEl)
+			.setName('Separate transcript file')
+			.setDesc('Generate transcript as a separate file with wiki-links instead of including it inline in the meeting note')
+			.addToggle(cb => cb
+				.setValue(this.plugin.settings.separateTranscriptFile)
+				.onChange(async (value) => {
+					this.plugin.settings.separateTranscriptFile = value;
+					await this.plugin.saveSettings();
+				}));
+
+		if (!this.plugin.settings.includeTranscript) {
+			separateTranscriptSetting.settingEl.style.display = 'none';
 		}
 
 		new Setting(advancedEl)
@@ -511,6 +515,16 @@ export class MeetingScribeSettingTab extends PluginSettingTab {
 				.setValue(this.plugin.settings.audioRetentionPolicy)
 				.onChange(async (value) => {
 					this.plugin.settings.audioRetentionPolicy = value as 'keep' | 'delete';
+					await this.plugin.saveSettings();
+				}));
+
+		new Setting(advancedEl)
+			.setName('Recording consent reminder')
+			.setDesc('Show a reminder about participant consent when starting a recording')
+			.addToggle(cb => cb
+				.setValue(this.plugin.settings.showConsentReminder)
+				.onChange(async (value) => {
+					this.plugin.settings.showConsentReminder = value;
 					await this.plugin.saveSettings();
 				}));
 

@@ -149,6 +149,40 @@ describe('MeetingScribePlugin integration flow', () => {
 		expect(noticeSpy).toHaveBeenCalledOnce();
 	});
 
+	it('should show consent reminder when showConsentReminder is true', async () => {
+		const { default: MeetingScribePlugin } = await import('../src/main');
+		const plugin = new MeetingScribePlugin();
+
+		vi.spyOn(plugin, 'loadData').mockResolvedValue({ sttApiKey: 'sk-test', llmApiKey: 'sk-test', showConsentReminder: true });
+		await plugin.onload();
+
+		const recorder = (plugin as any).recorder;
+		vi.spyOn(recorder, 'startRecording').mockResolvedValue(undefined);
+		const consentSpy = vi.spyOn(plugin.noticeManager, 'showConsentReminder').mockReturnValue(new Notice(''));
+
+		const statusBar = (plugin as any).statusBar;
+		statusBar.onStartRecording();
+
+		expect(consentSpy).toHaveBeenCalledOnce();
+	});
+
+	it('should not show consent reminder when showConsentReminder is false', async () => {
+		const { default: MeetingScribePlugin } = await import('../src/main');
+		const plugin = new MeetingScribePlugin();
+
+		vi.spyOn(plugin, 'loadData').mockResolvedValue({ sttApiKey: 'sk-test', llmApiKey: 'sk-test', showConsentReminder: false });
+		await plugin.onload();
+
+		const recorder = (plugin as any).recorder;
+		vi.spyOn(recorder, 'startRecording').mockResolvedValue(undefined);
+		const consentSpy = vi.spyOn(plugin.noticeManager, 'showConsentReminder').mockReturnValue(new Notice(''));
+
+		const statusBar = (plugin as any).statusBar;
+		statusBar.onStartRecording();
+
+		expect(consentSpy).not.toHaveBeenCalled();
+	});
+
 	it('should wire StatusBar onStopRecording to recorder.stopRecording + audioFileManager.saveRecording', async () => {
 		const { default: MeetingScribePlugin } = await import('../src/main');
 		const plugin = new MeetingScribePlugin();

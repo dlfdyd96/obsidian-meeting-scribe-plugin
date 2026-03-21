@@ -75,6 +75,9 @@ export default class MeetingScribePlugin extends Plugin {
 				this.noticeManager.showMissingApiKeys();
 				return;
 			}
+			if (this.settings.showConsentReminder) {
+				this.noticeManager.showConsentReminder();
+			}
 			void this.recorder.startRecording();
 		};
 
