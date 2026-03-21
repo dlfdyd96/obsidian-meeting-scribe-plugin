@@ -26,3 +26,6 @@ _bmad*
 .claude
 docs
 .playwright-mcp
+
+# E2E testing
+.obsidian-cache
