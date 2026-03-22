@@ -15,7 +15,7 @@ describe('OpenAILLMProvider', () => {
 
 	beforeEach(() => {
 		provider = new OpenAILLMProvider();
-		provider.setApiKey('test-api-key');
+		provider.setCredentials({ type: 'api-key', apiKey: 'test-api-key' });
 		vi.clearAllMocks();
 	});
 

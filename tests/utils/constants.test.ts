@@ -6,8 +6,7 @@ import {
 	PLUGIN_ID,
 	PLUGIN_NAME,
 	SUPPORTED_AUDIO_FORMATS,
-	PROVIDER_MAX_DURATION,
-	getMaxDuration,
+	DIARIZE_MAX_DURATION_SECONDS,
 } from '../../src/constants';
 
 describe('Constants', () => {
@@ -39,41 +38,7 @@ describe('Constants', () => {
 		expect(SUPPORTED_AUDIO_FORMATS).toContain('webm');
 	});
 
-	describe('PROVIDER_MAX_DURATION', () => {
-		it('should define limit for OpenAI diarize model', () => {
-			expect(PROVIDER_MAX_DURATION['openai:gpt-4o-transcribe-diarize']).toBe(1400);
-		});
-
-		it('should define limit for CLOVA sync mode', () => {
-			expect(PROVIDER_MAX_DURATION['clova:clova-sync']).toBe(7200);
-		});
-
-		it('should define limit for Google batch mode models', () => {
-			expect(PROVIDER_MAX_DURATION['google:chirp_3']).toBe(28800);
-			expect(PROVIDER_MAX_DURATION['google:chirp_2']).toBe(28800);
-		});
-	});
-
-	describe('getMaxDuration', () => {
-		it('should return duration limit for provider:model with a limit', () => {
-			expect(getMaxDuration('openai', 'gpt-4o-transcribe-diarize')).toBe(1400);
-		});
-
-		it('should return null for provider:model with no limit', () => {
-			expect(getMaxDuration('openai', 'gpt-4o-mini-transcribe')).toBeNull();
-			expect(getMaxDuration('openai', 'whisper-1')).toBeNull();
-		});
-
-		it('should return limit for CLOVA provider', () => {
-			expect(getMaxDuration('clova', 'clova-sync')).toBe(7200);
-		});
-
-		it('should return limit for Google provider', () => {
-			expect(getMaxDuration('google', 'chirp_3')).toBe(28800);
-		});
-
-		it('should return null for unknown provider:model', () => {
-			expect(getMaxDuration('unknown', 'unknown-model')).toBeNull();
-		});
+	it('DIARIZE_MAX_DURATION_SECONDS should be 1400', () => {
+		expect(DIARIZE_MAX_DURATION_SECONDS).toBe(1400);
 	});
 });

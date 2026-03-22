@@ -13,7 +13,7 @@ describe.skipIf(!hasEnvVars('GOOGLE_PROJECT_ID', 'GOOGLE_API_KEY'))('Google Clou
 	beforeAll(() => {
 		provider = new GoogleSTTProvider();
 		const location = process.env.GOOGLE_LOCATION ?? 'global';
-		provider.setCredentials(requireEnv('GOOGLE_PROJECT_ID'), requireEnv('GOOGLE_API_KEY'), location);
+		provider.setCredentials({ type: 'google-cloud', projectId: requireEnv('GOOGLE_PROJECT_ID'), apiKey: requireEnv('GOOGLE_API_KEY'), location });
 
 		const buffer = readFileSync(resolve(FIXTURES_DIR, 'test-audio.wav'));
 		audio = buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength);
@@ -48,7 +48,7 @@ describe.skipIf(!hasEnvVars('GOOGLE_PROJECT_ID', 'GOOGLE_API_KEY'))('Google Clou
 
 	it('should return false for invalid credentials', async () => {
 		const badProvider = new GoogleSTTProvider();
-		badProvider.setCredentials(requireEnv('GOOGLE_PROJECT_ID'), 'invalid-api-key', 'global');
+		badProvider.setCredentials({ type: 'google-cloud', projectId: requireEnv('GOOGLE_PROJECT_ID'), apiKey: 'invalid-api-key', location: 'global' });
 
 		const result = await badProvider.validateApiKey('invalid-api-key');
 		expect(result).toBe(false);

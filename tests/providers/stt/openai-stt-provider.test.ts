@@ -22,7 +22,7 @@ describe('OpenAISTTProvider', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
 		provider = new OpenAISTTProvider();
-		provider.setApiKey('sk-test-key');
+		provider.setCredentials({ type: 'api-key', apiKey: 'sk-test-key' });
 	});
 
 	describe('getSupportedModels', () => {

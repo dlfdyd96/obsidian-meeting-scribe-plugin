@@ -1,7 +1,7 @@
 import { requestUrl } from 'obsidian';
 import { classifyClovaError, classifyClovaResultError } from '../clova-error-utils';
 import { logger } from '../../utils/logger';
-import type { STTProvider, STTOptions, STTModel, TranscriptionResult, TranscriptionSegment } from '../types';
+import type { STTProvider, STTOptions, STTModel, TranscriptionResult, TranscriptionSegment, ProviderCredentials } from '../types';
 
 const COMPONENT = 'ClovaSpeechSTTProvider';
 
@@ -66,13 +66,38 @@ export class ClovaSpeechSTTProvider implements STTProvider {
 	private invokeUrl = '';
 	private secretKey = '';
 
-	setCredentials(invokeUrl: string, secretKey: string): void {
-		this.invokeUrl = invokeUrl;
-		this.secretKey = secretKey;
+	setCredentials(credentials: ProviderCredentials): void {
+		if (credentials.type === 'clova') {
+			this.invokeUrl = credentials.invokeUrl;
+			this.secretKey = credentials.secretKey;
+		}
 	}
 
 	getSupportedModels(): STTModel[] {
 		return [...SUPPORTED_MODELS];
+	}
+
+	getSupportedFormats(): string[] {
+		return ['mp3', 'm4a', 'wav', 'flac', 'aac'];
+	}
+
+	getMaxDuration(): number | null {
+		return 7200;
+	}
+
+	getRequiredCredentials(): string[] {
+		return ['invokeUrl', 'secretKey'];
+	}
+
+	mapLanguageCode(language: string): string | undefined {
+		const mapping: Record<string, string> = {
+			'ko': 'ko-KR',
+			'en': 'en',
+			'ja': 'ja',
+			'zh': 'zh-cn',
+		};
+		if (language === 'auto') return 'ko-KR';
+		return mapping[language] ?? language;
 	}
 
 	async transcribe(audio: ArrayBuffer, options: STTOptions): Promise<TranscriptionResult> {

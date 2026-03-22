@@ -8,14 +8,6 @@ import type { LLMNoteOutput } from '../../note/templates';
 
 const COMPONENT = 'SummarizeStep';
 
-interface HasApiKey {
-	setApiKey(key: string): void;
-}
-
-function hasApiKey(provider: unknown): provider is HasApiKey {
-	return typeof provider === 'object' && provider !== null && 'setApiKey' in provider;
-}
-
 function stripCodeFences(text: string): string {
 	return text.replace(/^```json?\n?/, '').replace(/\n?```$/, '');
 }
@@ -50,12 +42,8 @@ export class SummarizeStep implements PipelineStep {
 			throw new ConfigError('LLM API key is not configured');
 		}
 
-		// Set API key on provider
-		if (hasApiKey(provider)) {
-			provider.setApiKey(settings.llmApiKey);
-		} else {
-			logger.warn(COMPONENT, 'Provider does not support setApiKey', { provider: settings.llmProvider });
-		}
+		// Set credentials on provider
+		provider.setCredentials({ type: 'api-key', apiKey: settings.llmApiKey });
 
 		logger.info(COMPONENT, 'Starting summarization', {
 			provider: settings.llmProvider,

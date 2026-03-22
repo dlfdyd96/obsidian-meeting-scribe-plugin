@@ -16,7 +16,7 @@ describe.skipIf(!hasEnvVars('ANTHROPIC_API_KEY'))('Anthropic LLM Integration', (
 
 	beforeAll(() => {
 		provider = new AnthropicLLMProvider();
-		provider.setApiKey(requireEnv('ANTHROPIC_API_KEY'));
+		provider.setCredentials({ type: 'api-key', apiKey: requireEnv('ANTHROPIC_API_KEY') });
 	});
 
 	it('should validate a valid API key', async () => {
@@ -26,7 +26,7 @@ describe.skipIf(!hasEnvVars('ANTHROPIC_API_KEY'))('Anthropic LLM Integration', (
 
 	it('should return false for an invalid API key', async () => {
 		const badProvider = new AnthropicLLMProvider();
-		badProvider.setApiKey('sk-ant-invalid-key-12345');
+		badProvider.setCredentials({ type: 'api-key', apiKey: 'sk-ant-invalid-key-12345' });
 
 		try {
 			const result = await badProvider.validateApiKey('sk-ant-invalid-key-12345');

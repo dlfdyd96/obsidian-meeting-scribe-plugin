@@ -16,7 +16,7 @@ describe.skipIf(!hasEnvVars('OPENAI_API_KEY'))('OpenAI LLM Integration', () => {
 
 	beforeAll(() => {
 		provider = new OpenAILLMProvider();
-		provider.setApiKey(requireEnv('OPENAI_API_KEY'));
+		provider.setCredentials({ type: 'api-key', apiKey: requireEnv('OPENAI_API_KEY') });
 	});
 
 	it('should validate a valid API key', async () => {

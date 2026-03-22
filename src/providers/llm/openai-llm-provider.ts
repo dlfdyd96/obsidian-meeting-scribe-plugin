@@ -3,7 +3,7 @@ import { requestUrl } from 'obsidian';
 import { classifyOpenAIError } from '../openai-error-utils';
 import { logger } from '../../utils/logger';
 import { DataError } from '../../utils/errors';
-import type { LLMProvider, LLMModel, SummaryResult, MeetingMetadata } from '../types';
+import type { LLMProvider, LLMModel, SummaryResult, MeetingMetadata, ProviderCredentials } from '../types';
 
 const COMPONENT = 'OpenAILLMProvider';
 const API_BASE = 'https://api.openai.com/v1';
@@ -21,8 +21,10 @@ export class OpenAILLMProvider implements LLMProvider {
 	readonly name = 'openai';
 	private apiKey = '';
 
-	setApiKey(key: string): void {
-		this.apiKey = key;
+	setCredentials(credentials: ProviderCredentials): void {
+		if (credentials.type === 'api-key') {
+			this.apiKey = credentials.apiKey;
+		}
 	}
 
 	getSupportedModels(): LLMModel[] {

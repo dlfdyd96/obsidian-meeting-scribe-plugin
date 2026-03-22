@@ -1,13 +1,26 @@
 import { TFile, normalizePath } from 'obsidian';
 import type { PipelineStep, PipelineContext } from '../pipeline-types';
-import type { TranscriptionResult, TranscriptionSegment } from '../../providers/types';
+import type { TranscriptionResult, TranscriptionSegment, ProviderCredentials } from '../../providers/types';
 import { chunkAudio } from '../chunker';
-import { SUPPORTED_AUDIO_FORMATS, DIARIZE_MAX_DURATION_SECONDS } from '../../constants';
+import { DIARIZE_MAX_DURATION_SECONDS } from '../../constants';
 import { providerRegistry } from '../../providers/provider-registry';
 import { ConfigError, DataError } from '../../utils/errors';
 import { logger } from '../../utils/logger';
 
+import type { MeetingScribeSettings } from '../../settings/settings';
+
 const COMPONENT = 'TranscribeStep';
+
+function buildSTTCredentials(settings: MeetingScribeSettings): ProviderCredentials {
+	switch (settings.sttProvider) {
+		case 'clova':
+			return { type: 'clova', invokeUrl: settings.clovaInvokeUrl, secretKey: settings.clovaSecretKey };
+		case 'google':
+			return { type: 'google-cloud', projectId: settings.googleProjectId, apiKey: settings.googleApiKey, location: settings.googleLocation };
+		default:
+			return { type: 'api-key', apiKey: settings.sttApiKey };
+	}
+}
 
 function getTranscriptPath(audioFilePath: string): string {
 	return normalizePath(`${audioFilePath}.transcript.json`);
@@ -51,11 +64,18 @@ export class TranscribeStep implements PipelineStep {
 			throw new DataError(`Audio file not found: ${audioFilePath}`);
 		}
 
-		// Validate audio format before any processing
+		// Get STT provider
+		const provider = providerRegistry.getSTTProvider(settings.sttProvider);
+		if (!provider) {
+			throw new ConfigError(`STT provider not found: ${settings.sttProvider}`);
+		}
+
+		// Validate audio format against provider capabilities
 		const ext = audioFilePath.split('.').pop()?.toLowerCase() ?? '';
-		if (!(SUPPORTED_AUDIO_FORMATS as readonly string[]).includes(ext)) {
+		const supportedFormats = provider.getSupportedFormats();
+		if (!supportedFormats.includes(ext)) {
 			throw new ConfigError(
-				`Unsupported audio format: .${ext}. Supported: mp3, mp4, m4a, wav, webm`
+				`${ext} is not supported by ${provider.name}. Supported formats: ${supportedFormats.join(', ')}`
 			);
 		}
 
@@ -73,33 +93,13 @@ export class TranscribeStep implements PipelineStep {
 		});
 		const totalChunks = chunks.length;
 
-		// Get STT provider
-		const provider = providerRegistry.getSTTProvider(settings.sttProvider);
-		if (!provider) {
-			throw new ConfigError(`STT provider not found: ${settings.sttProvider}`);
-		}
-
-		// Set credentials on provider based on provider type
-		if (settings.sttProvider === 'clova' && 'setCredentials' in provider) {
-			(provider as { setCredentials: (invokeUrl: string, secretKey: string) => void }).setCredentials(settings.clovaInvokeUrl, settings.clovaSecretKey);
-		} else if (settings.sttProvider === 'google' && 'setCredentials' in provider) {
-			(provider as { setCredentials: (projectId: string, apiKey: string, location: string) => void }).setCredentials(settings.googleProjectId, settings.googleApiKey, settings.googleLocation);
-		} else {
-			if (!settings.sttApiKey) {
-				throw new ConfigError('STT API key is not configured');
-			}
-			if ('setApiKey' in provider && typeof (provider as { setApiKey: (k: string) => void }).setApiKey === 'function') {
-				(provider as { setApiKey: (k: string) => void }).setApiKey(settings.sttApiKey);
-			}
-		}
+		// Set credentials on provider
+		provider.setCredentials(buildSTTCredentials(settings));
 
 		// Transcribe each chunk
 		const results: TranscriptionResult[] = [];
 		for (const chunk of chunks) {
-			// Use provider-specific language setting when available
-			const language = settings.sttProvider === 'clova'
-				? settings.clovaLanguage
-				: settings.sttLanguage === 'auto' ? undefined : settings.sttLanguage;
+			const language = provider.mapLanguageCode(settings.sttLanguage);
 
 			const result = await provider.transcribe(chunk.data, {
 				model: settings.sttModel,

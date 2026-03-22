@@ -2,7 +2,7 @@ import { requestUrl } from 'obsidian';
 
 import { classifyAnthropicError } from '../anthropic-error-utils';
 import { logger } from '../../utils/logger';
-import type { LLMProvider, LLMModel, SummaryResult, MeetingMetadata } from '../types';
+import type { LLMProvider, LLMModel, SummaryResult, MeetingMetadata, ProviderCredentials } from '../types';
 
 interface ParsedSummaryResponse {
 	summary?: string;
@@ -48,8 +48,10 @@ export class AnthropicLLMProvider implements LLMProvider {
 	readonly name = 'anthropic';
 	private apiKey = '';
 
-	setApiKey(key: string): void {
-		this.apiKey = key;
+	setCredentials(credentials: ProviderCredentials): void {
+		if (credentials.type === 'api-key') {
+			this.apiKey = credentials.apiKey;
+		}
 	}
 
 	getSupportedModels(): LLMModel[] {

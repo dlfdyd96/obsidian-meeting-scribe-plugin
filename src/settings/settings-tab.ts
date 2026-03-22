@@ -22,15 +22,6 @@ const OPENAI_STT_MODELS: Record<string, string> = {
 	'gpt-4o-transcribe-diarize': 'GPT-4o transcribe (with diarization)',
 };
 
-const CLOVA_LANGUAGE_OPTIONS: Record<string, string> = {
-	'ko-KR': 'Korean (ko-KR)',
-	'en-US': 'English (en-US)',
-	'enko': 'Korean + English (enko)',
-	'ja': 'Japanese (ja)',
-	'zh-cn': 'Chinese Simplified (zh-cn)',
-	'zh-tw': 'Chinese Traditional (zh-tw)',
-};
-
 const GOOGLE_STT_MODELS: Record<string, string> = {
 	'chirp_3': 'Chirp 3 (Recommended)',
 	'chirp_2': 'Chirp 2',
@@ -163,27 +154,15 @@ export class MeetingScribeSettingTab extends PluginSettingTab {
 				.addButton(cb => cb
 					.setButtonText('Test')
 					.onClick(async () => {
-						const provider = providerRegistry.getSTTProvider('clova') as import('../providers/stt/clova-stt-provider').ClovaSpeechSTTProvider | undefined;
+						const provider = providerRegistry.getSTTProvider('clova');
 						if (!provider) return;
-						provider.setCredentials(settings.clovaInvokeUrl, settings.clovaSecretKey);
+						provider.setCredentials({ type: 'clova', invokeUrl: settings.clovaInvokeUrl, secretKey: settings.clovaSecretKey });
 						await validateApiKeyWithUI(
 							cb,
 							clovaKeySetting.descEl,
 							(key) => provider.validateApiKey(key),
 							settings.clovaSecretKey,
 						);
-					}));
-
-			new Setting(containerEl)
-				.setName('Language')
-				// eslint-disable-next-line obsidianmd/ui/sentence-case
-				.setDesc('Primary language for CLOVA Speech transcription')
-				.addDropdown(cb => cb
-					.addOptions(CLOVA_LANGUAGE_OPTIONS)
-					.setValue(settings.clovaLanguage)
-					.onChange(async (value) => {
-						this.plugin.settings.clovaLanguage = value;
-						await this.plugin.saveSettings();
 					}));
 		} else if (settings.sttProvider === 'google') {
 			new Setting(containerEl)
@@ -214,9 +193,9 @@ export class MeetingScribeSettingTab extends PluginSettingTab {
 				.addButton(cb => cb
 					.setButtonText('Test')
 					.onClick(async () => {
-						const provider = providerRegistry.getSTTProvider('google') as import('../providers/stt/google-stt-provider').GoogleSTTProvider | undefined;
+						const provider = providerRegistry.getSTTProvider('google');
 						if (!provider) return;
-						provider.setCredentials(settings.googleProjectId, settings.googleApiKey, settings.googleLocation);
+						provider.setCredentials({ type: 'google-cloud', projectId: settings.googleProjectId, apiKey: settings.googleApiKey, location: settings.googleLocation });
 						await validateApiKeyWithUI(
 							cb,
 							googleKeySetting.descEl,
@@ -368,9 +347,11 @@ export class MeetingScribeSettingTab extends PluginSettingTab {
 					await this.plugin.saveSettings();
 				}));
 
+		const sttProvider = providerRegistry.getSTTProvider(this.plugin.settings.sttProvider);
+		const providerFormats = sttProvider?.getSupportedFormats() ?? [...SUPPORTED_AUDIO_FORMATS];
 		new Setting(containerEl)
 			.setName('Supported formats')
-			.setDesc(`Audio formats accepted for import: ${SUPPORTED_AUDIO_FORMATS.join(', ')}`);
+			.setDesc(`Audio formats supported by ${sttProvider?.name ?? this.plugin.settings.sttProvider}: ${providerFormats.join(', ')}`);
 
 		const llmModels = LLM_MODELS[this.plugin.settings.llmProvider] ?? {};
 		new Setting(containerEl)

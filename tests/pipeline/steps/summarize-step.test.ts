@@ -7,7 +7,7 @@ import type { LLMProvider, SummaryResult, TranscriptionResult } from '../../../s
 import type { MeetingScribeSettings } from '../../../src/settings/settings';
 import { createLLMNoteOutputJSON, createLLMNoteOutputWithCodeFences } from '../../fixtures/llm-note-responses';
 
-function createMockProvider(overrides?: Partial<LLMProvider>): LLMProvider & { setApiKey: ReturnType<typeof vi.fn> } {
+function createMockProvider(overrides?: Partial<LLMProvider>): LLMProvider {
 	return {
 		name: 'mock-llm',
 		summarize: vi.fn<[string, string], Promise<SummaryResult>>().mockResolvedValue({
@@ -26,7 +26,7 @@ function createMockProvider(overrides?: Partial<LLMProvider>): LLMProvider & { s
 		}),
 		validateApiKey: vi.fn().mockResolvedValue(true),
 		getSupportedModels: vi.fn().mockReturnValue([]),
-		setApiKey: vi.fn(),
+		setCredentials: vi.fn(),
 		...overrides,
 	};
 }
@@ -87,7 +87,7 @@ describe('SummarizeStep', () => {
 			const context = createMockContext();
 			await step.execute(context);
 
-			expect(mockProvider.setApiKey).toHaveBeenCalledWith('test-llm-key');
+			expect(mockProvider.setCredentials).toHaveBeenCalledWith({ type: 'api-key', apiKey: 'test-llm-key' });
 			expect(mockProvider.summarize).toHaveBeenCalledOnce();
 
 			const [systemPrompt, userPrompt] = (mockProvider.summarize as ReturnType<typeof vi.fn>).mock.calls[0]!;

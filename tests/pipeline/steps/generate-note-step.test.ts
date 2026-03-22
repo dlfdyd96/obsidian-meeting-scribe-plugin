@@ -71,7 +71,6 @@ function createMockContext(overrides?: Partial<PipelineContext>): PipelineContex
 			onboardingComplete: false,
 			clovaInvokeUrl: '',
 			clovaSecretKey: '',
-			clovaLanguage: 'ko-KR',
 			googleProjectId: '',
 			googleApiKey: '',
 			googleLocation: 'global',

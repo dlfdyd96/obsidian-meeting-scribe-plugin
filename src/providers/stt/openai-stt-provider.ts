@@ -1,7 +1,7 @@
 import { requestUrl } from 'obsidian';
 import { classifyOpenAIError } from '../openai-error-utils';
 import { logger } from '../../utils/logger';
-import type { STTProvider, STTOptions, STTModel, TranscriptionResult, TranscriptionSegment } from '../types';
+import type { STTProvider, STTOptions, STTModel, TranscriptionResult, TranscriptionSegment, ProviderCredentials } from '../types';
 
 const COMPONENT = 'OpenAISTTProvider';
 const API_BASE = 'https://api.openai.com/v1';
@@ -38,12 +38,31 @@ export class OpenAISTTProvider implements STTProvider {
 
 	private apiKey = '';
 
-	setApiKey(key: string): void {
-		this.apiKey = key;
+	setCredentials(credentials: ProviderCredentials): void {
+		if (credentials.type === 'api-key') {
+			this.apiKey = credentials.apiKey;
+		}
 	}
 
 	getSupportedModels(): STTModel[] {
 		return [...SUPPORTED_MODELS];
+	}
+
+	getSupportedFormats(): string[] {
+		return ['mp3', 'mp4', 'm4a', 'wav', 'webm', 'mpeg', 'mpga'];
+	}
+
+	getMaxDuration(): number | null {
+		return null;
+	}
+
+	getRequiredCredentials(): string[] {
+		return ['apiKey'];
+	}
+
+	mapLanguageCode(language: string): string | undefined {
+		if (language === 'auto') return undefined;
+		return language;
 	}
 
 	async transcribe(audio: ArrayBuffer, options: STTOptions): Promise<TranscriptionResult> {

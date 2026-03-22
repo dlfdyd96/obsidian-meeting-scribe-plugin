@@ -1,7 +1,6 @@
 import type { App } from 'obsidian';
 import type { MeetingScribeSettings } from '../settings/settings';
 import { hasSTTCredentials } from '../settings/settings';
-import { getMaxDuration, PROVIDER_MAX_DURATION } from '../constants';
 import { estimateAudioDuration } from '../utils/audio-utils';
 import { DurationGuardModal } from '../ui/duration-guard-modal';
 import type { DurationGuardAlternative } from '../ui/duration-guard-modal';
@@ -38,25 +37,10 @@ function getBestModelForProvider(provider: string): { model: string; limitSecond
 	const models = sttProvider.getSupportedModels();
 	if (models.length === 0) return null;
 
-	let bestModel = models[0]!.id;
-	let bestLimit: number | null = null; // null = unlimited (best)
-	let hasUnlimited = false;
+	// Use provider's getMaxDuration() which returns the limit for the provider
+	const providerLimit = sttProvider.getMaxDuration();
 
-	for (const m of models) {
-		const limit = getMaxDuration(provider, m.id);
-		if (limit === null) {
-			// Unlimited model — this is the best choice
-			hasUnlimited = true;
-			bestModel = m.id;
-			break;
-		}
-		if (bestLimit === null || limit > bestLimit) {
-			bestLimit = limit;
-			bestModel = m.id;
-		}
-	}
-
-	return { model: bestModel, limitSeconds: hasUnlimited ? null : bestLimit };
+	return { model: models[0]!.id, limitSeconds: providerLimit };
 }
 
 function findAlternatives(
@@ -104,13 +88,13 @@ export async function checkDurationGuard(
 	settings: MeetingScribeSettings,
 	app: App,
 ): Promise<DurationGuardResult> {
-	const maxDurationSeconds = getMaxDuration(settings.sttProvider, settings.sttModel);
+	const sttProvider = providerRegistry.getSTTProvider(settings.sttProvider);
+	const maxDurationSeconds = sttProvider?.getMaxDuration() ?? null;
 
-	// No limit for this provider:model — proceed
+	// No limit for this provider — proceed
 	if (maxDurationSeconds === null) {
-		logger.debug(COMPONENT, 'No duration limit for provider:model', {
+		logger.debug(COMPONENT, 'No duration limit for provider', {
 			provider: settings.sttProvider,
-			model: settings.sttModel,
 		});
 		return { action: 'proceed' };
 	}
@@ -152,29 +136,29 @@ export async function checkDurationGuard(
 		case 'switch': {
 			if (!choice.switchProvider) return { action: 'cancel' };
 
-			// AC #4: Re-check duration against the new provider's limit
-			const newModel = choice.switchModel;
-			const newLimit = newModel ? getMaxDuration(choice.switchProvider, newModel) : null;
+			// Re-check duration against the new provider's limit
+			const newProvider = providerRegistry.getSTTProvider(choice.switchProvider);
+			const newLimit = newProvider?.getMaxDuration() ?? null;
 
 			// If new provider has no limit or duration is within new limit, switch
 			if (newLimit === null || durationSeconds <= newLimit) {
 				return {
 					action: 'switch',
 					switchedProvider: choice.switchProvider,
-					switchedModel: newModel,
+					switchedModel: choice.switchModel,
 				};
 			}
 
 			// New provider also can't handle it — recurse with updated settings
 			logger.info(COMPONENT, 'Switched provider also exceeds limit, re-checking', {
 				provider: choice.switchProvider,
-				model: newModel,
+				model: choice.switchModel,
 				newLimit,
 			});
 			const updatedSettings = {
 				...settings,
 				sttProvider: choice.switchProvider,
-				sttModel: newModel ?? settings.sttModel,
+				sttModel: choice.switchModel ?? settings.sttModel,
 			};
 			return checkDurationGuard(audio, updatedSettings, app);
 		}

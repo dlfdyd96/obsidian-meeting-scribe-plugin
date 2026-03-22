@@ -63,7 +63,7 @@ describe('ClovaSpeechSTTProvider', () => {
 
 	beforeEach(() => {
 		provider = new ClovaSpeechSTTProvider();
-		provider.setCredentials('https://clovaspeech.example.com', 'test-secret-key');
+		provider.setCredentials({ type: 'clova', invokeUrl: 'https://clovaspeech.example.com', secretKey: 'test-secret-key' });
 		mockRequestUrl.mockReset();
 	});
 
@@ -269,48 +269,48 @@ describe('ClovaSpeechSTTProvider', () => {
 
 	describe('validateApiKey', () => {
 		it('should return false when invokeUrl is empty', async () => {
-			provider.setCredentials('', 'secret-key');
+			provider.setCredentials({ type: 'clova', invokeUrl: '', secretKey: 'secret-key' });
 			const result = await provider.validateApiKey('secret-key');
 			expect(result).toBe(false);
 			expect(mockRequestUrl).not.toHaveBeenCalled();
 		});
 
 		it('should return false when key is empty', async () => {
-			provider.setCredentials('https://example.com', '');
+			provider.setCredentials({ type: 'clova', invokeUrl: 'https://example.com', secretKey: '' });
 			const result = await provider.validateApiKey('');
 			expect(result).toBe(false);
 		});
 
 		it('should return false for 401 response', async () => {
-			provider.setCredentials('https://example.com', 'bad-key');
+			provider.setCredentials({ type: 'clova', invokeUrl: 'https://example.com', secretKey: 'bad-key' });
 			mockRequestUrlError(401);
 			const result = await provider.validateApiKey('bad-key');
 			expect(result).toBe(false);
 		});
 
 		it('should return true for non-401/403 error status (credentials valid, bad request)', async () => {
-			provider.setCredentials('https://example.com', 'good-key');
+			provider.setCredentials({ type: 'clova', invokeUrl: 'https://example.com', secretKey: 'good-key' });
 			mockRequestUrlError(400);
 			const result = await provider.validateApiKey('good-key');
 			expect(result).toBe(true);
 		});
 
 		it('should return true for successful response', async () => {
-			provider.setCredentials('https://example.com', 'good-key');
+			provider.setCredentials({ type: 'clova', invokeUrl: 'https://example.com', secretKey: 'good-key' });
 			mockRequestUrl.mockResolvedValue({ status: 200, json: {} });
 			const result = await provider.validateApiKey('good-key');
 			expect(result).toBe(true);
 		});
 
 		it('should return false on network error', async () => {
-			provider.setCredentials('https://example.com', 'key');
+			provider.setCredentials({ type: 'clova', invokeUrl: 'https://example.com', secretKey: 'key' });
 			mockRequestUrl.mockRejectedValue(new Error('Network error'));
 			const result = await provider.validateApiKey('key');
 			expect(result).toBe(false);
 		});
 
 		it('should send correct request parameters', async () => {
-			provider.setCredentials('https://example.com', 'my-secret');
+			provider.setCredentials({ type: 'clova', invokeUrl: 'https://example.com', secretKey: 'my-secret' });
 			mockRequestUrl.mockResolvedValue({ status: 200, json: {} });
 			await provider.validateApiKey('my-secret');
 			expect(mockRequestUrl).toHaveBeenCalledWith(

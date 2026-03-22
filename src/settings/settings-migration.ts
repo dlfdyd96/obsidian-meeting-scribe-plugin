@@ -56,6 +56,12 @@ function migrateV6ToV7(data: Record<string, unknown>): Record<string, unknown> {
 	});
 }
 
+function migrateV7ToV8(data: Record<string, unknown>): Record<string, unknown> {
+	const result = Object.assign({}, data, { settingsVersion: 8 });
+	delete result['clovaLanguage'];
+	return result;
+}
+
 const migrations: Migration[] = [
 	migrateV0ToV1,
 	migrateV1ToV2,
@@ -64,6 +70,7 @@ const migrations: Migration[] = [
 	migrateV4ToV5,
 	migrateV5ToV6,
 	migrateV6ToV7,
+	migrateV7ToV8,
 ];
 
 export function migrateSettings(data: unknown): MeetingScribeSettings {

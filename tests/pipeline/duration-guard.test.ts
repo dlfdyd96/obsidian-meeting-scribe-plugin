@@ -59,6 +59,7 @@ function setupProviderRegistry(): void {
 						{ id: 'gpt-4o-transcribe', name: 'GPT-4o', supportsDiarization: false },
 						{ id: 'gpt-4o-transcribe-diarize', name: 'GPT-4o Diarize', supportsDiarization: true },
 					],
+					getMaxDuration: () => null,
 					transcribe: vi.fn(),
 				} as any;
 			case 'clova':
@@ -68,6 +69,7 @@ function setupProviderRegistry(): void {
 					getSupportedModels: () => [
 						{ id: 'clova-sync', name: 'CLOVA Speech (Sync)', supportsDiarization: true },
 					],
+					getMaxDuration: () => 7200,
 					transcribe: vi.fn(),
 				} as any;
 			case 'google':
@@ -78,6 +80,7 @@ function setupProviderRegistry(): void {
 						{ id: 'chirp_3', name: 'Chirp 3', supportsDiarization: true },
 						{ id: 'chirp_2', name: 'Chirp 2', supportsDiarization: true },
 					],
+					getMaxDuration: () => 28800,
 					transcribe: vi.fn(),
 				} as any;
 			default:
@@ -119,12 +122,12 @@ describe('checkDurationGuard', () => {
 	});
 
 	it('should show modal when duration exceeds limit', async () => {
-		vi.mocked(estimateAudioDuration).mockResolvedValue(1500); // 25 min > 23 min limit
+		vi.mocked(estimateAudioDuration).mockResolvedValue(8000); // > 7200s CLOVA limit
 		(__setResolveValue as (val: unknown) => void)({ action: 'split' });
 
 		const settings = createSettings({
-			sttProvider: 'openai',
-			sttModel: 'gpt-4o-transcribe-diarize',
+			sttProvider: 'clova',
+			sttModel: 'clova-sync',
 		});
 
 		const result = await checkDurationGuard(audio, settings, app);
@@ -132,25 +135,25 @@ describe('checkDurationGuard', () => {
 	});
 
 	it('should return split with maxDurationSeconds when user chooses split', async () => {
-		vi.mocked(estimateAudioDuration).mockResolvedValue(1500);
+		vi.mocked(estimateAudioDuration).mockResolvedValue(8000);
 		(__setResolveValue as (val: unknown) => void)({ action: 'split' });
 
 		const settings = createSettings({
-			sttProvider: 'openai',
-			sttModel: 'gpt-4o-transcribe-diarize',
+			sttProvider: 'clova',
+			sttModel: 'clova-sync',
 		});
 
 		const result = await checkDurationGuard(audio, settings, app);
-		expect(result).toEqual({ action: 'split', maxDurationSeconds: 1400 });
+		expect(result).toEqual({ action: 'split', maxDurationSeconds: 7200 });
 	});
 
 	it('should return cancel when user cancels', async () => {
-		vi.mocked(estimateAudioDuration).mockResolvedValue(1500);
+		vi.mocked(estimateAudioDuration).mockResolvedValue(8000);
 		(__setResolveValue as (val: unknown) => void)({ action: 'cancel' });
 
 		const settings = createSettings({
-			sttProvider: 'openai',
-			sttModel: 'gpt-4o-transcribe-diarize',
+			sttProvider: 'clova',
+			sttModel: 'clova-sync',
 		});
 
 		const result = await checkDurationGuard(audio, settings, app);
@@ -158,7 +161,7 @@ describe('checkDurationGuard', () => {
 	});
 
 	it('should return switch with provider and model when user switches', async () => {
-		vi.mocked(estimateAudioDuration).mockResolvedValue(1500);
+		vi.mocked(estimateAudioDuration).mockResolvedValue(8000);
 		(__setResolveValue as (val: unknown) => void)({
 			action: 'switch',
 			switchProvider: 'google',
@@ -166,8 +169,8 @@ describe('checkDurationGuard', () => {
 		});
 
 		const settings = createSettings({
-			sttProvider: 'openai',
-			sttModel: 'gpt-4o-transcribe-diarize',
+			sttProvider: 'clova',
+			sttModel: 'clova-sync',
 		});
 
 		const result = await checkDurationGuard(audio, settings, app);

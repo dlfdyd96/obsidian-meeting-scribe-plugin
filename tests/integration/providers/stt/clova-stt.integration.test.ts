@@ -11,7 +11,7 @@ describe.skipIf(!hasEnvVars('CLOVA_INVOKE_URL', 'CLOVA_SECRET_KEY'))('CLOVA Spee
 
 	beforeAll(() => {
 		provider = new ClovaSpeechSTTProvider();
-		provider.setCredentials(requireEnv('CLOVA_INVOKE_URL'), requireEnv('CLOVA_SECRET_KEY'));
+		provider.setCredentials({ type: 'clova', invokeUrl: requireEnv('CLOVA_INVOKE_URL'), secretKey: requireEnv('CLOVA_SECRET_KEY') });
 
 		const buffer = readFileSync(resolve(FIXTURES_DIR, 'test-audio.m4a'));
 		audio = buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength);
@@ -41,7 +41,7 @@ describe.skipIf(!hasEnvVars('CLOVA_INVOKE_URL', 'CLOVA_SECRET_KEY'))('CLOVA Spee
 	it('should handle invalid credentials gracefully', async () => {
 		const badProvider = new ClovaSpeechSTTProvider();
 		// Use a completely invalid invoke URL to trigger a network/auth error
-		badProvider.setCredentials('https://invalid-url.example.com/v1/fake', 'invalid-secret-key');
+		badProvider.setCredentials({ type: 'clova', invokeUrl: 'https://invalid-url.example.com/v1/fake', secretKey: 'invalid-secret-key' });
 
 		const result = await badProvider.validateApiKey('invalid-secret-key');
 		expect(result).toBe(false);

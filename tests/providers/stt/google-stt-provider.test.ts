@@ -94,7 +94,7 @@ describe('GoogleSTTProvider', () => {
 
 	beforeEach(() => {
 		provider = new GoogleSTTProvider();
-		provider.setCredentials('my-project', 'my-api-key', 'us');
+		provider.setCredentials({ type: 'google-cloud', projectId: 'my-project', apiKey: 'my-api-key', location: 'us' });
 		fetchSpy = vi.spyOn(globalThis, 'fetch');
 	});
 
@@ -284,7 +284,7 @@ describe('GoogleSTTProvider', () => {
 		});
 
 		it('should use correct API URL with project and location', async () => {
-			provider.setCredentials('test-project', 'test-key', 'eu');
+			provider.setCredentials({ type: 'google-cloud', projectId: 'test-project', apiKey: 'test-key', location: 'eu' });
 			fetchSpy.mockResolvedValue(createFetchSuccess(createRecognizeResponse()));
 
 			await provider.transcribe(audio, defaultOptions);
@@ -386,48 +386,48 @@ describe('GoogleSTTProvider', () => {
 
 	describe('validateApiKey', () => {
 		it('should return false when projectId is empty', async () => {
-			provider.setCredentials('', 'api-key', 'global');
+			provider.setCredentials({ type: 'google-cloud', projectId: '', apiKey: 'api-key', location: 'global' });
 			const result = await provider.validateApiKey('api-key');
 			expect(result).toBe(false);
 			expect(fetchSpy).not.toHaveBeenCalled();
 		});
 
 		it('should return false when key is empty', async () => {
-			provider.setCredentials('my-project', '', 'global');
+			provider.setCredentials({ type: 'google-cloud', projectId: 'my-project', apiKey: '', location: 'global' });
 			const result = await provider.validateApiKey('');
 			expect(result).toBe(false);
 		});
 
 		it('should return false for 401 response', async () => {
-			provider.setCredentials('my-project', 'bad-key', 'global');
+			provider.setCredentials({ type: 'google-cloud', projectId: 'my-project', apiKey: 'bad-key', location: 'global' });
 			fetchSpy.mockResolvedValue({ status: 401 } as Response);
 			const result = await provider.validateApiKey('bad-key');
 			expect(result).toBe(false);
 		});
 
 		it('should return false for 403 response', async () => {
-			provider.setCredentials('my-project', 'bad-key', 'global');
+			provider.setCredentials({ type: 'google-cloud', projectId: 'my-project', apiKey: 'bad-key', location: 'global' });
 			fetchSpy.mockResolvedValue({ status: 403 } as Response);
 			const result = await provider.validateApiKey('bad-key');
 			expect(result).toBe(false);
 		});
 
 		it('should return true for 200 response', async () => {
-			provider.setCredentials('my-project', 'good-key', 'global');
+			provider.setCredentials({ type: 'google-cloud', projectId: 'my-project', apiKey: 'good-key', location: 'global' });
 			fetchSpy.mockResolvedValue({ status: 200 } as Response);
 			const result = await provider.validateApiKey('good-key');
 			expect(result).toBe(true);
 		});
 
 		it('should return false on network error', async () => {
-			provider.setCredentials('my-project', 'key', 'global');
+			provider.setCredentials({ type: 'google-cloud', projectId: 'my-project', apiKey: 'key', location: 'global' });
 			fetchSpy.mockRejectedValue(new Error('Network error'));
 			const result = await provider.validateApiKey('key');
 			expect(result).toBe(false);
 		});
 
 		it('should use X-goog-api-key header (not Authorization: Bearer)', async () => {
-			provider.setCredentials('my-project', 'my-key', 'us-central1');
+			provider.setCredentials({ type: 'google-cloud', projectId: 'my-project', apiKey: 'my-key', location: 'us-central1' });
 			fetchSpy.mockResolvedValue({ status: 200 } as Response);
 			await provider.validateApiKey('my-key');
 			expect(fetchSpy).toHaveBeenCalledWith(

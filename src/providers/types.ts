@@ -29,11 +29,21 @@ export interface TranscriptionResult {
 	createdAt: string;
 }
 
+export type ProviderCredentials =
+	| { type: 'api-key'; apiKey: string }
+	| { type: 'clova'; invokeUrl: string; secretKey: string }
+	| { type: 'google-cloud'; projectId: string; apiKey: string; location: string };
+
 export interface STTProvider {
 	readonly name: string;
 	transcribe(audio: ArrayBuffer, options: STTOptions): Promise<TranscriptionResult>;
 	validateApiKey(key: string): Promise<boolean>;
 	getSupportedModels(): STTModel[];
+	setCredentials(credentials: ProviderCredentials): void;
+	getSupportedFormats(): string[];
+	getMaxDuration(): number | null;
+	getRequiredCredentials(): string[];
+	mapLanguageCode(language: string): string | undefined;
 }
 
 export interface LLMModel {
@@ -68,4 +78,5 @@ export interface LLMProvider {
 	summarize(systemPrompt: string, userPrompt: string): Promise<SummaryResult>;
 	validateApiKey(key: string): Promise<boolean>;
 	getSupportedModels(): LLMModel[];
+	setCredentials(credentials: ProviderCredentials): void;
 }

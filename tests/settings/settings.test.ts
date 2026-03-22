@@ -4,14 +4,14 @@ import type { MeetingScribeSettings } from '../../src/settings/settings';
 
 describe('MeetingScribeSettings', () => {
 	describe('CURRENT_SETTINGS_VERSION', () => {
-		it('should be 7', () => {
-			expect(CURRENT_SETTINGS_VERSION).toBe(7);
+		it('should be 8', () => {
+			expect(CURRENT_SETTINGS_VERSION).toBe(8);
 		});
 	});
 
 	describe('DEFAULT_SETTINGS', () => {
-		it('should have settingsVersion set to 7', () => {
-			expect(DEFAULT_SETTINGS.settingsVersion).toBe(7);
+		it('should have settingsVersion set to 8', () => {
+			expect(DEFAULT_SETTINGS.settingsVersion).toBe(8);
 		});
 
 		it('should have sttProvider set to openai', () => {
@@ -74,14 +74,13 @@ describe('MeetingScribeSettings', () => {
 			expect(DEFAULT_SETTINGS.onboardingComplete).toBe(false);
 		});
 
-		it('should have exactly 25 fields', () => {
-			expect(Object.keys(DEFAULT_SETTINGS)).toHaveLength(25);
+		it('should have exactly 24 fields', () => {
+			expect(Object.keys(DEFAULT_SETTINGS)).toHaveLength(24);
 		});
 
 		it('should have CLOVA Speech defaults', () => {
 			expect(DEFAULT_SETTINGS.clovaInvokeUrl).toBe('');
 			expect(DEFAULT_SETTINGS.clovaSecretKey).toBe('');
-			expect(DEFAULT_SETTINGS.clovaLanguage).toBe('ko-KR');
 		});
 
 		it('should have Google Cloud STT defaults', () => {

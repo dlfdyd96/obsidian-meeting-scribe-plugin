@@ -63,6 +63,11 @@ function makeMockProvider(): STTProvider {
 		transcribe: vi.fn().mockResolvedValue(makeTranscriptionResult()),
 		validateApiKey: vi.fn().mockResolvedValue(true),
 		getSupportedModels: vi.fn().mockReturnValue([]),
+		setCredentials: vi.fn(),
+		getSupportedFormats: vi.fn().mockReturnValue(['mp3', 'mp4', 'm4a', 'wav', 'webm', 'mpeg', 'mpga']),
+		getMaxDuration: vi.fn().mockReturnValue(null),
+		getRequiredCredentials: vi.fn().mockReturnValue(['apiKey']),
+		mapLanguageCode: vi.fn().mockImplementation((lang: string) => lang === 'auto' ? undefined : lang),
 	};
 }
 
@@ -446,6 +451,9 @@ describe('TranscribeStep', () => {
 		});
 
 		it('throws ConfigError for unsupported audio format', async () => {
+			const mockProvider = makeMockProvider();
+			vi.mocked(providerRegistry.getSTTProvider).mockReturnValue(mockProvider);
+
 			const audioFile = new TFile('recordings/test.flac');
 			const context = makeContext({ audioFilePath: 'recordings/test.flac' });
 			vi.mocked(context.vault.getAbstractFileByPath).mockImplementation((path: string) => {
@@ -454,10 +462,13 @@ describe('TranscribeStep', () => {
 			});
 
 			await expect(step.execute(context)).rejects.toThrow(ConfigError);
-			await expect(step.execute(context)).rejects.toThrow('Unsupported audio format: .flac. Supported: mp3, mp4, m4a, wav, webm');
+			await expect(step.execute(context)).rejects.toThrow('flac is not supported by openai');
 		});
 
 		it('throws ConfigError for ogg format (not supported by OpenAI)', async () => {
+			const mockProvider = makeMockProvider();
+			vi.mocked(providerRegistry.getSTTProvider).mockReturnValue(mockProvider);
+
 			const audioFile = new TFile('recordings/test.ogg');
 			const context = makeContext({ audioFilePath: 'recordings/test.ogg' });
 			vi.mocked(context.vault.getAbstractFileByPath).mockImplementation((path: string) => {
@@ -466,10 +477,13 @@ describe('TranscribeStep', () => {
 			});
 
 			await expect(step.execute(context)).rejects.toThrow(ConfigError);
-			await expect(step.execute(context)).rejects.toThrow('Unsupported audio format: .ogg');
+			await expect(step.execute(context)).rejects.toThrow('ogg is not supported by openai');
 		});
 
 		it('validates format before chunking (no wasted processing)', async () => {
+			const mockProvider = makeMockProvider();
+			vi.mocked(providerRegistry.getSTTProvider).mockReturnValue(mockProvider);
+
 			const audioFile = new TFile('recordings/test.aac');
 			const context = makeContext({ audioFilePath: 'recordings/test.aac' });
 			vi.mocked(context.vault.getAbstractFileByPath).mockImplementation((path: string) => {
@@ -506,24 +520,8 @@ describe('TranscribeStep', () => {
 			await expect(step.execute(context)).rejects.toThrow('STT provider not found');
 		});
 
-		it('throws ConfigError when STT API key is not configured', async () => {
+		it('sets credentials on provider before transcription', async () => {
 			const mockProvider = makeMockProvider();
-			vi.mocked(providerRegistry.getSTTProvider).mockReturnValue(mockProvider);
-			vi.mocked(chunkAudio).mockResolvedValue([makeChunk()]);
-
-			const audioFile = new TFile('recordings/test.webm');
-			const context = makeContext({ settings: { ...makeContext().settings, sttApiKey: '' } });
-			vi.mocked(context.vault.getAbstractFileByPath).mockImplementation((path: string) => {
-				if (path === 'recordings/test.webm') return audioFile;
-				return null;
-			});
-
-			await expect(step.execute(context)).rejects.toThrow(ConfigError);
-			await expect(step.execute(context)).rejects.toThrow('STT API key is not configured');
-		});
-
-		it('sets API key on provider before transcription', async () => {
-			const mockProvider = { ...makeMockProvider(), setApiKey: vi.fn() };
 			vi.mocked(providerRegistry.getSTTProvider).mockReturnValue(mockProvider);
 			vi.mocked(chunkAudio).mockResolvedValue([makeChunk()]);
 
@@ -536,7 +534,7 @@ describe('TranscribeStep', () => {
 
 			await step.execute(context);
 
-			expect(mockProvider.setApiKey).toHaveBeenCalledWith('test-key');
+			expect(mockProvider.setCredentials).toHaveBeenCalledWith({ type: 'api-key', apiKey: 'test-key' });
 		});
 
 		it('propagates TransientError from provider', async () => {

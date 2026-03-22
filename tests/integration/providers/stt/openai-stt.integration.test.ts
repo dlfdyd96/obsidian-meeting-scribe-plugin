@@ -11,7 +11,7 @@ describe.skipIf(!hasEnvVars('OPENAI_API_KEY'))('OpenAI STT Integration', () => {
 
 	beforeAll(() => {
 		provider = new OpenAISTTProvider();
-		provider.setApiKey(requireEnv('OPENAI_API_KEY'));
+		provider.setCredentials({ type: 'api-key', apiKey: requireEnv('OPENAI_API_KEY') });
 
 		const buffer = readFileSync(resolve(FIXTURES_DIR, 'test-audio.m4a'));
 		audio = buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength);

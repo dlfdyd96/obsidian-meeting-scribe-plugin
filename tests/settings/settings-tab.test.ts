@@ -334,12 +334,18 @@ describe('MeetingScribeSettingTab', () => {
 				validateApiKey: mockValidateApiKey,
 				transcribe: vi.fn(),
 				getSupportedModels: vi.fn().mockReturnValue([]),
+				setCredentials: vi.fn(),
+				getSupportedFormats: vi.fn().mockReturnValue(['mp3', 'mp4', 'm4a', 'wav', 'webm', 'mpeg', 'mpga']),
+				getMaxDuration: vi.fn().mockReturnValue(null),
+				getRequiredCredentials: vi.fn().mockReturnValue(['apiKey']),
+				mapLanguageCode: vi.fn().mockImplementation((lang: string) => lang === 'auto' ? undefined : lang),
 			});
 			vi.spyOn(providerRegistry, 'getLLMProvider').mockReturnValue({
 				name: 'anthropic',
 				validateApiKey: mockValidateApiKey,
 				summarize: vi.fn(),
 				getSupportedModels: vi.fn().mockReturnValue([]),
+				setCredentials: vi.fn(),
 			});
 		});
 

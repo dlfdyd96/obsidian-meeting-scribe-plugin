@@ -1,6 +1,6 @@
 import { classifyGoogleCloudError, classifyGoogleCloudOperationError } from '../google-cloud-error-utils';
 import { logger } from '../../utils/logger';
-import type { STTProvider, STTOptions, STTModel, TranscriptionResult, TranscriptionSegment } from '../types';
+import type { STTProvider, STTOptions, STTModel, TranscriptionResult, TranscriptionSegment, ProviderCredentials } from '../types';
 
 const COMPONENT = 'GoogleSTTProvider';
 
@@ -104,14 +104,39 @@ export class GoogleSTTProvider implements STTProvider {
 	private apiKey = '';
 	private location = 'global';
 
-	setCredentials(projectId: string, apiKey: string, location: string): void {
-		this.projectId = projectId;
-		this.apiKey = apiKey;
-		this.location = location;
+	setCredentials(credentials: ProviderCredentials): void {
+		if (credentials.type === 'google-cloud') {
+			this.projectId = credentials.projectId;
+			this.apiKey = credentials.apiKey;
+			this.location = credentials.location;
+		}
 	}
 
 	getSupportedModels(): STTModel[] {
 		return [...SUPPORTED_MODELS];
+	}
+
+	getSupportedFormats(): string[] {
+		return ['mp3', 'mp4', 'm4a', 'wav', 'webm', 'flac', 'ogg'];
+	}
+
+	getMaxDuration(): number | null {
+		return 28800;
+	}
+
+	getRequiredCredentials(): string[] {
+		return ['projectId', 'apiKey', 'location'];
+	}
+
+	mapLanguageCode(language: string): string | undefined {
+		const mapping: Record<string, string> = {
+			'ko': 'ko-KR',
+			'en': 'en-US',
+			'ja': 'ja-JP',
+			'zh': 'zh',
+		};
+		if (language === 'auto') return 'auto';
+		return mapping[language] ?? language;
 	}
 
 	async transcribe(audio: ArrayBuffer, options: STTOptions): Promise<TranscriptionResult> {

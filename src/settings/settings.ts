@@ -18,7 +18,6 @@ export interface MeetingScribeSettings {
 	// CLOVA Speech fields
 	clovaInvokeUrl: string;
 	clovaSecretKey: string;
-	clovaLanguage: string;
 	// Google Cloud STT fields
 	googleProjectId: string;
 	googleApiKey: string;
@@ -30,7 +29,7 @@ export interface MeetingScribeSettings {
 	separateTranscriptFile: boolean;
 }
 
-export const CURRENT_SETTINGS_VERSION = 7;
+export const CURRENT_SETTINGS_VERSION = 8;
 
 export function hasSTTCredentials(settings: MeetingScribeSettings): boolean {
 	switch (settings.sttProvider) {
@@ -60,7 +59,6 @@ export const DEFAULT_SETTINGS: MeetingScribeSettings = {
 	onboardingComplete: false,
 	clovaInvokeUrl: '',
 	clovaSecretKey: '',
-	clovaLanguage: 'ko-KR',
 	googleProjectId: '',
 	googleApiKey: '',
 	googleLocation: 'global',

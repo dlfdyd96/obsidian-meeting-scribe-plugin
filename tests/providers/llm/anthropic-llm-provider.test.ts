@@ -15,7 +15,7 @@ describe('AnthropicLLMProvider', () => {
 
 	beforeEach(() => {
 		provider = new AnthropicLLMProvider();
-		provider.setApiKey('test-api-key');
+		provider.setCredentials({ type: 'api-key', apiKey: 'test-api-key' });
 		vi.clearAllMocks();
 	});
 
