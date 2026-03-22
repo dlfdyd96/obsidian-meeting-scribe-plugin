@@ -57,7 +57,7 @@ You will receive a transcript of a meeting. Analyze it and produce output in the
 }
 
 Rules:
-1. Use speaker labels exactly as they appear in the transcript (e.g., "[[Participant 1]]"). Reference them using the same [[wiki-link]] format in the summary, discussion notes, and action items.
+1. Use speaker labels exactly as they appear in the transcript (e.g., "Participant 1"). Reference them as plain text in the summary, discussion notes, and action items. Do NOT use [[wiki-link]] format.
 2. Generate tags that would be useful for searching and organizing notes. Always include "meeting" as a tag. Use lowercase, hyphenated format (e.g., "sprint-planning").
 3. Action items should include the assignee name and specific task. Use checkbox format compatible with Obsidian Tasks plugin.
 4. If the transcript language is not English, write the notes in the same language as the transcript.
@@ -124,7 +124,7 @@ export function formatTranscriptSection(transcriptionResult: TranscriptionResult
 	const lines = sorted.map(segment => {
 		const timestamp = formatTimestamp(segment.start);
 		const speaker = segment.speaker && segment.speaker.trim() !== '' ? segment.speaker : 'Unknown';
-		return `${timestamp} **[[${speaker}]]:** ${segment.text}`;
+		return `${timestamp} **${speaker}:** ${segment.text}`;
 	});
 
 	return lines.join('\n');

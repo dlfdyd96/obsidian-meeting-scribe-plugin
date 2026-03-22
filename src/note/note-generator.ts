@@ -123,18 +123,46 @@ export function applyParticipantReplacements(content: string, participants: Part
 	let replacementCount = 0;
 	const updatedParticipants = participants.map(p => ({ ...p }));
 
+	// Sort by alias length descending to prevent prefix collisions
+	// (e.g., "Participant 10" must be replaced before "Participant 1")
+	updatedParticipants.sort((a, b) => b.alias.length - a.alias.length);
+
 	for (const participant of updatedParticipants) {
 		if (!participant.name) continue;
 
-		const oldText = `[[${participant.alias}]]`;
-		const newText = participant.name.startsWith('[[') ? participant.name : `[[${participant.name}]]`;
+		const newWikiLink = participant.name.startsWith('[[') ? participant.name : `[[${participant.name}]]`;
 
-		if (oldText === newText) continue;
+		// New format: plain text bold speaker label (e.g., **Participant 1:**)
+		const plainOld = `**${participant.alias}:**`;
+		const plainNew = `**${newWikiLink}:**`;
+		if (plainOld !== plainNew) {
+			const count = body.split(plainOld).length - 1;
+			if (count > 0) {
+				body = body.split(plainOld).join(plainNew);
+				replacementCount += count;
+			}
+		}
 
-		const count = body.split(oldText).length - 1;
-		if (count > 0) {
-			body = body.split(oldText).join(newText);
-			replacementCount += count;
+		// Old format: wiki-link (backward compat for notes from previous versions)
+		const wikiOld = `[[${participant.alias}]]`;
+		const wikiNew = newWikiLink;
+		if (wikiOld !== wikiNew) {
+			const count = body.split(wikiOld).length - 1;
+			if (count > 0) {
+				body = body.split(wikiOld).join(wikiNew);
+				replacementCount += count;
+			}
+		}
+
+		// Standalone plain text in summary/discussion (e.g., "Participant 1 led the meeting")
+		const standaloneOld = participant.alias;
+		const standaloneNew = newWikiLink;
+		if (body.includes(standaloneOld)) {
+			const count = body.split(standaloneOld).length - 1;
+			if (count > 0) {
+				body = body.split(standaloneOld).join(standaloneNew);
+				replacementCount += count;
+			}
 		}
 
 		// Update alias to reflect new display name for idempotent re-runs

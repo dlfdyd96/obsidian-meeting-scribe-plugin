@@ -138,8 +138,8 @@ describe('generateNote', () => {
 			includeTranscript: true,
 		});
 
-		expect(result).toContain('[00:00:15] **[[Alice]]:** Good morning.');
-		expect(result).toContain('[00:00:22] **[[Bob]]:** Hello!');
+		expect(result).toContain('[00:00:15] **Alice:** Good morning.');
+		expect(result).toContain('[00:00:22] **Bob:** Hello!');
 	});
 
 	it('formats non-diarized transcript as continuous text', () => {
@@ -346,8 +346,8 @@ describe('generateTranscriptNote', () => {
 			meetingNoteLink: '[[2026-03-16 Weekly Standup]]',
 		});
 
-		expect(result).toContain('**[[Participant 1]]:**');
-		expect(result).toContain('**[[Participant 2]]:**');
+		expect(result).toContain('**Participant 1:**');
+		expect(result).toContain('**Participant 2:**');
 	});
 });
 
@@ -505,7 +505,22 @@ describe('applyParticipantReplacements', () => {
 		return `---\ndate: 2026-03-20\nparticipants:\n${pLines}\ncreated_by: meeting-scribe\n---\n${body}`;
 	};
 
-	it('replaces [[Participant N]] with [[name]] for plain string names', () => {
+	it('replaces plain text **Participant N:** with **[[name]]:** for new format notes', () => {
+		const participants: ParticipantAlias[] = [
+			{ alias: 'Participant 1', name: 'Paul' },
+			{ alias: 'Participant 2', name: '' },
+		];
+		const body = 'Said by **Participant 1:** hello. **Participant 2:** hi.';
+		const content = makeContent(participants, body);
+
+		const result = applyParticipantReplacements(content, participants);
+
+		expect(result.updatedContent).toContain('**[[Paul]]:**');
+		expect(result.updatedContent).toContain('**Participant 2:**');
+		expect(result.replacementCount).toBe(1);
+	});
+
+	it('replaces old wiki-link format [[Participant N]] for backward compat', () => {
 		const participants: ParticipantAlias[] = [
 			{ alias: 'Participant 1', name: 'Paul' },
 			{ alias: 'Participant 2', name: '' },
@@ -524,7 +539,7 @@ describe('applyParticipantReplacements', () => {
 		const participants: ParticipantAlias[] = [
 			{ alias: 'Participant 1', name: '[[People/Paul]]' },
 		];
-		const body = 'Quote from **[[Participant 1]]:** something.';
+		const body = 'Quote from **Participant 1:** something.';
 		const content = makeContent(participants, body);
 
 		const result = applyParticipantReplacements(content, participants);
@@ -551,12 +566,12 @@ describe('applyParticipantReplacements', () => {
 		const participants: ParticipantAlias[] = [
 			{ alias: 'Participant 1', name: '' },
 		];
-		const body = '**[[Participant 1]]:** hello.';
+		const body = '**Participant 1:** hello.';
 		const content = makeContent(participants, body);
 
 		const result = applyParticipantReplacements(content, participants);
 
-		expect(result.updatedContent).toContain('**[[Participant 1]]:**');
+		expect(result.updatedContent).toContain('**Participant 1:**');
 		expect(result.replacementCount).toBe(0);
 	});
 
@@ -568,7 +583,21 @@ describe('applyParticipantReplacements', () => {
 		expect(result.replacementCount).toBe(0);
 	});
 
-	it('handles multiple occurrences of the same participant', () => {
+	it('handles multiple occurrences of the same participant (new format)', () => {
+		const participants: ParticipantAlias[] = [
+			{ alias: 'Participant 1', name: 'Alice' },
+		];
+		const body = '**Participant 1:** hello. Later, **Participant 1:** goodbye.';
+		const content = makeContent(participants, body);
+
+		const result = applyParticipantReplacements(content, participants);
+
+		expect(result.replacementCount).toBe(2);
+		expect(result.updatedContent).not.toContain('**Participant 1:**');
+		expect(result.updatedContent).toContain('**[[Alice]]:**');
+	});
+
+	it('handles multiple occurrences of the same participant (old wiki-link format)', () => {
 		const participants: ParticipantAlias[] = [
 			{ alias: 'Participant 1', name: 'Alice' },
 		];
@@ -582,12 +611,29 @@ describe('applyParticipantReplacements', () => {
 		expect(result.updatedContent).toContain('**[[Alice]]:**');
 	});
 
+	it('does not corrupt longer aliases that share a prefix (e.g., Participant 1 vs Participant 10)', () => {
+		const participants: ParticipantAlias[] = [
+			{ alias: 'Participant 1', name: 'Alice' },
+			{ alias: 'Participant 10', name: 'Bob' },
+		];
+		const body = '**Participant 1:** hello. **Participant 10:** goodbye. Participant 10 took notes. Participant 1 led.';
+		const content = makeContent(participants, body);
+
+		const result = applyParticipantReplacements(content, participants);
+
+		expect(result.updatedContent).toContain('**[[Alice]]:**');
+		expect(result.updatedContent).toContain('**[[Bob]]:**');
+		expect(result.updatedContent).toContain('[[Bob]] took notes');
+		expect(result.updatedContent).toContain('[[Alice]] led');
+		expect(result.updatedContent).not.toContain('[[Alice]]0');
+	});
+
 	it('updates frontmatter participants with new alias values', () => {
 		const participants: ParticipantAlias[] = [
 			{ alias: 'Participant 1', name: 'Paul' },
 			{ alias: 'Participant 2', name: '[[People/Kim]]' },
 		];
-		const body = '**[[Participant 1]]:** a **[[Participant 2]]:** b';
+		const body = '**Participant 1:** a **Participant 2:** b';
 		const content = makeContent(participants, body);
 
 		const result = applyParticipantReplacements(content, participants);
@@ -619,7 +665,7 @@ describe('Integration: full pipeline flow → replacement', () => {
 		vi.useRealTimers();
 	});
 
-	it('generates note with participant aliases, then replacement updates both note and transcript content', () => {
+	it('generates note with plain text participants, then replacement adds wiki-links', () => {
 		const transcription = createMockTranscriptionResult({
 			segments: [
 				{ speaker: 'Participant 1', start: 0, end: 30, text: 'Hello everyone.' },
@@ -629,9 +675,9 @@ describe('Integration: full pipeline flow → replacement', () => {
 		});
 		const participants = extractParticipants(transcription);
 
-		// Generate meeting note
+		// Generate meeting note (LLM summary uses plain text references)
 		const note = generateNote({
-			summaryResult: createMockSummaryResult({ summary: '## Summary\n\n[[Participant 1]] led the meeting. [[Participant 2]] took notes.' }),
+			summaryResult: createMockSummaryResult({ summary: '## Summary\n\nParticipant 1 led the meeting. Participant 2 took notes.' }),
 			transcriptionResult: transcription,
 			audioFilePath: 'audio/test.webm',
 			transcriptLink: '[[2026-03-20 Test - Transcript]]',
@@ -647,11 +693,12 @@ describe('Integration: full pipeline flow → replacement', () => {
 			participants,
 		});
 
-		// Verify initial state
+		// Verify initial state: plain text, no wiki-links
 		expect(note).toContain('alias: "Participant 1"');
 		expect(note).toContain('alias: "Participant 2"');
-		expect(transcript).toContain('**[[Participant 1]]:**');
-		expect(transcript).toContain('**[[Participant 2]]:**');
+		expect(transcript).toContain('**Participant 1:**');
+		expect(transcript).toContain('**Participant 2:**');
+		expect(transcript).not.toContain('**[[Participant 1]]:**');
 
 		// Simulate user editing names
 		const editedParticipants: ParticipantAlias[] = [
@@ -659,17 +706,25 @@ describe('Integration: full pipeline flow → replacement', () => {
 			{ alias: 'Participant 2', name: '[[People/김과장]]' },
 		];
 
-		// Apply replacements to meeting note
-		const noteResult = applyParticipantReplacements(note, editedParticipants);
-		expect(noteResult.updatedContent).toContain('[[Paul]]');
-		expect(noteResult.updatedContent).toContain('[[People/김과장]]');
-		expect(noteResult.updatedContent).not.toContain('[[Participant 1]]');
-		expect(noteResult.updatedContent).not.toContain('[[Participant 2]]');
-
-		// Apply replacements to transcript
+		// Apply replacements to transcript (plain text → wiki-link)
 		const transcriptResult = applyParticipantReplacements(transcript, editedParticipants);
 		expect(transcriptResult.updatedContent).toContain('**[[Paul]]:**');
 		expect(transcriptResult.updatedContent).toContain('**[[People/김과장]]:**');
+		expect(transcriptResult.updatedContent).not.toContain('**Participant 1:**');
+	});
+
+	it('backward compat: replacement works on old wiki-link format notes', () => {
+		// Simulate a note generated by an older version (wiki-link format)
+		const oldFormatBody = '---\ndate: 2026-03-20\nparticipants:\n  - alias: "Participant 1"\n    name: ""\ncreated_by: meeting-scribe\n---\n**[[Participant 1]]:** hello.';
+
+		const editedParticipants: ParticipantAlias[] = [
+			{ alias: 'Participant 1', name: 'Paul' },
+		];
+
+		const result = applyParticipantReplacements(oldFormatBody, editedParticipants);
+		expect(result.updatedContent).toContain('**[[Paul]]:**');
+		expect(result.updatedContent).not.toContain('[[Participant 1]]');
+		expect(result.replacementCount).toBe(1);
 	});
 
 	it('idempotent: re-run with different names works correctly', () => {
@@ -682,7 +737,7 @@ describe('Integration: full pipeline flow → replacement', () => {
 		const participants = extractParticipants(transcription);
 
 		const note = generateNote({
-			summaryResult: createMockSummaryResult({ summary: '## Summary\n\n[[Participant 1]] spoke.' }),
+			summaryResult: createMockSummaryResult({ summary: '## Summary\n\nParticipant 1 spoke.' }),
 			transcriptionResult: transcription,
 			audioFilePath: 'audio/test.webm',
 			participants,

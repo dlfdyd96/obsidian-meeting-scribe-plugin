@@ -45,10 +45,10 @@ describe('templates', () => {
 			expect(preset.systemPrompt).toContain('language');
 		});
 
-		it('should instruct LLM to use [[wiki-link]] format for speaker references', () => {
+		it('should instruct LLM NOT to use [[wiki-link]] format for speaker references', () => {
 			const preset = getDefaultPreset();
 
-			expect(preset.systemPrompt).toContain('[[wiki-link]]');
+			expect(preset.systemPrompt).toContain('Do NOT use [[wiki-link]] format');
 		});
 	});
 
@@ -256,8 +256,8 @@ describe('templates', () => {
 
 			const output = formatTranscriptSection(result);
 
-			expect(output).toContain('[00:00:15] **[[Alice]]:** Good morning everyone.');
-			expect(output).toContain('[00:00:22] **[[Bob]]:** Sure, I finished the API integration.');
+			expect(output).toContain('[00:00:15] **Alice:** Good morning everyone.');
+			expect(output).toContain('[00:00:22] **Bob:** Sure, I finished the API integration.');
 		});
 
 		it('should format non-diarized transcript using fullText', () => {
@@ -297,7 +297,7 @@ describe('templates', () => {
 
 			const output = formatTranscriptSection(result);
 
-			expect(output).toContain('**[[Alice]]:**');
+			expect(output).toContain('**Alice:**');
 		});
 
 		it('should order segments by start time', () => {
@@ -316,8 +316,8 @@ describe('templates', () => {
 			};
 
 			const output = formatTranscriptSection(result);
-			const aliceIndex = output.indexOf('**[[Alice]]:**');
-			const bobIndex = output.indexOf('**[[Bob]]:**');
+			const aliceIndex = output.indexOf('**Alice:**');
+			const bobIndex = output.indexOf('**Bob:**');
 
 			expect(aliceIndex).toBeLessThan(bobIndex);
 		});
