@@ -29,3 +29,6 @@ docs
 
 # E2E testing
 .obsidian-cache
+
+# Environment variables (API keys for integration tests)
+.env
