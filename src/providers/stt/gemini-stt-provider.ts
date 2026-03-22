@@ -38,8 +38,8 @@ const RESPONSE_SCHEMA = {
 function buildTranscriptionPrompt(languageInstruction: string): string {
 	return `Transcribe this audio recording precisely. For each speaker turn, output a JSON segment with:
 - "speaker": Label as "Participant 1", "Participant 2", etc. in order of first appearance
-- "start": Start time in seconds (float, e.g., 1.5)
-- "end": End time in seconds (float, e.g., 4.2)
+- "start": Start time in MINUTES as a float (e.g., 0.5 means 30 seconds, 2.75 means 2 minutes 45 seconds)
+- "end": End time in MINUTES as a float
 - "text": Exact transcribed text for this turn
 
 ${languageInstruction}
@@ -94,7 +94,7 @@ export class GeminiSTTProvider implements STTProvider {
 	}
 
 	getSupportedFormats(): string[] {
-		return ['wav', 'mp3', 'aiff', 'aac', 'ogg', 'flac'];
+		return ['wav', 'mp3', 'aiff', 'aac', 'ogg', 'flac', 'm4a', 'mp4', 'webm'];
 	}
 
 	getMaxDuration(): number | null {
@@ -210,10 +210,11 @@ export class GeminiSTTProvider implements STTProvider {
 			segments = [];
 		}
 
+		// Gemini returns timestamps in minutes — convert to seconds
 		const transcriptionSegments: TranscriptionSegment[] = segments.map(s => ({
 			speaker: s.speaker,
-			start: s.start,
-			end: s.end,
+			start: s.start * 60,
+			end: s.end * 60,
 			text: s.text,
 		}));
 

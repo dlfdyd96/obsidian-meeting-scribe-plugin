@@ -211,6 +211,14 @@ export class MeetingScribeSettingTab extends PluginSettingTab {
 				.setValue(this.plugin.settings.sttProvider)
 				.onChange(async (value) => {
 					this.plugin.settings.sttProvider = value;
+					const defaultModels: Record<string, string> = {
+						openai: 'gpt-4o-mini-transcribe',
+						gemini: 'gemini-2.5-flash',
+						clova: '',
+					};
+					if (defaultModels[value] !== undefined) {
+						this.plugin.settings.sttModel = defaultModels[value];
+					}
 					await this.plugin.saveSettings();
 					this.display();
 				}));

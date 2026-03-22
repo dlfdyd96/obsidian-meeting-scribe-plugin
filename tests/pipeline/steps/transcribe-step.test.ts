@@ -533,27 +533,27 @@ describe('TranscribeStep', () => {
 			await expect(step.execute(context)).resolves.toBeDefined();
 		});
 
-		it('throws ConfigError for webm format when using Gemini provider', async () => {
+		it('throws ConfigError for unsupported format when using Gemini provider', async () => {
 			const mockProvider = makeMockProvider();
 			mockProvider.name = 'gemini';
-			vi.mocked(mockProvider.getSupportedFormats).mockReturnValue(['wav', 'mp3', 'aiff', 'aac', 'ogg', 'flac']);
+			vi.mocked(mockProvider.getSupportedFormats).mockReturnValue(['wav', 'mp3', 'aiff', 'aac', 'ogg', 'flac', 'm4a', 'mp4', 'webm']);
 			vi.mocked(providerRegistry.getSTTProvider).mockReturnValue(mockProvider);
 
-			const audioFile = new TFile('recordings/test.webm');
-			const context = makeContext({ audioFilePath: 'recordings/test.webm' });
+			const audioFile = new TFile('recordings/test.wma');
+			const context = makeContext({ audioFilePath: 'recordings/test.wma' });
 			vi.mocked(context.vault.getAbstractFileByPath).mockImplementation((path: string) => {
-				if (path === 'recordings/test.webm') return audioFile;
+				if (path === 'recordings/test.wma') return audioFile;
 				return null;
 			});
 
 			await expect(step.execute(context)).rejects.toThrow(ConfigError);
-			await expect(step.execute(context)).rejects.toThrow('webm is not supported by gemini');
+			await expect(step.execute(context)).rejects.toThrow('wma is not supported by gemini');
 		});
 
 		it('accepts ogg format when using Gemini provider', async () => {
 			const mockProvider = makeMockProvider();
 			mockProvider.name = 'gemini';
-			vi.mocked(mockProvider.getSupportedFormats).mockReturnValue(['wav', 'mp3', 'aiff', 'aac', 'ogg', 'flac']);
+			vi.mocked(mockProvider.getSupportedFormats).mockReturnValue(['wav', 'mp3', 'aiff', 'aac', 'ogg', 'flac', 'm4a', 'mp4', 'webm']);
 			vi.mocked(mockProvider.transcribe).mockResolvedValue(makeTranscriptionResult({ provider: 'gemini' }));
 			vi.mocked(providerRegistry.getSTTProvider).mockReturnValue(mockProvider);
 			vi.mocked(chunkAudio).mockResolvedValue([makeChunk({ mimeType: 'audio/ogg', fileExtension: 'ogg' })]);

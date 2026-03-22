@@ -86,7 +86,7 @@ describe('GeminiSTTProvider', () => {
 	describe('getSupportedFormats', () => {
 		it('should return supported audio formats', () => {
 			const formats = provider.getSupportedFormats();
-			expect(formats).toEqual(['wav', 'mp3', 'aiff', 'aac', 'ogg', 'flac']);
+			expect(formats).toEqual(['wav', 'mp3', 'aiff', 'aac', 'ogg', 'flac', 'm4a', 'mp4', 'webm']);
 		});
 	});
 
@@ -152,8 +152,8 @@ describe('GeminiSTTProvider', () => {
 			expect(result.segments).toHaveLength(2);
 			expect(result.segments[0].speaker).toBe('Participant 1');
 			expect(result.segments[0].text).toBe('안녕하세요');
-			expect(result.segments[0].start).toBe(0.5);
-			expect(result.segments[0].end).toBe(2.0);
+			expect(result.segments[0].start).toBe(30); // 0.5 minutes * 60
+			expect(result.segments[0].end).toBe(120); // 2.0 minutes * 60
 			expect(result.segments[1].speaker).toBe('Participant 2');
 			expect(result.fullText).toBe('안녕하세요\n반갑습니다');
 			expect(result.version).toBe(1);
