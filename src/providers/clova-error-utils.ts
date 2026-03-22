@@ -31,7 +31,7 @@ export function classifyClovaError(err: unknown): never {
 		throw new DataError(`Invalid request to CLOVA Speech: ${errorMessage || 'Bad request'}`);
 	}
 	if (status === 429) {
-		throw new ConfigError('CLOVA Speech quota exceeded. Please check your billing settings in Naver Cloud console.');
+		throw new TransientError('Rate limited by CLOVA Speech. Will retry shortly.');
 	}
 	if (status === 500 || status === 503) {
 		throw new TransientError('CLOVA Speech server error. Will retry shortly.');

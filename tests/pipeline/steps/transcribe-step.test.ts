@@ -480,6 +480,59 @@ describe('TranscribeStep', () => {
 			await expect(step.execute(context)).rejects.toThrow('ogg is not supported by openai');
 		});
 
+		it('throws ConfigError for webm format when using CLOVA provider', async () => {
+			const mockProvider = makeMockProvider();
+			mockProvider.name = 'clova';
+			vi.mocked(mockProvider.getSupportedFormats).mockReturnValue(['mp3', 'm4a', 'wav', 'flac', 'aac']);
+			vi.mocked(providerRegistry.getSTTProvider).mockReturnValue(mockProvider);
+
+			const audioFile = new TFile('recordings/test.webm');
+			const context = makeContext({ audioFilePath: 'recordings/test.webm' });
+			vi.mocked(context.vault.getAbstractFileByPath).mockImplementation((path: string) => {
+				if (path === 'recordings/test.webm') return audioFile;
+				return null;
+			});
+
+			await expect(step.execute(context)).rejects.toThrow(ConfigError);
+			await expect(step.execute(context)).rejects.toThrow('webm is not supported by clova');
+		});
+
+		it('accepts m4a format when using CLOVA provider', async () => {
+			const mockProvider = makeMockProvider();
+			mockProvider.name = 'clova';
+			vi.mocked(mockProvider.getSupportedFormats).mockReturnValue(['mp3', 'm4a', 'wav', 'flac', 'aac']);
+			vi.mocked(mockProvider.transcribe).mockResolvedValue(makeTranscriptionResult({ provider: 'clova' }));
+			vi.mocked(providerRegistry.getSTTProvider).mockReturnValue(mockProvider);
+			vi.mocked(chunkAudio).mockResolvedValue([makeChunk({ mimeType: 'audio/mp4', fileExtension: 'm4a' })]);
+
+			const audioFile = new TFile('recordings/test.m4a');
+			const context = makeContext({ audioFilePath: 'recordings/test.m4a' });
+			vi.mocked(context.vault.getAbstractFileByPath).mockImplementation((path: string) => {
+				if (path === 'recordings/test.m4a') return audioFile;
+				return null;
+			});
+
+			await expect(step.execute(context)).resolves.toBeDefined();
+		});
+
+		it('accepts wav format when using CLOVA provider', async () => {
+			const mockProvider = makeMockProvider();
+			mockProvider.name = 'clova';
+			vi.mocked(mockProvider.getSupportedFormats).mockReturnValue(['mp3', 'm4a', 'wav', 'flac', 'aac']);
+			vi.mocked(mockProvider.transcribe).mockResolvedValue(makeTranscriptionResult({ provider: 'clova' }));
+			vi.mocked(providerRegistry.getSTTProvider).mockReturnValue(mockProvider);
+			vi.mocked(chunkAudio).mockResolvedValue([makeChunk({ mimeType: 'audio/wav', fileExtension: 'wav' })]);
+
+			const audioFile = new TFile('recordings/test.wav');
+			const context = makeContext({ audioFilePath: 'recordings/test.wav' });
+			vi.mocked(context.vault.getAbstractFileByPath).mockImplementation((path: string) => {
+				if (path === 'recordings/test.wav') return audioFile;
+				return null;
+			});
+
+			await expect(step.execute(context)).resolves.toBeDefined();
+		});
+
 		it('validates format before chunking (no wasted processing)', async () => {
 			const mockProvider = makeMockProvider();
 			vi.mocked(providerRegistry.getSTTProvider).mockReturnValue(mockProvider);

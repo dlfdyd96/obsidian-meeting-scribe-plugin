@@ -1,5 +1,6 @@
 import { requestUrl } from 'obsidian';
 import { classifyClovaError, classifyClovaResultError } from '../clova-error-utils';
+import { TransientError, ConfigError, DataError } from '../../utils/errors';
 import { logger } from '../../utils/logger';
 import type { STTProvider, STTOptions, STTModel, TranscriptionResult, TranscriptionSegment, ProviderCredentials } from '../types';
 
@@ -102,8 +103,8 @@ export class ClovaSpeechSTTProvider implements STTProvider {
 
 	async transcribe(audio: ArrayBuffer, options: STTOptions): Promise<TranscriptionResult> {
 		const language = options.language ?? 'ko-KR';
-		const filename = options.audioFileName ?? 'audio.webm';
-		const contentType = options.audioMimeType ?? 'audio/webm';
+		const filename = options.audioFileName ?? 'audio.wav';
+		const contentType = options.audioMimeType ?? 'audio/wav';
 
 		logger.debug(COMPONENT, 'Starting transcription', {
 			model: options.model,
@@ -146,6 +147,7 @@ export class ClovaSpeechSTTProvider implements STTProvider {
 
 			json = response.json as ClovaApiResponse;
 		} catch (err) {
+			if (err instanceof ConfigError || err instanceof DataError || err instanceof TransientError) throw err;
 			logger.error(COMPONENT, 'Transcription error', {
 				error: err instanceof Error ? err.message : String(err),
 				status: (err as { status?: number }).status,

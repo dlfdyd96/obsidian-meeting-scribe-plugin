@@ -193,6 +193,34 @@ describe('ClovaSpeechSTTProvider', () => {
 			expect(result.segments[0].text).toBe('No speaker info.');
 		});
 
+		it('should use wav as default filename and MIME type when not specified', async () => {
+			mockRequestUrlSuccess(makeClovaResponse());
+
+			await provider.transcribe(new ArrayBuffer(100), { model: 'clova-sync' });
+
+			const callArg = mockRequestUrl.mock.calls[0][0];
+			const bodyText = new TextDecoder().decode(callArg.body);
+			expect(bodyText).toContain('filename="audio.wav"');
+			expect(bodyText).toContain('Content-Type: audio/wav');
+			expect(bodyText).not.toContain('audio/webm');
+			expect(bodyText).not.toContain('audio.webm');
+		});
+
+		it('should use provided filename and MIME type from options', async () => {
+			mockRequestUrlSuccess(makeClovaResponse());
+
+			await provider.transcribe(new ArrayBuffer(100), {
+				model: 'clova-sync',
+				audioMimeType: 'audio/mp4',
+				audioFileName: 'recording.m4a',
+			});
+
+			const callArg = mockRequestUrl.mock.calls[0][0];
+			const bodyText = new TextDecoder().decode(callArg.body);
+			expect(bodyText).toContain('filename="recording.m4a"');
+			expect(bodyText).toContain('Content-Type: audio/mp4');
+		});
+
 		it('should set language from options in result', async () => {
 			mockRequestUrlSuccess(makeClovaResponse());
 
@@ -238,11 +266,11 @@ describe('ClovaSpeechSTTProvider', () => {
 				.rejects.toThrow(DataError);
 		});
 
-		it('should throw ConfigError for 429 response (quota exceeded)', async () => {
-			mockRequestUrlError(429, { message: 'Quota exceeded' });
+		it('should throw TransientError for 429 response (rate limited)', async () => {
+			mockRequestUrlError(429, { message: 'Rate limited' });
 
 			await expect(provider.transcribe(new ArrayBuffer(100), { model: 'clova-sync' }))
-				.rejects.toThrow(ConfigError);
+				.rejects.toThrow(TransientError);
 		});
 
 		it('should throw TransientError for 500 response', async () => {
@@ -264,6 +292,42 @@ describe('ClovaSpeechSTTProvider', () => {
 
 			await expect(provider.transcribe(new ArrayBuffer(100), { model: 'clova-sync' }))
 				.rejects.toThrow(TransientError);
+		});
+
+		it('should throw ConfigError (not TransientError) for 401 via throw:false path', async () => {
+			// Simulates requestUrl with throw:false returning error status instead of throwing
+			mockRequestUrl.mockResolvedValue({
+				status: 401,
+				json: {},
+				text: 'Unauthorized',
+			});
+
+			await expect(provider.transcribe(new ArrayBuffer(100), { model: 'clova-sync' }))
+				.rejects.toThrow(ConfigError);
+		});
+
+		it('should throw DataError (not TransientError) for 400 via throw:false path', async () => {
+			mockRequestUrl.mockResolvedValue({
+				status: 400,
+				json: {},
+				text: 'Bad request',
+			});
+
+			await expect(provider.transcribe(new ArrayBuffer(100), { model: 'clova-sync' }))
+				.rejects.toThrow(DataError);
+		});
+
+		it('should throw TransientError for 429 via throw:false path', async () => {
+			mockRequestUrl.mockResolvedValue({
+				status: 429,
+				json: {},
+				text: 'Rate limited',
+			});
+
+			await expect(provider.transcribe(new ArrayBuffer(100), { model: 'clova-sync' }))
+				.rejects.toThrow(TransientError);
+			await expect(provider.transcribe(new ArrayBuffer(100), { model: 'clova-sync' }))
+				.rejects.toThrow('Rate limited');
 		});
 	});
 

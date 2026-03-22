@@ -23,9 +23,9 @@ describe('classifyClovaError', () => {
 		expect(() => classifyClovaError({ status: 400 })).toThrow('Bad request');
 	});
 
-	it('should throw ConfigError for 429 status (quota exceeded)', () => {
-		expect(() => classifyClovaError({ status: 429 })).toThrow(ConfigError);
-		expect(() => classifyClovaError({ status: 429 })).toThrow('quota exceeded');
+	it('should throw TransientError for 429 status (rate limited)', () => {
+		expect(() => classifyClovaError({ status: 429 })).toThrow(TransientError);
+		expect(() => classifyClovaError({ status: 429 })).toThrow('Rate limited');
 	});
 
 	it('should throw TransientError for 500 status', () => {
