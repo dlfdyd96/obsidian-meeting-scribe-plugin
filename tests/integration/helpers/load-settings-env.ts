@@ -44,9 +44,7 @@ if (existsSync(dataJsonPath)) {
 			OPENAI_API_KEY: openaiKey || undefined,
 			CLOVA_INVOKE_URL: settings.clovaInvokeUrl || undefined,
 			CLOVA_SECRET_KEY: settings.clovaSecretKey || undefined,
-			GOOGLE_PROJECT_ID: settings.googleProjectId || undefined,
-			GOOGLE_API_KEY: settings.googleApiKey || undefined,
-			GOOGLE_LOCATION: settings.googleLocation || undefined,
+			GEMINI_API_KEY: settings.geminiApiKey || undefined,
 			ANTHROPIC_API_KEY: anthropicKey || undefined,
 		};
 

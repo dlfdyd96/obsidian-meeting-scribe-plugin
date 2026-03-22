@@ -29,7 +29,7 @@ describe('MeetingScribePlugin settings lifecycle', () => {
 
 		expect(plugin.settings).toBeDefined();
 		expect(plugin.settings.sttApiKey).toBe('sk-test');
-		expect(plugin.settings.settingsVersion).toBe(8);
+		expect(plugin.settings.settingsVersion).toBe(9);
 		expect(plugin.settings.sttProvider).toBe('openai');
 	});
 

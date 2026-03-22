@@ -32,7 +32,7 @@ export interface TranscriptionResult {
 export type ProviderCredentials =
 	| { type: 'api-key'; apiKey: string }
 	| { type: 'clova'; invokeUrl: string; secretKey: string }
-	| { type: 'google-cloud'; projectId: string; apiKey: string; location: string };
+	| { type: 'gemini'; apiKey: string };
 
 export interface STTProvider {
 	readonly name: string;

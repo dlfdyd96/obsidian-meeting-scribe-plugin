@@ -19,7 +19,7 @@ export interface DurationGuardResult {
 const PROVIDER_DISPLAY_NAMES: Record<string, string> = {
 	openai: 'OpenAI',
 	clova: 'CLOVA Speech',
-	google: 'Google Cloud STT',
+	gemini: 'Gemini',
 };
 
 function getProviderDisplayName(provider: string): string {

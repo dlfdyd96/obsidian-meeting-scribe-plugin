@@ -16,7 +16,7 @@ import { GenerateNoteStep } from './pipeline/steps/generate-note-step';
 import { providerRegistry } from './providers/provider-registry';
 import { OpenAISTTProvider } from './providers/stt/openai-stt-provider';
 import { ClovaSpeechSTTProvider } from './providers/stt/clova-stt-provider';
-import { GoogleSTTProvider } from './providers/stt/google-stt-provider';
+import { GeminiSTTProvider } from './providers/stt/gemini-stt-provider';
 import { OpenAILLMProvider } from './providers/llm/openai-llm-provider';
 import { AnthropicLLMProvider } from './providers/llm/anthropic-llm-provider';
 import { PLUGIN_ID, PLUGIN_NAME, NOTICE_RETRY_TIMEOUT_MS, TEST_RECORDING_DURATION_MS } from './constants';
@@ -56,7 +56,7 @@ export default class MeetingScribePlugin extends Plugin {
 
 		providerRegistry.registerSTTProvider(new OpenAISTTProvider());
 		providerRegistry.registerSTTProvider(new ClovaSpeechSTTProvider());
-		providerRegistry.registerSTTProvider(new GoogleSTTProvider());
+		providerRegistry.registerSTTProvider(new GeminiSTTProvider());
 		providerRegistry.registerLLMProvider(new OpenAILLMProvider());
 		providerRegistry.registerLLMProvider(new AnthropicLLMProvider());
 

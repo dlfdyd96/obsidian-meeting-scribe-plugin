@@ -22,7 +22,7 @@ describe('migrateSettings', () => {
 		const result = migrateSettings({ sttApiKey: 'sk-123' });
 		expect(result.sttApiKey).toBe('sk-123');
 		expect(result.sttProvider).toBe('openai');
-		expect(result.settingsVersion).toBe(8);
+		expect(result.settingsVersion).toBe(9);
 		expect(result.llmProvider).toBe('anthropic');
 	});
 
@@ -56,7 +56,7 @@ describe('migrateSettings', () => {
 
 	it('should treat data without settingsVersion as version 0', () => {
 		const result = migrateSettings({ sttProvider: 'whisper' });
-		expect(result.settingsVersion).toBe(8);
+		expect(result.settingsVersion).toBe(9);
 		expect(result.sttProvider).toBe('whisper');
 	});
 
@@ -83,7 +83,7 @@ describe('migrateSettings', () => {
 				debugMode: false,
 			};
 			const result = migrateSettings(v1Data);
-			expect(result.settingsVersion).toBe(8);
+			expect(result.settingsVersion).toBe(9);
 			expect(result.includeTranscript).toBe(true);
 			expect(result.summaryLanguage).toBe('auto');
 		});
@@ -94,7 +94,7 @@ describe('migrateSettings', () => {
 				includeTranscript: false,
 			};
 			const result = migrateSettings(v1Data);
-			expect(result.settingsVersion).toBe(8);
+			expect(result.settingsVersion).toBe(9);
 			expect(result.includeTranscript).toBe(false);
 		});
 	});
@@ -117,7 +117,7 @@ describe('migrateSettings', () => {
 				debugMode: false,
 			};
 			const result = migrateSettings(v2Data);
-			expect(result.settingsVersion).toBe(8);
+			expect(result.settingsVersion).toBe(9);
 			expect(result.summaryLanguage).toBe('auto');
 		});
 
@@ -127,14 +127,14 @@ describe('migrateSettings', () => {
 				summaryLanguage: 'ko',
 			};
 			const result = migrateSettings(v2Data);
-			expect(result.settingsVersion).toBe(8);
+			expect(result.settingsVersion).toBe(9);
 			expect(result.summaryLanguage).toBe('ko');
 		});
 
 		it('should migrate V0 data through all versions with summaryLanguage', () => {
 			const v0Data = { sttApiKey: 'sk-old' };
 			const result = migrateSettings(v0Data);
-			expect(result.settingsVersion).toBe(8);
+			expect(result.settingsVersion).toBe(9);
 			expect(result.includeTranscript).toBe(true);
 			expect(result.summaryLanguage).toBe('auto');
 			expect(result.sttApiKey).toBe('sk-old');
@@ -160,7 +160,7 @@ describe('migrateSettings', () => {
 				debugMode: false,
 			};
 			const result = migrateSettings(v3Data);
-			expect(result.settingsVersion).toBe(8);
+			expect(result.settingsVersion).toBe(9);
 			expect(result.onboardingComplete).toBe(false);
 		});
 
@@ -170,14 +170,14 @@ describe('migrateSettings', () => {
 				onboardingComplete: true,
 			};
 			const result = migrateSettings(v3Data);
-			expect(result.settingsVersion).toBe(8);
+			expect(result.settingsVersion).toBe(9);
 			expect(result.onboardingComplete).toBe(true);
 		});
 
 		it('should migrate V0 data through all versions to V4 with onboardingComplete', () => {
 			const v0Data = { sttApiKey: 'sk-old' };
 			const result = migrateSettings(v0Data);
-			expect(result.settingsVersion).toBe(8);
+			expect(result.settingsVersion).toBe(9);
 			expect(result.includeTranscript).toBe(true);
 			expect(result.summaryLanguage).toBe('auto');
 			expect(result.onboardingComplete).toBe(false);
@@ -205,7 +205,7 @@ describe('migrateSettings', () => {
 				onboardingComplete: false,
 			};
 			const result = migrateSettings(v4Data);
-			expect(result.settingsVersion).toBe(8);
+			expect(result.settingsVersion).toBe(9);
 			expect(result.enableSmartChunking).toBe(false);
 		});
 
@@ -215,14 +215,14 @@ describe('migrateSettings', () => {
 				enableSmartChunking: true,
 			};
 			const result = migrateSettings(v4Data);
-			expect(result.settingsVersion).toBe(8);
+			expect(result.settingsVersion).toBe(9);
 			expect(result.enableSmartChunking).toBe(true);
 		});
 
 		it('should migrate V0 data through all versions to V5 with enableSmartChunking', () => {
 			const v0Data = { sttApiKey: 'sk-old' };
 			const result = migrateSettings(v0Data);
-			expect(result.settingsVersion).toBe(8);
+			expect(result.settingsVersion).toBe(9);
 			expect(result.includeTranscript).toBe(true);
 			expect(result.summaryLanguage).toBe('auto');
 			expect(result.onboardingComplete).toBe(false);
@@ -252,14 +252,13 @@ describe('migrateSettings', () => {
 				enableSmartChunking: false,
 			};
 			const result = migrateSettings(v5Data);
-			expect(result.settingsVersion).toBe(8);
+			expect(result.settingsVersion).toBe(9);
 			expect(result.clovaInvokeUrl).toBe('');
 			expect(result.clovaSecretKey).toBe('');
-			expect(result.googleProjectId).toBe('');
-			expect(result.googleApiKey).toBe('');
-			expect(result.googleLocation).toBe('global');
-			expect(result.googleModel).toBe('chirp_3');
 			expect(result.showConsentReminder).toBe(true);
+			// Google fields cleaned up by V8→V9 migration
+			expect((result as Record<string, unknown>)['googleProjectId']).toBeUndefined();
+			expect(result.geminiApiKey).toBe('');
 			// Existing fields preserved
 			expect(result.sttApiKey).toBe('sk-test');
 			expect(result.sttProvider).toBe('openai');
@@ -273,7 +272,7 @@ describe('migrateSettings', () => {
 				showConsentReminder: false,
 			};
 			const result = migrateSettings(v5Data);
-			expect(result.settingsVersion).toBe(8);
+			expect(result.settingsVersion).toBe(9);
 			expect(result.clovaInvokeUrl).toBe('https://custom.ncloud.com/invoke');
 			expect(result.clovaSecretKey).toBe('my-secret');
 			expect(result.showConsentReminder).toBe(false);
@@ -282,9 +281,9 @@ describe('migrateSettings', () => {
 		it('should migrate V0 data through all versions to V8', () => {
 			const v0Data = { sttApiKey: 'sk-old' };
 			const result = migrateSettings(v0Data);
-			expect(result.settingsVersion).toBe(8);
+			expect(result.settingsVersion).toBe(9);
 			expect(result.clovaInvokeUrl).toBe('');
-			expect(result.googleProjectId).toBe('');
+			expect((result as Record<string, unknown>)['googleProjectId']).toBeUndefined();
 			expect(result.showConsentReminder).toBe(true);
 			expect(result.enableSmartChunking).toBe(false);
 			expect(result.sttApiKey).toBe('sk-old');
@@ -312,14 +311,10 @@ describe('migrateSettings', () => {
 				enableSmartChunking: false,
 				clovaInvokeUrl: '',
 				clovaSecretKey: '',
-				googleProjectId: '',
-				googleApiKey: '',
-				googleLocation: 'global',
-				googleModel: 'chirp_3',
 				showConsentReminder: true,
 			};
 			const result = migrateSettings(v6Data);
-			expect(result.settingsVersion).toBe(8);
+			expect(result.settingsVersion).toBe(9);
 			expect(result.separateTranscriptFile).toBe(false);
 			// Existing fields preserved
 			expect(result.sttApiKey).toBe('sk-test');
@@ -332,18 +327,98 @@ describe('migrateSettings', () => {
 				separateTranscriptFile: true,
 			};
 			const result = migrateSettings(v6Data);
-			expect(result.settingsVersion).toBe(8);
+			expect(result.settingsVersion).toBe(9);
 			expect(result.separateTranscriptFile).toBe(true);
 		});
 
 		it('should migrate V0 data through all versions to V7 with separateTranscriptFile', () => {
 			const v0Data = { sttApiKey: 'sk-old' };
 			const result = migrateSettings(v0Data);
-			expect(result.settingsVersion).toBe(8);
+			expect(result.settingsVersion).toBe(9);
 			expect(result.separateTranscriptFile).toBe(false);
 			expect(result.showConsentReminder).toBe(true);
 			expect(result.enableSmartChunking).toBe(false);
 			expect(result.sttApiKey).toBe('sk-old');
+		});
+	});
+
+	describe('V8 to V9 migration (Gemini replaces Google Cloud STT)', () => {
+		it('should add geminiApiKey and remove Google fields from V8 settings', () => {
+			const v8Data = {
+				settingsVersion: 8,
+				sttProvider: 'openai',
+				sttApiKey: 'sk-test',
+				googleProjectId: 'my-project',
+				googleApiKey: 'goog-key',
+				googleLocation: 'us-central1',
+				googleModel: 'chirp_3',
+			};
+			const result = migrateSettings(v8Data);
+			expect(result.settingsVersion).toBe(9);
+			expect(result.geminiApiKey).toBe('goog-key');
+			expect(result.sttProvider).toBe('openai');
+			// Google fields should be removed
+			expect((result as Record<string, unknown>)['googleProjectId']).toBeUndefined();
+			expect((result as Record<string, unknown>)['googleLocation']).toBeUndefined();
+			expect((result as Record<string, unknown>)['googleModel']).toBeUndefined();
+			expect((result as Record<string, unknown>)['googleApiKey']).toBeUndefined();
+		});
+
+		it('should migrate google users to gemini provider', () => {
+			const v8Data = {
+				settingsVersion: 8,
+				sttProvider: 'google',
+				googleApiKey: 'goog-key',
+				googleProjectId: 'proj-123',
+				googleLocation: 'global',
+				googleModel: 'chirp_3',
+				sttModel: 'chirp_3',
+			};
+			const result = migrateSettings(v8Data);
+			expect(result.settingsVersion).toBe(9);
+			expect(result.sttProvider).toBe('gemini');
+			expect(result.sttModel).toBe('gemini-2.5-flash');
+			expect(result.geminiApiKey).toBe('goog-key');
+		});
+
+		it('should preserve existing geminiApiKey if set', () => {
+			const v8Data = {
+				settingsVersion: 8,
+				geminiApiKey: 'existing-gemini-key',
+				googleApiKey: 'goog-key',
+			};
+			const result = migrateSettings(v8Data);
+			expect(result.geminiApiKey).toBe('existing-gemini-key');
+		});
+
+		it('should default geminiApiKey to empty if no Google key', () => {
+			const v8Data = {
+				settingsVersion: 8,
+				sttProvider: 'openai',
+			};
+			const result = migrateSettings(v8Data);
+			expect(result.geminiApiKey).toBe('');
+		});
+
+		it('should not change non-google providers during migration', () => {
+			const v8Data = {
+				settingsVersion: 8,
+				sttProvider: 'clova',
+				sttModel: 'clova-sync',
+			};
+			const result = migrateSettings(v8Data);
+			expect(result.sttProvider).toBe('clova');
+			expect(result.sttModel).toBe('clova-sync');
+		});
+
+		it('should migrate V0 data through all versions to V9', () => {
+			const v0Data = { sttApiKey: 'sk-old' };
+			const result = migrateSettings(v0Data);
+			expect(result.settingsVersion).toBe(9);
+			expect(result.geminiApiKey).toBe('');
+			expect(result.separateTranscriptFile).toBe(false);
+			expect(result.showConsentReminder).toBe(true);
+			expect((result as Record<string, unknown>)['googleProjectId']).toBeUndefined();
 		});
 	});
 });

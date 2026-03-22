@@ -22,9 +22,10 @@ const OPENAI_STT_MODELS: Record<string, string> = {
 	'gpt-4o-transcribe-diarize': 'GPT-4o transcribe (with diarization)',
 };
 
-const GOOGLE_STT_MODELS: Record<string, string> = {
-	'chirp_3': 'Chirp 3 (Recommended)',
-	'chirp_2': 'Chirp 2',
+const GEMINI_STT_MODELS: Record<string, string> = {
+	'gemini-2.5-flash': 'Gemini 2.5 Flash (Fast)',
+	'gemini-2.5-pro': 'Gemini 2.5 Pro (Accurate)',
+	'gemini-2.0-flash': 'Gemini 2.0 Flash',
 };
 
 const LANGUAGE_OPTIONS: Record<string, string> = {
@@ -164,28 +165,14 @@ export class MeetingScribeSettingTab extends PluginSettingTab {
 							settings.clovaSecretKey,
 						);
 					}));
-		} else if (settings.sttProvider === 'google') {
-			new Setting(containerEl)
-				.setName('Project ID')
-				// eslint-disable-next-line obsidianmd/ui/sentence-case
-				.setDesc('Google Cloud project ID')
-				.addText(cb => cb
-					// eslint-disable-next-line obsidianmd/ui/sentence-case
-					.setPlaceholder('my-project-123')
-					.setValue(settings.googleProjectId)
-					.onChange(async (value) => {
-						this.plugin.settings.googleProjectId = value;
-						await this.plugin.saveSettings();
-					}));
-
-			const googleKeySetting = new Setting(containerEl)
-				.setName('API key')
-				// eslint-disable-next-line obsidianmd/ui/sentence-case
-				.setDesc('Google Cloud API key or access token')
+		} else if (settings.sttProvider === 'gemini') {
+			const geminiKeySetting = new Setting(containerEl)
+				.setName('Gemini API key')
+				.setDesc('Required — get your API key at aistudio.google.com')
 				.addText(cb => {
-					cb.setValue(settings.googleApiKey)
+					cb.setValue(settings.geminiApiKey)
 						.onChange(async (value) => {
-							this.plugin.settings.googleApiKey = value;
+							this.plugin.settings.geminiApiKey = value;
 							await this.plugin.saveSettings();
 						});
 					cb.inputEl.type = 'password';
@@ -193,28 +180,15 @@ export class MeetingScribeSettingTab extends PluginSettingTab {
 				.addButton(cb => cb
 					.setButtonText('Test')
 					.onClick(async () => {
-						const provider = providerRegistry.getSTTProvider('google');
+						const provider = providerRegistry.getSTTProvider('gemini');
 						if (!provider) return;
-						provider.setCredentials({ type: 'google-cloud', projectId: settings.googleProjectId, apiKey: settings.googleApiKey, location: settings.googleLocation });
+						provider.setCredentials({ type: 'gemini', apiKey: settings.geminiApiKey });
 						await validateApiKeyWithUI(
 							cb,
-							googleKeySetting.descEl,
+							geminiKeySetting.descEl,
 							(key) => provider.validateApiKey(key),
-							settings.googleApiKey,
+							settings.geminiApiKey,
 						);
-					}));
-
-			new Setting(containerEl)
-				.setName('Location')
-				// eslint-disable-next-line obsidianmd/ui/sentence-case
-				.setDesc('Google Cloud region (default: global)')
-				.addText(cb => cb
-					// eslint-disable-next-line obsidianmd/ui/sentence-case
-					.setPlaceholder('global')
-					.setValue(settings.googleLocation)
-					.onChange(async (value) => {
-						this.plugin.settings.googleLocation = value;
-						await this.plugin.saveSettings();
 					}));
 		}
 	}
@@ -233,8 +207,7 @@ export class MeetingScribeSettingTab extends PluginSettingTab {
 				.addOption('openai', 'OpenAI')
 				// eslint-disable-next-line obsidianmd/ui/sentence-case
 				.addOption('clova', 'CLOVA Speech')
-				// eslint-disable-next-line obsidianmd/ui/sentence-case
-				.addOption('google', 'Google Cloud STT')
+				.addOption('gemini', 'Gemini')
 				.setValue(this.plugin.settings.sttProvider)
 				.onChange(async (value) => {
 					this.plugin.settings.sttProvider = value;
@@ -323,15 +296,15 @@ export class MeetingScribeSettingTab extends PluginSettingTab {
 						this.plugin.settings.sttModel = value;
 						await this.plugin.saveSettings();
 					}));
-		} else if (this.plugin.settings.sttProvider === 'google') {
+		} else if (this.plugin.settings.sttProvider === 'gemini') {
 			new Setting(containerEl)
 				.setName('Speech-to-text model')
 				.setDesc('Model for audio transcription')
 				.addDropdown(cb => cb
-					.addOptions(GOOGLE_STT_MODELS)
-					.setValue(this.plugin.settings.googleModel)
+					.addOptions(GEMINI_STT_MODELS)
+					.setValue(this.plugin.settings.sttModel)
 					.onChange(async (value) => {
-						this.plugin.settings.googleModel = value;
+						this.plugin.settings.sttModel = value;
 						await this.plugin.saveSettings();
 					}));
 		}

@@ -18,24 +18,21 @@ export interface MeetingScribeSettings {
 	// CLOVA Speech fields
 	clovaInvokeUrl: string;
 	clovaSecretKey: string;
-	// Google Cloud STT fields
-	googleProjectId: string;
-	googleApiKey: string;
-	googleLocation: string;
-	googleModel: string;
+	// Gemini STT fields
+	geminiApiKey: string;
 	// Consent reminder
 	showConsentReminder: boolean;
 	// Two-file output
 	separateTranscriptFile: boolean;
 }
 
-export const CURRENT_SETTINGS_VERSION = 8;
+export const CURRENT_SETTINGS_VERSION = 9;
 
 export function hasSTTCredentials(settings: MeetingScribeSettings): boolean {
 	switch (settings.sttProvider) {
 		case 'openai': return !!settings.sttApiKey;
 		case 'clova': return !!settings.clovaInvokeUrl && !!settings.clovaSecretKey;
-		case 'google': return !!settings.googleProjectId && !!settings.googleApiKey;
+		case 'gemini': return !!settings.geminiApiKey;
 		default: return false;
 	}
 }
@@ -59,10 +56,7 @@ export const DEFAULT_SETTINGS: MeetingScribeSettings = {
 	onboardingComplete: false,
 	clovaInvokeUrl: '',
 	clovaSecretKey: '',
-	googleProjectId: '',
-	googleApiKey: '',
-	googleLocation: 'global',
-	googleModel: 'chirp_3',
+	geminiApiKey: '',
 	showConsentReminder: true,
 	separateTranscriptFile: false,
 };

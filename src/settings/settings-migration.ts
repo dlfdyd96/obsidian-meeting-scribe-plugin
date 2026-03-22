@@ -62,6 +62,22 @@ function migrateV7ToV8(data: Record<string, unknown>): Record<string, unknown> {
 	return result;
 }
 
+function migrateV8ToV9(data: Record<string, unknown>): Record<string, unknown> {
+	const result = Object.assign({}, data, {
+		settingsVersion: 9,
+		geminiApiKey: data['geminiApiKey'] ?? data['googleApiKey'] ?? '',
+	});
+	if (result['sttProvider'] === 'google') {
+		result['sttProvider'] = 'gemini';
+		result['sttModel'] = 'gemini-2.5-flash';
+	}
+	delete result['googleProjectId'];
+	delete result['googleLocation'];
+	delete result['googleModel'];
+	delete result['googleApiKey'];
+	return result;
+}
+
 const migrations: Migration[] = [
 	migrateV0ToV1,
 	migrateV1ToV2,
@@ -71,6 +87,7 @@ const migrations: Migration[] = [
 	migrateV5ToV6,
 	migrateV6ToV7,
 	migrateV7ToV8,
+	migrateV8ToV9,
 ];
 
 export function migrateSettings(data: unknown): MeetingScribeSettings {

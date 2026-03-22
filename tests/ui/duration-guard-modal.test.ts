@@ -83,7 +83,7 @@ describe('DurationGuardModal', () => {
 			limitMinutes: 23,
 			alternatives: [
 				{ provider: 'clova', model: 'clova-sync', displayName: 'CLOVA Speech', limitMinutes: 120 },
-				{ provider: 'google', model: 'chirp_3', displayName: 'Google Cloud STT', limitMinutes: 480 },
+				{ provider: 'gemini', model: 'gemini-2.5-flash', displayName: 'Gemini', limitMinutes: 570 },
 			],
 		});
 
@@ -91,7 +91,7 @@ describe('DurationGuardModal', () => {
 
 		const buttons = modal.contentEl.querySelectorAll('button');
 		const buttonTexts = Array.from(buttons).map(b => b.textContent);
-		expect(buttonTexts).toContain('Switch to Google Cloud STT (up to 480 min)');
+		expect(buttonTexts).toContain('Switch to Gemini (up to 570 min)');
 	});
 
 	it('should only show alternatives that can handle the duration', () => {
@@ -174,7 +174,7 @@ describe('DurationGuardModal', () => {
 			providerName: 'OpenAI',
 			limitMinutes: 23,
 			alternatives: [
-				{ provider: 'google', model: 'chirp_3', displayName: 'Google Cloud STT', limitMinutes: 480 },
+				{ provider: 'gemini', model: 'gemini-2.5-flash', displayName: 'Gemini', limitMinutes: 570 },
 			],
 		});
 
@@ -186,7 +186,7 @@ describe('DurationGuardModal', () => {
 		switchBtn?.click();
 
 		const result = await promise;
-		expect(result).toEqual({ action: 'switch', switchProvider: 'google', switchModel: 'chirp_3' });
+		expect(result).toEqual({ action: 'switch', switchProvider: 'gemini', switchModel: 'gemini-2.5-flash' });
 	});
 
 	it('should resolve with cancel when modal is closed without action', async () => {

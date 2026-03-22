@@ -15,8 +15,8 @@ function buildSTTCredentials(settings: MeetingScribeSettings): ProviderCredentia
 	switch (settings.sttProvider) {
 		case 'clova':
 			return { type: 'clova', invokeUrl: settings.clovaInvokeUrl, secretKey: settings.clovaSecretKey };
-		case 'google':
-			return { type: 'google-cloud', projectId: settings.googleProjectId, apiKey: settings.googleApiKey, location: settings.googleLocation };
+		case 'gemini':
+			return { type: 'gemini', apiKey: settings.geminiApiKey };
 		default:
 			return { type: 'api-key', apiKey: settings.sttApiKey };
 	}

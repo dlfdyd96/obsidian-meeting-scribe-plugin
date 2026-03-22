@@ -72,15 +72,15 @@ function setupProviderRegistry(): void {
 					getMaxDuration: () => 7200,
 					transcribe: vi.fn(),
 				} as any;
-			case 'google':
+			case 'gemini':
 				return {
-					id: 'google',
-					name: 'Google Cloud STT',
+					id: 'gemini',
+					name: 'Gemini',
 					getSupportedModels: () => [
-						{ id: 'chirp_3', name: 'Chirp 3', supportsDiarization: true },
-						{ id: 'chirp_2', name: 'Chirp 2', supportsDiarization: true },
+						{ id: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash', supportsDiarization: true },
+						{ id: 'gemini-2.5-pro', name: 'Gemini 2.5 Pro', supportsDiarization: true },
 					],
-					getMaxDuration: () => 28800,
+					getMaxDuration: () => 34200,
 					transcribe: vi.fn(),
 				} as any;
 			default:
@@ -164,8 +164,8 @@ describe('checkDurationGuard', () => {
 		vi.mocked(estimateAudioDuration).mockResolvedValue(8000);
 		(__setResolveValue as (val: unknown) => void)({
 			action: 'switch',
-			switchProvider: 'google',
-			switchModel: 'chirp_3',
+			switchProvider: 'gemini',
+			switchModel: 'gemini-2.5-flash',
 		});
 
 		const settings = createSettings({
@@ -176,8 +176,8 @@ describe('checkDurationGuard', () => {
 		const result = await checkDurationGuard(audio, settings, app);
 		expect(result).toEqual({
 			action: 'switch',
-			switchedProvider: 'google',
-			switchedModel: 'chirp_3',
+			switchedProvider: 'gemini',
+			switchedModel: 'gemini-2.5-flash',
 		});
 	});
 

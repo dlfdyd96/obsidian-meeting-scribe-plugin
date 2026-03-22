@@ -4,14 +4,14 @@ import type { MeetingScribeSettings } from '../../src/settings/settings';
 
 describe('MeetingScribeSettings', () => {
 	describe('CURRENT_SETTINGS_VERSION', () => {
-		it('should be 8', () => {
-			expect(CURRENT_SETTINGS_VERSION).toBe(8);
+		it('should be 9', () => {
+			expect(CURRENT_SETTINGS_VERSION).toBe(9);
 		});
 	});
 
 	describe('DEFAULT_SETTINGS', () => {
-		it('should have settingsVersion set to 8', () => {
-			expect(DEFAULT_SETTINGS.settingsVersion).toBe(8);
+		it('should have settingsVersion set to 9', () => {
+			expect(DEFAULT_SETTINGS.settingsVersion).toBe(9);
 		});
 
 		it('should have sttProvider set to openai', () => {
@@ -74,8 +74,8 @@ describe('MeetingScribeSettings', () => {
 			expect(DEFAULT_SETTINGS.onboardingComplete).toBe(false);
 		});
 
-		it('should have exactly 24 fields', () => {
-			expect(Object.keys(DEFAULT_SETTINGS)).toHaveLength(24);
+		it('should have exactly 21 fields', () => {
+			expect(Object.keys(DEFAULT_SETTINGS)).toHaveLength(21);
 		});
 
 		it('should have CLOVA Speech defaults', () => {
@@ -83,11 +83,8 @@ describe('MeetingScribeSettings', () => {
 			expect(DEFAULT_SETTINGS.clovaSecretKey).toBe('');
 		});
 
-		it('should have Google Cloud STT defaults', () => {
-			expect(DEFAULT_SETTINGS.googleProjectId).toBe('');
-			expect(DEFAULT_SETTINGS.googleApiKey).toBe('');
-			expect(DEFAULT_SETTINGS.googleLocation).toBe('global');
-			expect(DEFAULT_SETTINGS.googleModel).toBe('chirp_3');
+		it('should have Gemini STT defaults', () => {
+			expect(DEFAULT_SETTINGS.geminiApiKey).toBe('');
 		});
 
 		it('should have showConsentReminder set to true', () => {
