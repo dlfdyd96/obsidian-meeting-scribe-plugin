@@ -83,3 +83,149 @@ Meeting Scribe plugin styles.
 	white-space: nowrap;
 	max-width: 400px;
 }
+
+/* ===== Transcript Sidebar ===== */
+
+.meeting-scribe-sidebar-empty {
+	padding: 16px;
+	color: var(--text-muted);
+	text-align: center;
+	font-size: var(--font-ui-small);
+}
+
+.meeting-scribe-sidebar-session-list {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+}
+
+.meeting-scribe-sidebar-session-item {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 8px 12px;
+	border-radius: var(--radius-s);
+}
+
+.meeting-scribe-sidebar-session-item--clickable {
+	cursor: pointer;
+}
+
+.meeting-scribe-sidebar-session-item--clickable:hover {
+	background-color: var(--background-modifier-hover);
+}
+
+.meeting-scribe-sidebar-status-dot {
+	flex-shrink: 0;
+	width: 8px;
+	height: 8px;
+	border-radius: 50%;
+	display: inline-block;
+}
+
+.meeting-scribe-sidebar-status-dot--complete {
+	background-color: var(--interactive-accent);
+}
+
+.meeting-scribe-sidebar-status-dot--processing {
+	background-color: var(--text-warning);
+}
+
+.meeting-scribe-sidebar-status-dot--queued {
+	background-color: var(--text-warning);
+}
+
+.meeting-scribe-sidebar-status-dot--recording {
+	background-color: var(--text-error);
+	animation: meeting-scribe-pulse 1.5s ease-in-out infinite;
+}
+
+.meeting-scribe-sidebar-status-dot--error {
+	background-color: var(--text-error);
+}
+
+@keyframes meeting-scribe-pulse {
+	0%, 100% { opacity: 1; }
+	50% { opacity: 0.3; }
+}
+
+.meeting-scribe-sidebar-session-info {
+	flex: 1;
+	min-width: 0;
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+}
+
+.meeting-scribe-sidebar-session-info > .meeting-scribe-sidebar-session-title {
+	font-size: var(--font-ui-small);
+	font-weight: var(--font-semibold);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.meeting-scribe-sidebar-session-meta {
+	display: flex;
+	gap: 8px;
+	font-size: var(--font-ui-smaller);
+	color: var(--text-muted);
+}
+
+.meeting-scribe-sidebar-progress {
+	height: 3px;
+	background-color: var(--background-modifier-border);
+	border-radius: 2px;
+	margin-top: 4px;
+}
+
+.meeting-scribe-sidebar-progress-fill {
+	height: 100%;
+	background-color: var(--interactive-accent);
+	border-radius: 2px;
+	transition: width 0.3s ease;
+}
+
+.meeting-scribe-sidebar-retry-btn {
+	flex-shrink: 0;
+	font-size: var(--font-ui-smaller);
+	padding: 2px 8px;
+	cursor: pointer;
+}
+
+.meeting-scribe-sidebar-transcript-header {
+	padding: 8px 12px;
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.meeting-scribe-sidebar-back-btn {
+	font-size: var(--font-ui-small);
+	cursor: pointer;
+	padding: 2px 8px;
+}
+
+.meeting-scribe-sidebar-transcript-header h3 {
+	margin: 0;
+	font-size: var(--font-ui-small);
+	font-weight: var(--font-semibold);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.meeting-scribe-sidebar-stub {
+	padding: 16px;
+	color: var(--text-muted);
+	text-align: center;
+	font-size: var(--font-ui-small);
+}
+
+/* Respect user's reduced-motion preference */
+@media (prefers-reduced-motion: reduce) {
+	.meeting-scribe-sidebar-status-dot--recording {
+		animation: none;
+	}
+}

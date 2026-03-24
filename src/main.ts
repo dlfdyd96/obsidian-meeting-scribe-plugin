@@ -1,4 +1,4 @@
-import { Notice, Platform, Plugin, TFile } from 'obsidian';
+import { Notice, Platform, Plugin, TFile, WorkspaceLeaf } from 'obsidian';
 import { migrateSettings } from './settings/settings-migration';
 import { MeetingScribeSettingTab } from './settings/settings-tab';
 import { Recorder } from './recording/recorder';
@@ -27,6 +27,7 @@ import { hasSTTCredentials } from './settings/settings';
 import { checkDurationGuard } from './pipeline/duration-guard';
 import { applyParticipantReplacements, parseParticipantsFromYaml, parseFrontmatter } from './note/note-generator';
 import type { MeetingScribeSettings } from './settings/settings';
+import { TranscriptSidebarView } from './ui/sidebar/transcript-sidebar-view';
 import type { PipelineContext } from './pipeline/pipeline-types';
 
 const COMPONENT = 'MeetingScribePlugin';
@@ -244,6 +245,24 @@ export default class MeetingScribePlugin extends Plugin {
 			}
 		});
 
+		// Register Transcript Sidebar view
+		this.registerView(
+			TranscriptSidebarView.VIEW_TYPE,
+			(leaf: WorkspaceLeaf) => new TranscriptSidebarView(
+				leaf,
+				this.sessionManager,
+				(sessionId: string) => { void this.dispatcher.retrySession(sessionId); },
+			),
+		);
+
+		this.addCommand({
+			id: 'open-transcript-sidebar',
+			name: 'Open Transcript Sidebar',
+			callback: () => {
+				void this.activateSidebarView();
+			},
+		});
+
 		// Recover interrupted sessions from previous app run
 		void this.dispatcher.recoverSessions().then(count => {
 			if (count > 0) {
@@ -391,6 +410,19 @@ export default class MeetingScribePlugin extends Plugin {
 		}
 	}
 
+	private async activateSidebarView(): Promise<void> {
+		const existing = this.app.workspace.getLeavesOfType(TranscriptSidebarView.VIEW_TYPE);
+		if (existing.length > 0) {
+			this.app.workspace.revealLeaf(existing[0]!);
+			return;
+		}
+		const leaf = this.app.workspace.getRightLeaf(false);
+		if (leaf) {
+			await leaf.setViewState({ type: TranscriptSidebarView.VIEW_TYPE, active: true });
+			this.app.workspace.revealLeaf(leaf);
+		}
+	}
+
 	async saveSettings(): Promise<void> {
 		await this.saveData(this.settings);
 	}
@@ -398,6 +430,7 @@ export default class MeetingScribePlugin extends Plugin {
 	onunload() {
 		this.pipelineAborted = true;
 		this.dispatcher?.abortAll();
+		this.app.workspace.detachLeavesOfType(TranscriptSidebarView.VIEW_TYPE);
 		this.ribbonHandler?.destroy();
 		this.statusBar?.destroy();
 		this.recorder?.destroy();

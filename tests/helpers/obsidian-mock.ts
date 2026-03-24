@@ -82,6 +82,13 @@ export class Plugin {
 		workspace: {
 			onLayoutReady: (cb: () => void) => { cb(); },
 			openLinkText: async () => {},
+			getRightLeaf: () => ({
+				setViewState: async () => {},
+			}),
+			getLeavesOfType: () => [],
+			detachLeavesOfType: () => {},
+			revealLeaf: async () => {},
+			on: () => ({ id: 'mock-event' }),
 		},
 		vault: new Vault(),
 		fileManager: new FileManager(),
@@ -92,6 +99,7 @@ export class Plugin {
 	};
 	manifest: unknown = {};
 	commands: { id: string; name: string; callback: () => void }[] = [];
+	registeredViews: Map<string, (leaf: WorkspaceLeaf) => ItemView> = new Map();
 	async loadData(): Promise<unknown> { return null; }
 	async saveData(_data: unknown): Promise<void> { /* noop */ }
 	addRibbonIcon() { return document.createElement('div'); }
@@ -101,7 +109,11 @@ export class Plugin {
 		return command;
 	}
 	addSettingTab() { /* noop */ }
+	registerView(type: string, factory: (leaf: WorkspaceLeaf) => ItemView) {
+		this.registeredViews.set(type, factory);
+	}
 	registerDomEvent() { /* noop */ }
+	registerEvent() { /* noop */ }
 	registerInterval() { return 0; }
 }
 
@@ -198,6 +210,34 @@ export class SuggestModal<T> {
 	getSuggestions(_query: string): T[] { return []; }
 	renderSuggestion(_item: T, _el: HTMLElement): void {}
 	onChooseSuggestion(_item: T, _evt: MouseEvent | KeyboardEvent): void {}
+}
+
+export class WorkspaceLeaf {
+	view: unknown = null;
+	containerEl: HTMLElement;
+
+	constructor() {
+		this.containerEl = document.createElement('div');
+	}
+}
+
+export class ItemView {
+	leaf: WorkspaceLeaf;
+	containerEl: HTMLElement;
+	contentEl: HTMLElement;
+
+	constructor(leaf: WorkspaceLeaf) {
+		this.leaf = leaf;
+		this.containerEl = leaf.containerEl;
+		this.contentEl = document.createElement('div');
+		this.containerEl.appendChild(this.contentEl);
+	}
+
+	getViewType(): string { return ''; }
+	getDisplayText(): string { return ''; }
+	getIcon(): string { return 'document'; }
+	async onOpen(): Promise<void> { /* override */ }
+	async onClose(): Promise<void> { /* override */ }
 }
 
 export const Platform = {
