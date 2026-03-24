@@ -1,14 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import type { PipelineContext, PipelineStep } from '../../src/pipeline/pipeline-types';
-import { PluginState } from '../../src/state/types';
-
-vi.mock('../../src/state/state-manager', () => ({
-	stateManager: {
-		setState: vi.fn(),
-		getState: vi.fn().mockReturnValue(PluginState.Idle),
-		getContext: vi.fn().mockReturnValue({}),
-	},
-}));
+import type { PipelineContext, PipelineStep, PipelineCallbacks } from '../../src/pipeline/pipeline-types';
 
 vi.mock('../../src/utils/retry', () => ({
 	retryWithBackoff: vi.fn((fn: () => unknown) => fn()),
@@ -24,7 +15,6 @@ vi.mock('../../src/utils/logger', () => ({
 }));
 
 import { Pipeline } from '../../src/pipeline/pipeline';
-import { stateManager } from '../../src/state/state-manager';
 import { retryWithBackoff } from '../../src/utils/retry';
 import { TransientError, ConfigError, DataError } from '../../src/utils/errors';
 
@@ -44,6 +34,15 @@ function createMockStep(
 	return {
 		name,
 		execute: vi.fn(async (ctx: PipelineContext) => ({ ...ctx, ...modifier })),
+	};
+}
+
+function createMockCallbacks(): Required<PipelineCallbacks> {
+	return {
+		onStepStart: vi.fn(),
+		onStepComplete: vi.fn(),
+		onError: vi.fn(),
+		onComplete: vi.fn(),
 	};
 }
 
@@ -91,54 +90,109 @@ describe('Pipeline', () => {
 		});
 	});
 
-	describe('state transitions', () => {
-		it('transitions Processing → Complete on success', async () => {
+	describe('callbacks', () => {
+		it('calls onStepStart and onStepComplete for each step', async () => {
+			const callbacks = createMockCallbacks();
 			const step1 = createMockStep('transcribe', { noteFilePath: 'notes/out.md' });
 
 			const context = createMockContext();
-			await pipeline.execute([step1], context);
+			await pipeline.execute([step1], context, callbacks);
 
-			const setCalls = (stateManager.setState as ReturnType<typeof vi.fn>).mock.calls;
+			expect(callbacks.onStepStart).toHaveBeenCalledWith(0, 'transcribe');
+			expect(callbacks.onStepComplete).toHaveBeenCalledWith(0, 'transcribe');
+		});
 
-			// First call: Processing with step info
-			expect(setCalls[0]![0]).toBe(PluginState.Processing);
-			expect(setCalls[0]![1]).toEqual(
-				expect.objectContaining({ step: 'transcribe' }),
-			);
+		it('calls onComplete on successful execution', async () => {
+			const callbacks = createMockCallbacks();
+			const step1 = createMockStep('transcribe', { noteFilePath: 'notes/out.md' });
 
-			// Last call: Complete with noteFilePath
-			const lastCall = setCalls[setCalls.length - 1]!;
-			expect(lastCall[0]).toBe(PluginState.Complete);
-			expect(lastCall[1]).toEqual(
+			const context = createMockContext();
+			await pipeline.execute([step1], context, callbacks);
+
+			expect(callbacks.onComplete).toHaveBeenCalledOnce();
+			expect(callbacks.onComplete).toHaveBeenCalledWith(
 				expect.objectContaining({ noteFilePath: 'notes/out.md' }),
 			);
 		});
 
-		it('updates state with step name and progress for each step', async () => {
+		it('fires onStepStart and onStepComplete in correct order for multiple steps', async () => {
+			const callbacks = createMockCallbacks();
 			const step1 = createMockStep('transcribe');
 			const step2 = createMockStep('summarize');
 			const step3 = createMockStep('generate-note');
 
 			const context = createMockContext();
-			await pipeline.execute([step1, step2, step3], context);
+			await pipeline.execute([step1, step2, step3], context, callbacks);
 
-			const setCalls = (stateManager.setState as ReturnType<typeof vi.fn>).mock.calls;
+			expect(callbacks.onStepStart).toHaveBeenCalledTimes(3);
+			expect(callbacks.onStepComplete).toHaveBeenCalledTimes(3);
+			expect(callbacks.onStepStart).toHaveBeenNthCalledWith(1, 0, 'transcribe');
+			expect(callbacks.onStepStart).toHaveBeenNthCalledWith(2, 1, 'summarize');
+			expect(callbacks.onStepStart).toHaveBeenNthCalledWith(3, 2, 'generate-note');
+			expect(callbacks.onStepComplete).toHaveBeenNthCalledWith(1, 0, 'transcribe');
+			expect(callbacks.onStepComplete).toHaveBeenNthCalledWith(2, 1, 'summarize');
+			expect(callbacks.onStepComplete).toHaveBeenNthCalledWith(3, 2, 'generate-note');
+		});
 
-			// Step 1: progress 1
-			expect(setCalls[0]).toEqual([
-				PluginState.Processing,
-				expect.objectContaining({ step: 'transcribe', progress: 1, totalSteps: 3 }),
-			]);
-			// Step 2: progress 2
-			expect(setCalls[1]).toEqual([
-				PluginState.Processing,
-				expect.objectContaining({ step: 'summarize', progress: 2, totalSteps: 3 }),
-			]);
-			// Step 3: progress 3
-			expect(setCalls[2]).toEqual([
-				PluginState.Processing,
-				expect.objectContaining({ step: 'generate-note', progress: 3, totalSteps: 3 }),
-			]);
+		it('calls onError when a step fails', async () => {
+			const callbacks = createMockCallbacks();
+			const error = new TransientError('API timeout');
+			(retryWithBackoff as ReturnType<typeof vi.fn>).mockRejectedValueOnce(error);
+
+			const failingStep: PipelineStep = {
+				name: 'transcribe',
+				execute: vi.fn().mockRejectedValue(error),
+			};
+
+			const context = createMockContext();
+			const result = await pipeline.execute([failingStep], context, callbacks);
+
+			expect(result.failedStepIndex).toBe(0);
+			expect(callbacks.onError).toHaveBeenCalledWith(0, 'transcribe', error);
+			expect(callbacks.onComplete).not.toHaveBeenCalled();
+		});
+
+		it('does not call onComplete when a step fails', async () => {
+			const callbacks = createMockCallbacks();
+			const error = new ConfigError('Invalid API key');
+			(retryWithBackoff as ReturnType<typeof vi.fn>).mockRejectedValueOnce(error);
+
+			const failingStep: PipelineStep = {
+				name: 'summarize',
+				execute: vi.fn().mockRejectedValue(error),
+			};
+
+			const context = createMockContext();
+			await pipeline.execute([failingStep], context, callbacks);
+
+			expect(callbacks.onComplete).not.toHaveBeenCalled();
+		});
+
+		it('works without callbacks (backward compatible)', async () => {
+			const step1 = createMockStep('transcribe', { noteFilePath: 'notes/out.md' });
+
+			const context = createMockContext();
+			const result = await pipeline.execute([step1], context);
+
+			expect(result.failedStepIndex).toBeUndefined();
+			expect(result.context.noteFilePath).toBe('notes/out.md');
+		});
+
+		it('does not call onStepComplete for failed step', async () => {
+			const callbacks = createMockCallbacks();
+			const error = new DataError('Audio file not found');
+			(retryWithBackoff as ReturnType<typeof vi.fn>).mockRejectedValueOnce(error);
+
+			const failingStep: PipelineStep = {
+				name: 'transcribe',
+				execute: vi.fn().mockRejectedValue(error),
+			};
+
+			const context = createMockContext();
+			await pipeline.execute([failingStep], context, callbacks);
+
+			expect(callbacks.onStepStart).toHaveBeenCalledOnce();
+			expect(callbacks.onStepComplete).not.toHaveBeenCalled();
 		});
 	});
 
@@ -168,36 +222,29 @@ describe('Pipeline', () => {
 			expect(retryWithBackoff).toHaveBeenCalledTimes(2);
 		});
 
-		it('transitions to Error when TransientError exhausts retries', async () => {
+		it('returns failedStepIndex when TransientError exhausts retries', async () => {
+			const callbacks = createMockCallbacks();
 			const error = new TransientError('API timeout');
 			const failingStep: PipelineStep = {
 				name: 'transcribe',
 				execute: vi.fn().mockRejectedValue(error),
 			};
 
-			// Make retryWithBackoff propagate the error
 			(retryWithBackoff as ReturnType<typeof vi.fn>).mockRejectedValueOnce(error);
 
 			const context = createMockContext();
-			const result = await pipeline.execute([failingStep], context);
+			const result = await pipeline.execute([failingStep], context, callbacks);
 
 			expect(result.failedStepIndex).toBe(0);
-
-			const setCalls = (stateManager.setState as ReturnType<typeof vi.fn>).mock.calls;
-			const lastCall = setCalls[setCalls.length - 1]!;
-			expect(lastCall[0]).toBe(PluginState.Error);
-			expect(lastCall[1]).toEqual(
-				expect.objectContaining({ step: 'transcribe' }),
-			);
-			expect(lastCall[1].error).toBeInstanceOf(TransientError);
+			expect(callbacks.onError).toHaveBeenCalledWith(0, 'transcribe', error);
 		});
 	});
 
 	describe('non-retryable errors', () => {
-		it('transitions to Error immediately on ConfigError', async () => {
+		it('calls onError on ConfigError', async () => {
+			const callbacks = createMockCallbacks();
 			const error = new ConfigError('Invalid API key');
 
-			// retryWithBackoff rethrows non-retryable errors immediately
 			(retryWithBackoff as ReturnType<typeof vi.fn>).mockRejectedValueOnce(error);
 
 			const failingStep: PipelineStep = {
@@ -206,17 +253,14 @@ describe('Pipeline', () => {
 			};
 
 			const context = createMockContext();
-			const result = await pipeline.execute([failingStep], context);
+			const result = await pipeline.execute([failingStep], context, callbacks);
 
 			expect(result.failedStepIndex).toBe(0);
-
-			const setCalls = (stateManager.setState as ReturnType<typeof vi.fn>).mock.calls;
-			const lastCall = setCalls[setCalls.length - 1]!;
-			expect(lastCall[0]).toBe(PluginState.Error);
-			expect(lastCall[1].error).toBeInstanceOf(ConfigError);
+			expect(callbacks.onError).toHaveBeenCalledWith(0, 'summarize', error);
 		});
 
-		it('transitions to Error immediately on DataError', async () => {
+		it('calls onError on DataError', async () => {
+			const callbacks = createMockCallbacks();
 			const error = new DataError('Audio file not found');
 
 			(retryWithBackoff as ReturnType<typeof vi.fn>).mockRejectedValueOnce(error);
@@ -227,14 +271,10 @@ describe('Pipeline', () => {
 			};
 
 			const context = createMockContext();
-			const result = await pipeline.execute([failingStep], context);
+			const result = await pipeline.execute([failingStep], context, callbacks);
 
 			expect(result.failedStepIndex).toBe(0);
-
-			const setCalls = (stateManager.setState as ReturnType<typeof vi.fn>).mock.calls;
-			const lastCall = setCalls[setCalls.length - 1]!;
-			expect(lastCall[0]).toBe(PluginState.Error);
-			expect(lastCall[1].error).toBeInstanceOf(DataError);
+			expect(callbacks.onError).toHaveBeenCalledWith(0, 'transcribe', error);
 		});
 	});
 
@@ -290,16 +330,15 @@ describe('Pipeline', () => {
 			expect(result.failedStepIndex).toBeUndefined();
 		});
 
-		it('does not set Complete state when aborted', async () => {
+		it('does not call onComplete when aborted', async () => {
+			const callbacks = createMockCallbacks();
 			const step1 = createMockStep('transcribe');
 			const step2 = createMockStep('summarize');
 
 			const context = createMockContext({ isAborted: () => true });
-			await pipeline.execute([step1, step2], context);
+			await pipeline.execute([step1, step2], context, callbacks);
 
-			const setCalls = (stateManager.setState as ReturnType<typeof vi.fn>).mock.calls;
-			const stateValues = setCalls.map((c: unknown[]) => c[0]);
-			expect(stateValues).not.toContain(PluginState.Complete);
+			expect(callbacks.onComplete).not.toHaveBeenCalled();
 		});
 
 		it('executes all steps when isAborted always returns false', async () => {
@@ -345,6 +384,22 @@ describe('Pipeline', () => {
 			const result = await pipeline.execute([step1], context);
 
 			expect(result.failedStepIndex).toBeUndefined();
+		});
+	});
+
+	describe('no global state dependency', () => {
+		it('does not import or use stateManager', async () => {
+			// Pipeline should work purely through callbacks without any global stateManager dependency
+			const callbacks = createMockCallbacks();
+			const step1 = createMockStep('transcribe', { noteFilePath: 'test.md' });
+
+			const context = createMockContext();
+			const result = await pipeline.execute([step1], context, callbacks);
+
+			expect(result.failedStepIndex).toBeUndefined();
+			expect(callbacks.onStepStart).toHaveBeenCalledOnce();
+			expect(callbacks.onStepComplete).toHaveBeenCalledOnce();
+			expect(callbacks.onComplete).toHaveBeenCalledOnce();
 		});
 	});
 });

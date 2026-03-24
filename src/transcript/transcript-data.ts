@@ -21,11 +21,12 @@ export interface ParticipantMapping {
 }
 
 export interface PipelineState {
-	status: 'recording' | 'transcribing' | 'summarizing' | 'complete' | 'error';
+	status: 'queued' | 'recording' | 'transcribing' | 'summarizing' | 'complete' | 'error';
 	progress: number;
 	error?: string;
 	failedStep?: string;
 	completedSteps: string[];
+	noteFilePath?: string;
 }
 
 export interface TranscriptData {

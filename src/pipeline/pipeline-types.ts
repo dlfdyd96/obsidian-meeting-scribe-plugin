@@ -21,6 +21,13 @@ export interface PipelineStep {
 	execute(context: PipelineContext): Promise<PipelineContext>;
 }
 
+export interface PipelineCallbacks {
+	onStepStart?: (stepIndex: number, stepName: string) => void;
+	onStepComplete?: (stepIndex: number, stepName: string) => void;
+	onError?: (stepIndex: number, stepName: string, error: Error) => void;
+	onComplete?: (context: PipelineContext) => void;
+}
+
 export interface PipelineResult {
 	context: PipelineContext;
 	failedStepIndex?: number;

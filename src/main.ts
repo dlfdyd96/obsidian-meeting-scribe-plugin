@@ -13,6 +13,8 @@ import { Pipeline } from './pipeline/pipeline';
 import { TranscribeStep } from './pipeline/steps/transcribe-step';
 import { SummarizeStep } from './pipeline/steps/summarize-step';
 import { GenerateNoteStep } from './pipeline/steps/generate-note-step';
+import { PipelineDispatcher } from './pipeline/pipeline-dispatcher';
+import { SessionManager } from './session/session-manager';
 import { providerRegistry } from './providers/provider-registry';
 import { OpenAISTTProvider } from './providers/stt/openai-stt-provider';
 import { ClovaSpeechSTTProvider } from './providers/stt/clova-stt-provider';
@@ -44,7 +46,8 @@ export default class MeetingScribePlugin extends Plugin {
 	private statusBar!: StatusBar;
 	private ribbonHandler!: RibbonHandler;
 	noticeManager!: NoticeManager;
-	private lastPipelineAudioPath: string | null = null;
+	private sessionManager!: SessionManager;
+	private dispatcher!: PipelineDispatcher;
 	private pipelineAborted = false;
 	private recordingAvailable = true;
 
@@ -64,6 +67,13 @@ export default class MeetingScribePlugin extends Plugin {
 		this.audioFileManager = new AudioFileManager(
 			this.app.vault,
 			() => this.settings.audioFolder,
+		);
+
+		this.sessionManager = new SessionManager();
+		this.dispatcher = new PipelineDispatcher(
+			this.sessionManager,
+			this.app.vault,
+			() => this.settings,
 		);
 
 		const startRecordingFlow = (): void => {
@@ -98,9 +108,9 @@ export default class MeetingScribePlugin extends Plugin {
 		this.noticeManager = new NoticeManager(
 			this.app,
 			() => {
-				if (this.lastPipelineAudioPath) {
-					this.startProcessingFlow(this.lastPipelineAudioPath);
-				}
+				// Retry is now handled by SessionManager/Sidebar (Epic 12)
+				// For now, log that retry was requested
+				logger.info(COMPONENT, 'Retry requested via notice');
 			},
 			PLUGIN_ID,
 		);
@@ -134,8 +144,12 @@ export default class MeetingScribePlugin extends Plugin {
 			name: 'Start recording',
 			callback: () => {
 				const state = stateManager.getState();
-				if (state === PluginState.Idle || state === PluginState.Error) {
-					if (state === PluginState.Error) stateManager.setState(PluginState.Idle);
+				if (state === PluginState.Idle || state === PluginState.Recording) {
+					if (state === PluginState.Idle) {
+						startRecordingFlow();
+					}
+				} else if (state === PluginState.Error) {
+					stateManager.setState(PluginState.Idle);
 					startRecordingFlow();
 				}
 			},
@@ -156,8 +170,10 @@ export default class MeetingScribePlugin extends Plugin {
 			name: 'Toggle recording',
 			callback: () => {
 				const state = stateManager.getState();
-				if (state === PluginState.Idle || state === PluginState.Error) {
-					if (state === PluginState.Error) stateManager.setState(PluginState.Idle);
+				if (state === PluginState.Idle) {
+					startRecordingFlow();
+				} else if (state === PluginState.Error) {
+					stateManager.setState(PluginState.Idle);
 					startRecordingFlow();
 				} else if (state === PluginState.Recording) {
 					stopRecordingFlow();
@@ -170,7 +186,7 @@ export default class MeetingScribePlugin extends Plugin {
 			name: 'Import audio file',
 			callback: () => {
 				const state = stateManager.getState();
-				if (state === PluginState.Idle || state === PluginState.Error) {
+				if (state !== PluginState.Recording) {
 					if (state === PluginState.Error) stateManager.setState(PluginState.Idle);
 					const modal = new AudioSuggestModal(this.app, (filePath: string) => {
 						this.startProcessingFlow(filePath);
@@ -214,78 +230,33 @@ export default class MeetingScribePlugin extends Plugin {
 			void this.saveSettings();
 		}
 
+		// Subscribe to session state changes for user notifications
+		this.sessionManager.subscribe((_sessionId, session) => {
+			if (session.pipeline.status === 'complete') {
+				const notePath = session.pipeline.noteFilePath ?? session.transcriptFile.replace('.transcript.json', '.md');
+				this.noticeManager.showSuccess(notePath);
+				void this.applyRetentionPolicy(session.audioFile);
+			} else if (session.pipeline.status === 'error' && session.pipeline.error) {
+				this.noticeManager.showError(
+					session.pipeline.failedStep ?? 'Processing',
+					new Error(session.pipeline.error),
+				);
+			}
+		});
+
+		// Recover interrupted sessions from previous app run
+		void this.dispatcher.recoverSessions().then(count => {
+			if (count > 0) {
+				logger.info(COMPONENT, 'Recovered interrupted sessions', { count });
+			}
+		});
+
 		logger.debug(COMPONENT, 'Plugin loaded');
 	}
 
 	private startProcessingFlow(audioFilePath: string): void {
-		if (stateManager.getState() === PluginState.Processing) {
-			new Notice('Processing in progress — please wait', NOTICE_RETRY_TIMEOUT_MS);
-			return;
-		}
-		this.lastPipelineAudioPath = audioFilePath;
-		void this.executePipeline(audioFilePath);
-	}
-
-	private async executePipeline(audioFilePath: string): Promise<void> {
-		this.pipelineAborted = false;
-
-		// Duration guard: check audio duration against provider limits before processing
-		const audioFile = this.app.vault.getAbstractFileByPath(audioFilePath);
-		if (!(audioFile instanceof TFile)) {
-			logger.error(COMPONENT, 'Audio file not found', { audioFilePath });
-			return;
-		}
-
-		const audioData = await this.app.vault.readBinary(audioFile);
-		const guardResult = await checkDurationGuard(audioData, this.settings, this.app);
-
-		if (guardResult.action === 'cancel') {
-			logger.info(COMPONENT, 'Pipeline cancelled by duration guard');
-			return;
-		}
-
-		// Apply duration guard decisions
-		let effectiveSettings = this.settings;
-		if (guardResult.action === 'switch' && guardResult.switchedProvider) {
-			effectiveSettings = {
-				...this.settings,
-				sttProvider: guardResult.switchedProvider,
-				...(guardResult.switchedModel ? { sttModel: guardResult.switchedModel } : {}),
-			};
-		}
-
-		const context: PipelineContext = {
-			audioFilePath,
-			vault: this.app.vault,
-			settings: effectiveSettings,
-			maxDurationOverride: guardResult.action === 'split' ? guardResult.maxDurationSeconds : undefined,
-			onProgress: (step: string, current: number, total: number) => {
-				logger.debug(COMPONENT, 'Pipeline progress', { step, current, total });
-			},
-			isAborted: () => this.pipelineAborted,
-		};
-
-		const steps = [new TranscribeStep(), new SummarizeStep(), new GenerateNoteStep()];
-		const pipeline = new Pipeline();
-
+		void this.dispatcher.dispatch(audioFilePath);
 		new Notice('Processing started...', NOTICE_RETRY_TIMEOUT_MS);
-
-		try {
-			const result = await pipeline.execute(steps, context);
-
-			if (this.pipelineAborted) {
-				logger.info(COMPONENT, 'Pipeline aborted during unload');
-				return;
-			}
-
-			if (result.failedStepIndex === undefined && result.context.noteFilePath) {
-				this.noticeManager.showSuccess(result.context.noteFilePath, result.context.transcriptFilePath);
-				await this.applyRetentionPolicy(audioFilePath);
-			}
-			// Error case: Pipeline already set Error state → StatusBar → onShowError → NoticeManager
-		} catch (err) {
-			logger.error(COMPONENT, 'Unexpected pipeline error', { error: (err as Error).message });
-		}
 	}
 
 	private async applyRetentionPolicy(audioFilePath: string): Promise<void> {
@@ -426,6 +397,7 @@ export default class MeetingScribePlugin extends Plugin {
 
 	onunload() {
 		this.pipelineAborted = true;
+		this.dispatcher?.abortAll();
 		this.ribbonHandler?.destroy();
 		this.statusBar?.destroy();
 		this.recorder?.destroy();

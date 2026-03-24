@@ -5,7 +5,7 @@ import { logger } from '../utils/logger';
 
 const COMPONENT = 'SessionManager';
 
-const ACTIVE_STATUSES: PipelineState['status'][] = ['recording', 'transcribing', 'summarizing'];
+const ACTIVE_STATUSES: PipelineState['status'][] = ['queued', 'recording', 'transcribing', 'summarizing'];
 
 export class SessionManager {
 	private sessions: Map<string, MeetingSession> = new Map();
