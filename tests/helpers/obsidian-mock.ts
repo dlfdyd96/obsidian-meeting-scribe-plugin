@@ -148,7 +148,15 @@ export class FileManager {
 
 export type App = Record<string, unknown>;
 
+export class VaultAdapter {
+	async exists(_path: string): Promise<boolean> { return false; }
+	async read(_path: string): Promise<string> { return ''; }
+	async write(_path: string, _data: string): Promise<void> { /* noop */ }
+	async readBinary(_path: string): Promise<ArrayBuffer> { return new ArrayBuffer(0); }
+}
+
 export class Vault {
+	adapter: VaultAdapter = new VaultAdapter();
 	async create(_path: string, _data: string): Promise<TFile> { return new TFile(_path); }
 	async createBinary(_path: string, _data: ArrayBuffer): Promise<TFile> { return new TFile(_path); }
 	async read(_file: TFile): Promise<string> { return ''; }
@@ -225,12 +233,20 @@ export class ItemView {
 	leaf: WorkspaceLeaf;
 	containerEl: HTMLElement;
 	contentEl: HTMLElement;
+	app: {
+		workspace: Record<string, unknown>;
+		vault: Vault;
+	};
 
 	constructor(leaf: WorkspaceLeaf) {
 		this.leaf = leaf;
 		this.containerEl = leaf.containerEl;
 		this.contentEl = document.createElement('div');
 		this.containerEl.appendChild(this.contentEl);
+		this.app = {
+			workspace: {},
+			vault: new Vault(),
+		};
 	}
 
 	getViewType(): string { return ''; }

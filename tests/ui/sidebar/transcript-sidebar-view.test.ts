@@ -4,7 +4,42 @@ import { WorkspaceLeaf } from 'obsidian';
 import { TranscriptSidebarView } from '../../../src/ui/sidebar/transcript-sidebar-view';
 import { SessionManager } from '../../../src/session/session-manager';
 import type { MeetingSession } from '../../../src/session/types';
-import type { PipelineState } from '../../../src/transcript/transcript-data';
+import type { PipelineState, TranscriptData } from '../../../src/transcript/transcript-data';
+
+vi.mock('../../../src/transcript/transcript-data', async (importOriginal) => {
+	const actual = await importOriginal<typeof import('../../../src/transcript/transcript-data')>();
+	return {
+		...actual,
+		loadTranscriptData: vi.fn().mockResolvedValue(null),
+	};
+});
+
+import { loadTranscriptData } from '../../../src/transcript/transcript-data';
+const mockLoadTranscriptData = vi.mocked(loadTranscriptData);
+
+function createMockTranscriptData(): TranscriptData {
+	return {
+		version: 2,
+		audioFile: 'audio/test.webm',
+		duration: 120,
+		provider: 'openai',
+		model: 'whisper-1',
+		language: 'en',
+		segments: [
+			{ id: 'seg-1', speaker: 'Participant 1', start: 0, end: 10, text: 'Hello there.' },
+			{ id: 'seg-2', speaker: 'Participant 2', start: 10, end: 20, text: 'Hi, how are you?' },
+			{ id: 'seg-3', speaker: 'Participant 1', start: 20, end: 30, text: 'Doing well.' },
+		],
+		participants: [
+			{ alias: 'Participant 1', name: '', wikiLink: false, color: 0 },
+			{ alias: 'Participant 2', name: '', wikiLink: false, color: 1 },
+		],
+		pipeline: { status: 'complete', progress: 100, completedSteps: ['transcribe', 'summarize', 'generate'] },
+		meetingNote: 'notes/meeting.md',
+		createdAt: new Date().toISOString(),
+		updatedAt: new Date().toISOString(),
+	};
+}
 
 function createMockSession(overrides: Partial<MeetingSession> = {}): MeetingSession {
 	return {
@@ -143,24 +178,67 @@ describe('TranscriptSidebarView', () => {
 	});
 
 	describe('showTranscript()', () => {
-		it('renders transcript stub view with back button', async () => {
+		it('renders transcript view with back button and action buttons', async () => {
 			const session = sessionManager.createSession('audio/test.webm');
 			sessionManager.updateSessionState(session.id, {
 				status: 'complete',
 				progress: 100,
 				completedSteps: ['transcribe', 'summarize', 'generate'],
 			});
+			mockLoadTranscriptData.mockResolvedValueOnce(createMockTranscriptData());
 			await view.onOpen();
 
-			view.showTranscript(session.id);
+			await view.showTranscript(session.id);
 
 			const backBtn = view.contentEl.querySelector('.meeting-scribe-sidebar-back-btn');
 			expect(backBtn).not.toBeNull();
 			expect(backBtn!.textContent).toBe('\u2190 Sessions');
 
-			const stub = view.contentEl.querySelector('.meeting-scribe-sidebar-stub');
-			expect(stub).not.toBeNull();
-			expect(stub!.textContent).toContain('Story 12.2');
+			// Header should have session title
+			const title = view.contentEl.querySelector('.meeting-scribe-sidebar-session-title');
+			expect(title).not.toBeNull();
+
+			// Action buttons should be disabled
+			const actionBtns = view.contentEl.querySelectorAll('.meeting-scribe-sidebar-action-btn');
+			expect(actionBtns.length).toBe(2);
+			expect((actionBtns[0] as HTMLButtonElement).disabled).toBe(true);
+			expect((actionBtns[1] as HTMLButtonElement).disabled).toBe(true);
+		});
+
+		it('renders chat bubbles from transcript data', async () => {
+			const session = sessionManager.createSession('audio/test.webm');
+			sessionManager.updateSessionState(session.id, {
+				status: 'complete',
+				progress: 100,
+				completedSteps: ['transcribe', 'summarize', 'generate'],
+			});
+			mockLoadTranscriptData.mockResolvedValueOnce(createMockTranscriptData());
+			await view.onOpen();
+
+			await view.showTranscript(session.id);
+
+			const bubbles = view.contentEl.querySelectorAll('.meeting-scribe-sidebar-bubble');
+			expect(bubbles.length).toBe(3);
+
+			const scrollContainer = view.contentEl.querySelector('.meeting-scribe-sidebar-transcript-scroll');
+			expect(scrollContainer).not.toBeNull();
+		});
+
+		it('shows error when transcript data fails to load', async () => {
+			const session = sessionManager.createSession('audio/test.webm');
+			sessionManager.updateSessionState(session.id, {
+				status: 'complete',
+				progress: 100,
+				completedSteps: ['transcribe', 'summarize', 'generate'],
+			});
+			mockLoadTranscriptData.mockResolvedValueOnce(null);
+			await view.onOpen();
+
+			await view.showTranscript(session.id);
+
+			const errorEl = view.contentEl.querySelector('.meeting-scribe-sidebar-transcript-error');
+			expect(errorEl).not.toBeNull();
+			expect(errorEl!.textContent).toContain('Failed to load transcript');
 		});
 
 		it('back button returns to session list', async () => {
@@ -170,9 +248,10 @@ describe('TranscriptSidebarView', () => {
 				progress: 100,
 				completedSteps: ['transcribe', 'summarize', 'generate'],
 			});
+			mockLoadTranscriptData.mockResolvedValueOnce(createMockTranscriptData());
 			await view.onOpen();
 
-			view.showTranscript(session.id);
+			await view.showTranscript(session.id);
 			const backBtn = view.contentEl.querySelector('.meeting-scribe-sidebar-back-btn') as HTMLElement;
 			backBtn.click();
 
@@ -183,7 +262,7 @@ describe('TranscriptSidebarView', () => {
 
 		it('does nothing for non-existent session', async () => {
 			await view.onOpen();
-			view.showTranscript('non-existent');
+			await view.showTranscript('non-existent');
 			// Should still show session list (empty state)
 			const empty = view.contentEl.querySelector('.meeting-scribe-sidebar-empty');
 			expect(empty).not.toBeNull();
@@ -249,15 +328,16 @@ describe('TranscriptSidebarView', () => {
 				progress: 100,
 				completedSteps: ['transcribe', 'summarize', 'generate'],
 			});
+			mockLoadTranscriptData.mockResolvedValueOnce(createMockTranscriptData());
 			await view.onOpen();
-			view.showTranscript(session.id);
+			await view.showTranscript(session.id);
 
 			// Creating another session should not affect transcript view
 			sessionManager.createSession('audio/test2.webm');
 
-			// Should still show transcript stub, not session list
-			const stub = view.contentEl.querySelector('.meeting-scribe-sidebar-stub');
-			expect(stub).not.toBeNull();
+			// Should still show transcript view header, not session list
+			const header = view.contentEl.querySelector('.meeting-scribe-sidebar-transcript-header');
+			expect(header).not.toBeNull();
 		});
 	});
 
@@ -269,13 +349,15 @@ describe('TranscriptSidebarView', () => {
 				progress: 100,
 				completedSteps: ['transcribe', 'summarize', 'generate'],
 			});
+			mockLoadTranscriptData.mockResolvedValueOnce(createMockTranscriptData());
 			await view.onOpen();
 
 			const item = view.contentEl.querySelector('.meeting-scribe-sidebar-session-item--clickable') as HTMLElement;
 			item.click();
-
-			const stub = view.contentEl.querySelector('.meeting-scribe-sidebar-stub');
-			expect(stub).not.toBeNull();
+			// Wait for async showTranscript to complete
+			await vi.waitFor(() => {
+				expect(view.contentEl.querySelector('.meeting-scribe-sidebar-transcript-header')).not.toBeNull();
+			});
 		});
 
 		it('clicking retry button calls onRetry callback', async () => {
@@ -306,7 +388,7 @@ describe('TranscriptSidebarView', () => {
 			retryBtn.click();
 
 			// Should still be on session list (no navigation to transcript)
-			expect(view.contentEl.querySelector('.meeting-scribe-sidebar-stub')).toBeNull();
+			expect(view.contentEl.querySelector('.meeting-scribe-sidebar-transcript-header')).toBeNull();
 		});
 	});
 });

@@ -1,6 +1,8 @@
 import { ItemView, WorkspaceLeaf } from 'obsidian';
 import { SessionManager } from '../../session/session-manager';
 import { renderSessionList, renderSingleItem } from './session-list-renderer';
+import { renderTranscriptView } from './chat-bubble-renderer';
+import { loadTranscriptData } from '../../transcript/transcript-data';
 import { logger } from '../../utils/logger';
 import type { MeetingSession, SessionObserver } from '../../session/types';
 
@@ -70,7 +72,7 @@ export class TranscriptSidebarView extends ItemView {
 		);
 	}
 
-	showTranscript(sessionId: string): void {
+	async showTranscript(sessionId: string): Promise<void> {
 		const session = this.sessionManager.getSession(sessionId);
 		if (!session) {
 			logger.error(COMPONENT, 'Session not found', { sessionId });
@@ -82,6 +84,7 @@ export class TranscriptSidebarView extends ItemView {
 		this.sessionElements.clear();
 		this.contentEl.empty();
 
+		// Header: back button + title + action buttons
 		const header = this.contentEl.createDiv({ cls: 'meeting-scribe-sidebar-transcript-header' });
 		const backBtn = header.createEl('button', {
 			text: '\u2190 Sessions',
@@ -91,10 +94,35 @@ export class TranscriptSidebarView extends ItemView {
 
 		header.createEl('h3', { text: session.title, cls: 'meeting-scribe-sidebar-session-title' });
 
-		this.contentEl.createDiv({
-			text: 'Transcript view coming in Story 12.2',
-			cls: 'meeting-scribe-sidebar-stub',
+		const actions = header.createDiv({ cls: 'meeting-scribe-sidebar-header-actions' });
+		const resummarizeBtn = actions.createEl('button', {
+			text: 'Re-summarize',
+			cls: 'meeting-scribe-sidebar-action-btn',
 		});
+		resummarizeBtn.disabled = true;
+		resummarizeBtn.setAttribute('aria-label', 'Re-summarize (coming soon)');
+
+		const exportBtn = actions.createEl('button', {
+			text: 'Export',
+			cls: 'meeting-scribe-sidebar-action-btn',
+		});
+		exportBtn.disabled = true;
+		exportBtn.setAttribute('aria-label', 'Export (coming soon)');
+
+		// Load transcript data
+		const data = await loadTranscriptData(this.app.vault, session.transcriptFile);
+		if (!data) {
+			this.contentEl.createDiv({
+				text: 'Failed to load transcript data.',
+				cls: 'meeting-scribe-sidebar-transcript-error',
+			});
+			logger.error(COMPONENT, 'Failed to load transcript', { sessionId, path: session.transcriptFile });
+			return;
+		}
+
+		// Scrollable transcript container
+		const scrollContainer = this.contentEl.createDiv({ cls: 'meeting-scribe-sidebar-transcript-scroll' });
+		renderTranscriptView(scrollContainer, data.segments, data.participants);
 	}
 
 	private onSessionUpdate(sessionId: string, session: MeetingSession): void {

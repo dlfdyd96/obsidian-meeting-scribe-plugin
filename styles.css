@@ -215,12 +215,65 @@ Meeting Scribe plugin styles.
 	text-overflow: ellipsis;
 	white-space: nowrap;
 }
+/* ===== Transcript View ===== */
 
-.meeting-scribe-sidebar-stub {
+.meeting-scribe-sidebar-header-actions {
+	display: flex;
+	gap: 4px;
+	margin-left: auto;
+	flex-shrink: 0;
+}
+
+.meeting-scribe-sidebar-action-btn {
+	font-size: var(--font-ui-smaller);
+	padding: 2px 8px;
+	cursor: pointer;
+}
+
+.meeting-scribe-sidebar-action-btn:disabled {
+	opacity: 0.4;
+	cursor: not-allowed;
+}
+
+.meeting-scribe-sidebar-transcript-scroll {
+	overflow-y: auto;
+	flex: 1;
+	padding: 8px 12px;
+}
+
+.meeting-scribe-sidebar-transcript-error {
 	padding: 16px;
-	color: var(--text-muted);
+	color: var(--text-error);
 	text-align: center;
 	font-size: var(--font-ui-small);
+}
+
+.meeting-scribe-sidebar-bubble {
+	border-left: 3px solid var(--interactive-accent);
+	background-color: var(--background-secondary);
+	padding: 6px 10px;
+	margin-bottom: 4px;
+	border-radius: var(--radius-s);
+}
+
+.meeting-scribe-sidebar-bubble-speaker {
+	display: block;
+	font-weight: var(--font-semibold);
+	font-size: var(--font-ui-small);
+	color: var(--text-normal);
+	margin-bottom: 2px;
+}
+
+.meeting-scribe-sidebar-bubble-timestamp {
+	font-size: var(--font-ui-smaller);
+	color: var(--text-muted);
+	margin-right: 4px;
+}
+
+.meeting-scribe-sidebar-bubble-text {
+	font-size: var(--font-ui-small);
+	color: var(--text-normal);
+	line-height: 1.4;
 }
 
 /* Respect user's reduced-motion preference */
