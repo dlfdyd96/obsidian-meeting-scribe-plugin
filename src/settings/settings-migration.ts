@@ -78,6 +78,13 @@ function migrateV8ToV9(data: Record<string, unknown>): Record<string, unknown> {
 	return result;
 }
 
+function migrateV9ToV10(data: Record<string, unknown>): Record<string, unknown> {
+	return Object.assign({}, data, {
+		settingsVersion: 10,
+		autoOpenSidebar: data['autoOpenSidebar'] ?? true,
+	});
+}
+
 const migrations: Migration[] = [
 	migrateV0ToV1,
 	migrateV1ToV2,
@@ -88,6 +95,7 @@ const migrations: Migration[] = [
 	migrateV6ToV7,
 	migrateV7ToV8,
 	migrateV8ToV9,
+	migrateV9ToV10,
 ];
 
 export function migrateSettings(data: unknown): MeetingScribeSettings {

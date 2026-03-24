@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { Notice, Platform, TFile, Vault } from 'obsidian';
+import { MarkdownView, Notice, Platform, TFile, Vault, WorkspaceLeaf } from 'obsidian';
 import { logger } from '../src/utils/logger';
 import { stateManager } from '../src/state/state-manager';
 import { PluginState } from '../src/state/types';
@@ -693,5 +693,60 @@ describe('MeetingScribePlugin microphone detection', () => {
 		await new Promise(r => setTimeout(r, 50));
 
 		expect(warnSpy).toHaveBeenCalledWith('MeetingScribePlugin', 'No microphone detected');
+	});
+});
+
+describe('Auto-open sidebar on active-leaf-change', () => {
+	let debugSpy: ReturnType<typeof vi.spyOn>;
+
+	beforeEach(() => {
+		debugSpy = vi.spyOn(console, 'debug').mockImplementation(() => {});
+		logger.setDebugMode(false);
+		resetProviderRegistry();
+		// Mock navigator.mediaDevices for onload
+		Object.defineProperty(navigator, 'mediaDevices', {
+			value: {
+				enumerateDevices: vi.fn().mockResolvedValue([
+					{ kind: 'audioinput', deviceId: 'mic1', label: '', groupId: '' },
+				]),
+				getUserMedia: vi.fn(),
+			},
+			configurable: true,
+		});
+	});
+
+	afterEach(() => {
+		vi.restoreAllMocks();
+	});
+
+	it('should register active-leaf-change event during onload', async () => {
+		const { default: MeetingScribePlugin } = await import('../src/main');
+		const plugin = new MeetingScribePlugin();
+		vi.spyOn(plugin, 'loadData').mockResolvedValue(null);
+		const registerEventSpy = vi.spyOn(plugin, 'registerEvent');
+
+		await plugin.onload();
+
+		expect(registerEventSpy).toHaveBeenCalled();
+	});
+
+	it('should have autoOpenSidebar default to true', async () => {
+		const { default: MeetingScribePlugin } = await import('../src/main');
+		const plugin = new MeetingScribePlugin();
+		vi.spyOn(plugin, 'loadData').mockResolvedValue(null);
+
+		await plugin.onload();
+
+		expect((plugin as any).settings.autoOpenSidebar).toBe(true);
+	});
+
+	it('should set autoOpenSidebar to false when loaded from saved settings', async () => {
+		const { default: MeetingScribePlugin } = await import('../src/main');
+		const plugin = new MeetingScribePlugin();
+		vi.spyOn(plugin, 'loadData').mockResolvedValue({ autoOpenSidebar: false, settingsVersion: 10 });
+
+		await plugin.onload();
+
+		expect((plugin as any).settings.autoOpenSidebar).toBe(false);
 	});
 });

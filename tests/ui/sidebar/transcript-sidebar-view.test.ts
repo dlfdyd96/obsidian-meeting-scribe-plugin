@@ -391,4 +391,61 @@ describe('TranscriptSidebarView', () => {
 			expect(view.contentEl.querySelector('.meeting-scribe-sidebar-transcript-header')).toBeNull();
 		});
 	});
+
+	describe('showTranscriptForNote', () => {
+		it('switches to transcript view when session found by noteFilePath', async () => {
+			const session = createMockSession({
+				id: 'session-note',
+				pipeline: {
+					status: 'complete',
+					progress: 100,
+					completedSteps: ['transcribe', 'summarize', 'generate'],
+					noteFilePath: 'Meeting Notes/My Meeting.md',
+				},
+			});
+			vi.spyOn(sessionManager, 'findSessionByNotePath').mockReturnValue(session);
+			vi.spyOn(sessionManager, 'getSession').mockReturnValue(session);
+			mockLoadTranscriptData.mockResolvedValue(createMockTranscriptData());
+
+			await view.onOpen();
+			await view.showTranscriptForNote('Meeting Notes/My Meeting.md');
+
+			// Should be in transcript view
+			expect(view.contentEl.querySelector('.meeting-scribe-sidebar-transcript-header')).not.toBeNull();
+		});
+
+		it('does nothing when session not found', async () => {
+			vi.spyOn(sessionManager, 'findSessionByNotePath').mockReturnValue(undefined);
+			await view.onOpen();
+
+			await view.showTranscriptForNote('Meeting Notes/nonexistent.md');
+
+			// Should remain on session list
+			expect(view.contentEl.querySelector('.meeting-scribe-sidebar-transcript-header')).toBeNull();
+		});
+
+		it('does nothing when already showing that session', async () => {
+			const session = createMockSession({
+				id: 'session-already',
+				pipeline: {
+					status: 'complete',
+					progress: 100,
+					completedSteps: ['transcribe', 'summarize', 'generate'],
+					noteFilePath: 'Meeting Notes/Already.md',
+				},
+			});
+			vi.spyOn(sessionManager, 'findSessionByNotePath').mockReturnValue(session);
+			vi.spyOn(sessionManager, 'getSession').mockReturnValue(session);
+			mockLoadTranscriptData.mockResolvedValue(createMockTranscriptData());
+
+			await view.onOpen();
+			await view.showTranscript('session-already');
+
+			const showTranscriptSpy = vi.spyOn(view, 'showTranscript');
+			await view.showTranscriptForNote('Meeting Notes/Already.md');
+
+			// showTranscript should not be called again
+			expect(showTranscriptSpy).not.toHaveBeenCalled();
+		});
+	});
 });

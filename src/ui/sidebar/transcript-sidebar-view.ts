@@ -125,6 +125,18 @@ export class TranscriptSidebarView extends ItemView {
 		renderTranscriptView(scrollContainer, data.segments, data.participants);
 	}
 
+	async showTranscriptForNote(notePath: string): Promise<void> {
+		const session = this.sessionManager.findSessionByNotePath(notePath);
+		if (!session) {
+			logger.debug(COMPONENT, 'No session found for note', { notePath });
+			return;
+		}
+		if (this.currentSessionId === session.id) {
+			return;
+		}
+		await this.showTranscript(session.id);
+	}
+
 	private onSessionUpdate(sessionId: string, session: MeetingSession): void {
 		if (this.currentView !== 'session-list') return;
 

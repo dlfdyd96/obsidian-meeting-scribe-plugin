@@ -78,6 +78,15 @@ export class SessionManager {
 		this.observers.delete(observer);
 	}
 
+	findSessionByNotePath(notePath: string): MeetingSession | undefined {
+		for (const session of this.sessions.values()) {
+			if (session.pipeline.noteFilePath === notePath) {
+				return this.copySession(session);
+			}
+		}
+		return undefined;
+	}
+
 	reset(): void {
 		this.sessions.clear();
 		this.observers.clear();

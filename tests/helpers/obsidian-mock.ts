@@ -91,6 +91,9 @@ export class Plugin {
 			on: () => ({ id: 'mock-event' }),
 		},
 		vault: new Vault(),
+		metadataCache: {
+			getFileCache: () => null,
+		},
 		fileManager: new FileManager(),
 		setting: {
 			open: () => {},
@@ -254,6 +257,16 @@ export class ItemView {
 	getIcon(): string { return 'document'; }
 	async onOpen(): Promise<void> { /* override */ }
 	async onClose(): Promise<void> { /* override */ }
+}
+
+export class MarkdownView extends ItemView {
+	file: TFile | null = null;
+
+	constructor(leaf: WorkspaceLeaf) {
+		super(leaf);
+	}
+
+	getViewType(): string { return 'markdown'; }
 }
 
 export const Platform = {

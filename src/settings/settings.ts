@@ -24,9 +24,11 @@ export interface MeetingScribeSettings {
 	showConsentReminder: boolean;
 	// Two-file output
 	separateTranscriptFile: boolean;
+	// Sidebar
+	autoOpenSidebar: boolean;
 }
 
-export const CURRENT_SETTINGS_VERSION = 9;
+export const CURRENT_SETTINGS_VERSION = 10;
 
 export function hasSTTCredentials(settings: MeetingScribeSettings): boolean {
 	switch (settings.sttProvider) {
@@ -59,4 +61,5 @@ export const DEFAULT_SETTINGS: MeetingScribeSettings = {
 	geminiApiKey: '',
 	showConsentReminder: true,
 	separateTranscriptFile: false,
+	autoOpenSidebar: true,
 };

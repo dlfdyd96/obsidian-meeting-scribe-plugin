@@ -339,4 +339,63 @@ describe('SessionManager', () => {
 			expect(observer).not.toHaveBeenCalled();
 		});
 	});
+
+	describe('findSessionByNotePath', () => {
+		it('returns session when noteFilePath matches', () => {
+			const session = manager.createSession('audio/meeting.webm');
+			manager.updateSessionState(session.id, {
+				status: 'complete',
+				noteFilePath: 'Meeting Notes/Meeting 2026-03-24.md',
+			});
+
+			const found = manager.findSessionByNotePath('Meeting Notes/Meeting 2026-03-24.md');
+			expect(found).toBeDefined();
+			expect(found!.id).toBe(session.id);
+			expect(found!.pipeline.noteFilePath).toBe('Meeting Notes/Meeting 2026-03-24.md');
+		});
+
+		it('returns undefined when no session matches', () => {
+			manager.createSession('audio/meeting.webm');
+			const found = manager.findSessionByNotePath('Meeting Notes/nonexistent.md');
+			expect(found).toBeUndefined();
+		});
+
+		it('returns undefined when no sessions exist', () => {
+			const found = manager.findSessionByNotePath('Meeting Notes/some.md');
+			expect(found).toBeUndefined();
+		});
+
+		it('returns a defensive copy', () => {
+			const session = manager.createSession('audio/meeting.webm');
+			manager.updateSessionState(session.id, {
+				status: 'complete',
+				noteFilePath: 'Meeting Notes/Meeting.md',
+			});
+
+			const found = manager.findSessionByNotePath('Meeting Notes/Meeting.md')!;
+			found.pipeline.completedSteps.push('hacked');
+			found.title = 'mutated';
+
+			const refetched = manager.findSessionByNotePath('Meeting Notes/Meeting.md')!;
+			expect(refetched.pipeline.completedSteps).toEqual([]);
+			expect(refetched.title).not.toBe('mutated');
+		});
+
+		it('finds first matching session when multiple sessions exist', () => {
+			const session1 = manager.createSession('audio/meeting1.webm');
+			const session2 = manager.createSession('audio/meeting2.webm');
+			manager.updateSessionState(session1.id, {
+				status: 'complete',
+				noteFilePath: 'Meeting Notes/Meeting 1.md',
+			});
+			manager.updateSessionState(session2.id, {
+				status: 'complete',
+				noteFilePath: 'Meeting Notes/Meeting 2.md',
+			});
+
+			const found = manager.findSessionByNotePath('Meeting Notes/Meeting 2.md');
+			expect(found).toBeDefined();
+			expect(found!.id).toBe(session2.id);
+		});
+	});
 });

@@ -1,4 +1,4 @@
-import { Notice, Platform, Plugin, TFile, WorkspaceLeaf } from 'obsidian';
+import { MarkdownView, Notice, Platform, Plugin, TFile, WorkspaceLeaf } from 'obsidian';
 import { migrateSettings } from './settings/settings-migration';
 import { MeetingScribeSettingTab } from './settings/settings-tab';
 import { Recorder } from './recording/recorder';
@@ -263,6 +263,23 @@ export default class MeetingScribePlugin extends Plugin {
 			},
 		});
 
+		// Auto-open sidebar when a meeting note becomes active
+		this.registerEvent(
+			this.app.workspace.on('active-leaf-change', (leaf) => {
+				if (!this.settings.autoOpenSidebar) return;
+				if (!leaf) return;
+				const leafView = leaf.view;
+				if (!(leafView instanceof MarkdownView)) return;
+				const file = leafView.file;
+				if (!file) return;
+
+				const cache = this.app.metadataCache.getFileCache(file);
+				if (cache?.frontmatter?.['created_by'] !== 'meeting-scribe') return;
+
+				void this.handleMeetingNoteOpened(file.path);
+			}),
+		);
+
 		// Recover interrupted sessions from previous app run
 		void this.dispatcher.recoverSessions().then(count => {
 			if (count > 0) {
@@ -410,16 +427,31 @@ export default class MeetingScribePlugin extends Plugin {
 		}
 	}
 
-	private async activateSidebarView(): Promise<void> {
+	private async activateSidebarView(): Promise<TranscriptSidebarView | null> {
 		const existing = this.app.workspace.getLeavesOfType(TranscriptSidebarView.VIEW_TYPE);
 		if (existing.length > 0) {
 			this.app.workspace.revealLeaf(existing[0]!);
-			return;
+			return existing[0]!.view as TranscriptSidebarView;
 		}
 		const leaf = this.app.workspace.getRightLeaf(false);
 		if (leaf) {
 			await leaf.setViewState({ type: TranscriptSidebarView.VIEW_TYPE, active: true });
 			this.app.workspace.revealLeaf(leaf);
+			return leaf.view as TranscriptSidebarView;
+		}
+		return null;
+	}
+
+	private async handleMeetingNoteOpened(notePath: string): Promise<void> {
+		try {
+			const sidebarView = await this.activateSidebarView();
+			if (sidebarView) {
+				await sidebarView.showTranscriptForNote(notePath);
+			}
+		} catch (err) {
+			logger.error(COMPONENT, 'Failed to auto-open sidebar', {
+				error: err instanceof Error ? err.message : String(err),
+			});
 		}
 	}
 

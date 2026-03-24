@@ -491,6 +491,16 @@ export class MeetingScribeSettingTab extends PluginSettingTab {
 				}));
 
 		new Setting(advancedEl)
+			.setName('Auto-open sidebar')
+			.setDesc('Automatically open the transcript sidebar when viewing a meeting note')
+			.addToggle(cb => cb
+				.setValue(this.plugin.settings.autoOpenSidebar)
+				.onChange(async (value) => {
+					this.plugin.settings.autoOpenSidebar = value;
+					await this.plugin.saveSettings();
+				}));
+
+		new Setting(advancedEl)
 			.setName('Debug mode')
 			.setDesc('Enable detailed logging for troubleshooting')
 			.addToggle(cb => cb
