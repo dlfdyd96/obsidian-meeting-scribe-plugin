@@ -86,3 +86,32 @@ export async function requestUrl(params: RequestUrlParam | string): Promise<Requ
 export function normalizePath(path: string): string {
 	return path.replace(/\\/g, '/').replace(/\/+/g, '/').replace(/^\//, '');
 }
+
+// Minimal TFile class so that `instanceof TFile` works in pipeline steps
+export class TFile {
+	path: string;
+	name: string;
+	extension: string;
+	basename: string;
+	vault: unknown = null;
+	parent: unknown = null;
+
+	constructor(path = '') {
+		this.path = path;
+		this.name = path.split('/').pop() ?? '';
+		this.extension = this.name.split('.').pop() ?? '';
+		this.basename = this.name.replace(/\.[^.]+$/, '');
+	}
+}
+
+// Minimal Vault type stub (actual implementation provided by test mock)
+export class Vault {}
+
+// Minimal Plugin/Notice stubs for imports
+export class Notice {
+	constructor(_message: string, _duration?: number) {}
+}
+export class Plugin {}
+export class Modal {}
+export class PluginSettingTab {}
+export const Platform = { isMobile: false, isDesktop: true };
