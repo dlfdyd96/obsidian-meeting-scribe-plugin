@@ -560,4 +560,254 @@ describe('TranscriptSidebarView', () => {
 			expect(view.contentEl.querySelector('.meeting-scribe-sidebar-player')).toBeNull();
 		});
 	});
+
+	describe('Playback-transcript synchronization', () => {
+		// Mock scrollIntoView since JSDOM does not implement it
+		const scrollIntoViewMock = vi.fn();
+
+		function createCompleteSession(): MeetingSession {
+			const session = sessionManager.createSession('audio/test.webm');
+			sessionManager.updateSessionState(session.id, {
+				status: 'complete',
+				progress: 100,
+				completedSteps: ['transcribe', 'summarize', 'generate'],
+			});
+			return sessionManager.getSession(session.id)!;
+		}
+
+		beforeEach(() => {
+			HTMLElement.prototype.scrollIntoView = scrollIntoViewMock;
+			scrollIntoViewMock.mockClear();
+		});
+
+		async function setupTranscriptView(): Promise<{ session: MeetingSession; fireTimeUpdate: (time: number) => void }> {
+			const session = createCompleteSession();
+			mockLoadTranscriptData.mockResolvedValueOnce(createMockTranscriptData());
+			await view.onOpen();
+			await view.showTranscript(session.id);
+
+			// Extract the onTimeUpdate callback from AudioPlayerController construction
+			const AudioPlayerCtor = globalThis.Audio as unknown as ReturnType<typeof vi.fn>;
+			// The AudioPlayerController was created with a callback. We need to
+			// simulate timeupdate by accessing the private handleTimeUpdate method.
+			// Instead, we'll fire timeupdate events through the mock audio.
+			const audioAddEventListener = mockAudioInstance.addEventListener as ReturnType<typeof vi.fn>;
+			const timeupdateHandler = audioAddEventListener.mock.calls.find(
+				(call: unknown[]) => call[0] === 'timeupdate'
+			)?.[1] as (() => void) | undefined;
+
+			const fireTimeUpdate = (time: number): void => {
+				mockAudioInstance.currentTime = time;
+				if (timeupdateHandler) timeupdateHandler();
+			};
+
+			return { session, fireTimeUpdate };
+		}
+
+		it('highlights the correct bubble when playback time matches segment range', async () => {
+			const { fireTimeUpdate } = await setupTranscriptView();
+
+			// Segment 1: start=0, end=10
+			fireTimeUpdate(5);
+
+			const bubbles = view.contentEl.querySelectorAll('.meeting-scribe-sidebar-bubble');
+			expect(bubbles[0]!.classList.contains('meeting-scribe-sidebar-bubble--active')).toBe(true);
+			expect(bubbles[1]!.classList.contains('meeting-scribe-sidebar-bubble--active')).toBe(false);
+		});
+
+		it('moves highlight when playback advances to next segment', async () => {
+			const { fireTimeUpdate } = await setupTranscriptView();
+
+			fireTimeUpdate(5); // In segment 1 (0-10)
+			fireTimeUpdate(15); // In segment 2 (10-20)
+
+			const bubbles = view.contentEl.querySelectorAll('.meeting-scribe-sidebar-bubble');
+			expect(bubbles[0]!.classList.contains('meeting-scribe-sidebar-bubble--active')).toBe(false);
+			expect(bubbles[1]!.classList.contains('meeting-scribe-sidebar-bubble--active')).toBe(true);
+		});
+
+		it('removes highlight when no segment matches (gap)', async () => {
+			const { fireTimeUpdate } = await setupTranscriptView();
+
+			fireTimeUpdate(5); // In segment 1
+			fireTimeUpdate(35); // Beyond all segments (end at 30)
+
+			const bubbles = view.contentEl.querySelectorAll('.meeting-scribe-sidebar-bubble');
+			expect(bubbles[0]!.classList.contains('meeting-scribe-sidebar-bubble--active')).toBe(false);
+			expect(bubbles[1]!.classList.contains('meeting-scribe-sidebar-bubble--active')).toBe(false);
+			expect(bubbles[2]!.classList.contains('meeting-scribe-sidebar-bubble--active')).toBe(false);
+		});
+
+		it('highlights segment at exact start boundary (start <= currentTime)', async () => {
+			const { fireTimeUpdate } = await setupTranscriptView();
+
+			fireTimeUpdate(10); // Exactly at segment 2 start
+
+			const bubbles = view.contentEl.querySelectorAll('.meeting-scribe-sidebar-bubble');
+			expect(bubbles[1]!.classList.contains('meeting-scribe-sidebar-bubble--active')).toBe(true);
+		});
+
+		it('does not highlight at exact end boundary (currentTime < end)', async () => {
+			const { fireTimeUpdate } = await setupTranscriptView();
+
+			// Segment 1: end=10, Segment 2: start=10
+			// At time=10, segment 2 should be highlighted (10 <= 10 < 20), not segment 1 (0 <= 10 < 10 is false)
+			fireTimeUpdate(10);
+
+			const bubbles = view.contentEl.querySelectorAll('.meeting-scribe-sidebar-bubble');
+			expect(bubbles[0]!.classList.contains('meeting-scribe-sidebar-bubble--active')).toBe(false);
+			expect(bubbles[1]!.classList.contains('meeting-scribe-sidebar-bubble--active')).toBe(true);
+		});
+
+		it('auto-scrolls highlighted bubble into view', async () => {
+			const { fireTimeUpdate } = await setupTranscriptView();
+
+			fireTimeUpdate(5);
+
+			expect(scrollIntoViewMock).toHaveBeenCalledWith({ behavior: 'smooth', block: 'center' });
+		});
+
+		it('does not scroll when same bubble remains highlighted', async () => {
+			const { fireTimeUpdate } = await setupTranscriptView();
+
+			fireTimeUpdate(5);
+			scrollIntoViewMock.mockClear();
+			fireTimeUpdate(7); // Still in segment 1
+
+			expect(scrollIntoViewMock).not.toHaveBeenCalled();
+		});
+
+		it('pauses auto-scroll on manual scroll and resumes after 3 seconds', async () => {
+			vi.useFakeTimers();
+			const { fireTimeUpdate } = await setupTranscriptView();
+
+			const scrollContainer = view.contentEl.querySelector('.meeting-scribe-sidebar-transcript-scroll')!;
+
+			// Simulate manual scroll
+			scrollContainer.dispatchEvent(new Event('scroll'));
+
+			// Now fire timeupdate — should highlight but NOT scroll
+			scrollIntoViewMock.mockClear();
+			fireTimeUpdate(15); // Move to segment 2
+
+			const bubbles = view.contentEl.querySelectorAll('.meeting-scribe-sidebar-bubble');
+			expect(bubbles[1]!.classList.contains('meeting-scribe-sidebar-bubble--active')).toBe(true);
+			expect(scrollIntoViewMock).not.toHaveBeenCalled();
+
+			// Advance 3 seconds — auto-scroll should resume
+			vi.advanceTimersByTime(3000);
+			scrollIntoViewMock.mockClear();
+			fireTimeUpdate(25); // Move to segment 3
+
+			expect(bubbles[2]!.classList.contains('meeting-scribe-sidebar-bubble--active')).toBe(true);
+			expect(scrollIntoViewMock).toHaveBeenCalled();
+
+			vi.useRealTimers();
+		});
+
+		it('suppresses multiple scroll events during programmatic scroll window (400ms)', async () => {
+			vi.useFakeTimers();
+			const { fireTimeUpdate } = await setupTranscriptView();
+
+			const scrollContainer = view.contentEl.querySelector('.meeting-scribe-sidebar-transcript-scroll')!;
+
+			// Trigger programmatic scroll by moving to segment 2
+			fireTimeUpdate(15);
+			scrollIntoViewMock.mockClear();
+
+			// Simulate multiple scroll events from smooth animation (within 400ms)
+			scrollContainer.dispatchEvent(new Event('scroll'));
+			vi.advanceTimersByTime(100);
+			scrollContainer.dispatchEvent(new Event('scroll'));
+			vi.advanceTimersByTime(100);
+			scrollContainer.dispatchEvent(new Event('scroll'));
+
+			// After 400ms total, programmaticScroll flag should expire
+			vi.advanceTimersByTime(200);
+
+			// Move to segment 3 — auto-scroll should still work (not paused by programmatic scroll events)
+			fireTimeUpdate(25);
+			const bubbles = view.contentEl.querySelectorAll('.meeting-scribe-sidebar-bubble');
+			expect(bubbles[2]!.classList.contains('meeting-scribe-sidebar-bubble--active')).toBe(true);
+			expect(scrollIntoViewMock).toHaveBeenCalled();
+
+			vi.useRealTimers();
+		});
+
+		it('resets scroll pause timer on rapid manual scrolls', async () => {
+			vi.useFakeTimers();
+			const { fireTimeUpdate } = await setupTranscriptView();
+
+			const scrollContainer = view.contentEl.querySelector('.meeting-scribe-sidebar-transcript-scroll')!;
+
+			// First scroll
+			scrollContainer.dispatchEvent(new Event('scroll'));
+			vi.advanceTimersByTime(2000);
+
+			// Second scroll before 3s — should reset timer
+			scrollContainer.dispatchEvent(new Event('scroll'));
+			vi.advanceTimersByTime(2000);
+
+			// Only 2s since last scroll — should still be paused
+			scrollIntoViewMock.mockClear();
+			fireTimeUpdate(15);
+			expect(scrollIntoViewMock).not.toHaveBeenCalled();
+
+			// Advance remaining 1s — should now resume
+			vi.advanceTimersByTime(1000);
+			scrollIntoViewMock.mockClear();
+			fireTimeUpdate(25);
+			expect(scrollIntoViewMock).toHaveBeenCalled();
+
+			vi.useRealTimers();
+		});
+
+		it('timestamp click seeks audio player and starts playback', async () => {
+			await setupTranscriptView();
+
+			const timestamps = view.contentEl.querySelectorAll('.meeting-scribe-sidebar-bubble-timestamp--clickable');
+			const secondTimestamp = timestamps[1] as HTMLElement;
+
+			secondTimestamp.click();
+
+			// Audio should seek to segment 2 start (10s) and play
+			expect(mockAudioInstance.currentTime).toBe(10);
+			expect(mockAudioInstance.play).toHaveBeenCalled();
+		});
+
+		it('timestamp click does nothing when no audio player', async () => {
+			const session = createCompleteSession();
+			const noAudioSession = createMockSession({ id: session.id, audioFile: undefined });
+			vi.spyOn(sessionManager, 'getSession').mockReturnValue(noAudioSession);
+			mockLoadTranscriptData.mockResolvedValueOnce(createMockTranscriptData());
+			await view.onOpen();
+			await view.showTranscript(session.id);
+
+			const timestamps = view.contentEl.querySelectorAll('.meeting-scribe-sidebar-bubble-timestamp--clickable');
+			// Should not crash
+			(timestamps[0] as HTMLElement).click();
+			expect(mockAudioInstance.play).not.toHaveBeenCalled();
+		});
+
+		it('cleans up sync state when destroying audio player', async () => {
+			const { fireTimeUpdate } = await setupTranscriptView();
+
+			fireTimeUpdate(5);
+			const bubbles = view.contentEl.querySelectorAll('.meeting-scribe-sidebar-bubble');
+			expect(bubbles[0]!.classList.contains('meeting-scribe-sidebar-bubble--active')).toBe(true);
+
+			// Return to session list (destroys player)
+			view.showSessionList();
+
+			// Re-open transcript — should not have stale highlight state
+			mockLoadTranscriptData.mockResolvedValueOnce(createMockTranscriptData());
+			const session = createCompleteSession();
+			await view.showTranscript(session.id);
+
+			const newBubbles = view.contentEl.querySelectorAll('.meeting-scribe-sidebar-bubble');
+			for (const b of Array.from(newBubbles)) {
+				expect(b.classList.contains('meeting-scribe-sidebar-bubble--active')).toBe(false);
+			}
+		});
+	});
 });

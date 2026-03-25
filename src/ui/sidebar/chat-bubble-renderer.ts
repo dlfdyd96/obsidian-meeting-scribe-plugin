@@ -123,6 +123,16 @@ export function renderTranscriptView(
 			bubble.classList.add('meeting-scribe-sidebar-bubble--consecutive');
 		}
 
+		// Segment identification for playback sync (Story 13.2)
+		bubble.setAttribute('data-segment-id', segment.id);
+		bubble.setAttribute('data-segment-start', String(segment.start));
+		bubble.setAttribute('data-segment-end', String(segment.end));
+
+		// Speaker border color as CSS variable for highlight state
+		if (participant) {
+			bubble.style.setProperty('--speaker-border-color', getSpeakerColor(participant));
+		}
+
 		const displayName = participant?.name || segment.speaker;
 		bubble.setAttribute('aria-label', `Speaker: ${displayName}`);
 		bubble.tabIndex = 0;
@@ -142,8 +152,9 @@ export function renderTranscriptView(
 		}
 
 		const timestampEl = document.createElement('span');
-		timestampEl.className = 'meeting-scribe-sidebar-bubble-timestamp';
+		timestampEl.className = 'meeting-scribe-sidebar-bubble-timestamp meeting-scribe-sidebar-bubble-timestamp--clickable';
 		timestampEl.textContent = formatTimestamp(segment.start);
+		timestampEl.setAttribute('data-start', String(segment.start));
 		speakerRow.appendChild(timestampEl);
 
 		bubble.appendChild(speakerRow);

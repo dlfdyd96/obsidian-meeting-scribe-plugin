@@ -201,6 +201,78 @@ describe('chat-bubble-renderer', () => {
 		});
 	});
 
+	describe('segment data attributes for playback sync', () => {
+		it('adds data-segment-id, data-segment-start, data-segment-end to each bubble', () => {
+			const container = document.createElement('div');
+			const segments = [
+				createSegment({ id: 'seg-abc', start: 5.5, end: 12.3 }),
+			];
+			const participants = [createParticipant()];
+
+			renderTranscriptView(container, segments, participants);
+
+			const bubble = container.querySelector('.meeting-scribe-sidebar-bubble') as HTMLElement;
+			expect(bubble.getAttribute('data-segment-id')).toBe('seg-abc');
+			expect(bubble.getAttribute('data-segment-start')).toBe('5.5');
+			expect(bubble.getAttribute('data-segment-end')).toBe('12.3');
+		});
+
+		it('adds data-start attribute and clickable class to timestamp span', () => {
+			const container = document.createElement('div');
+			const segments = [
+				createSegment({ start: 135 }),
+			];
+			const participants = [createParticipant()];
+
+			renderTranscriptView(container, segments, participants);
+
+			const timestamp = container.querySelector('.meeting-scribe-sidebar-bubble-timestamp') as HTMLElement;
+			expect(timestamp.getAttribute('data-start')).toBe('135');
+			expect(timestamp.classList.contains('meeting-scribe-sidebar-bubble-timestamp--clickable')).toBe(true);
+		});
+
+		it('sets --speaker-border-color CSS variable on bubble when participant exists', () => {
+			const container = document.createElement('div');
+			const segments = [createSegment()];
+			const participants = [createParticipant({ color: 0 })];
+
+			renderTranscriptView(container, segments, participants);
+
+			const bubble = container.querySelector('.meeting-scribe-sidebar-bubble') as HTMLElement;
+			expect(bubble.style.getPropertyValue('--speaker-border-color')).toMatch(/^hsl\(/);
+		});
+
+		it('does not set --speaker-border-color when no participant match', () => {
+			const container = document.createElement('div');
+			const segments = [createSegment({ speaker: 'Unknown' })];
+
+			renderTranscriptView(container, segments, []);
+
+			const bubble = container.querySelector('.meeting-scribe-sidebar-bubble') as HTMLElement;
+			expect(bubble.style.getPropertyValue('--speaker-border-color')).toBe('');
+		});
+
+		it('sets correct data attributes on multiple bubbles', () => {
+			const container = document.createElement('div');
+			const segments = [
+				createSegment({ id: 'seg-1', start: 0, end: 10 }),
+				createSegment({ id: 'seg-2', speaker: 'Participant 2', start: 10, end: 20 }),
+			];
+			const participants = [
+				createParticipant({ alias: 'Participant 1', color: 0 }),
+				createParticipant({ alias: 'Participant 2', color: 1 }),
+			];
+
+			renderTranscriptView(container, segments, participants);
+
+			const bubbles = container.querySelectorAll('.meeting-scribe-sidebar-bubble');
+			expect(bubbles[0]!.getAttribute('data-segment-id')).toBe('seg-1');
+			expect(bubbles[1]!.getAttribute('data-segment-id')).toBe('seg-2');
+			expect(bubbles[1]!.getAttribute('data-segment-start')).toBe('10');
+			expect(bubbles[1]!.getAttribute('data-segment-end')).toBe('20');
+		});
+	});
+
 	describe('formatTimestamp()', () => {
 		it('formats 0 seconds as [00:00:00]', () => {
 			expect(formatTimestamp(0)).toBe('[00:00:00]');

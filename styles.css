@@ -283,6 +283,7 @@ Meeting Scribe plugin styles.
 	margin-bottom: 2px;
 	border-radius: 6px;
 	position: relative;
+	border-left: 4px solid transparent;
 }
 
 /* Consecutive same-speaker bubbles: tighter spacing, no top gap */
@@ -313,6 +314,22 @@ Meeting Scribe plugin styles.
 	font-size: var(--font-ui-small);
 	color: var(--text-normal);
 	line-height: 1.5;
+}
+
+/* Active highlight for playback sync */
+.meeting-scribe-sidebar-bubble--active {
+	background: var(--background-modifier-active-hover);
+	border-left: 4px solid var(--speaker-border-color, var(--interactive-accent));
+	transition: background 0.15s ease;
+}
+
+/* Clickable timestamps */
+.meeting-scribe-sidebar-bubble-timestamp--clickable {
+	cursor: pointer;
+}
+
+.meeting-scribe-sidebar-bubble-timestamp--clickable:hover {
+	color: var(--text-accent);
 }
 
 /* ===== Audio Player ===== */

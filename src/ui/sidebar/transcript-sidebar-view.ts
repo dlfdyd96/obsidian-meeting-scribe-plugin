@@ -17,6 +17,12 @@ export class TranscriptSidebarView extends ItemView {
 	private observer: SessionObserver | null = null;
 	private sessionElements: Map<string, HTMLElement> = new Map();
 	private audioPlayer: AudioPlayerController | null = null;
+	private highlightedBubble: HTMLElement | null = null;
+	private autoScrollEnabled = true;
+	private programmaticScroll = false;
+	private programmaticScrollTimer: ReturnType<typeof setTimeout> | null = null;
+	private scrollPauseTimer: ReturnType<typeof setTimeout> | null = null;
+	private scrollContainer: HTMLElement | null = null;
 
 	constructor(
 		leaf: WorkspaceLeaf,
@@ -137,12 +143,18 @@ export class TranscriptSidebarView extends ItemView {
 		}
 
 		// Scrollable transcript container
-		const scrollContainer = this.contentEl.createDiv({ cls: 'meeting-scribe-sidebar-transcript-scroll' });
-		renderTranscriptView(scrollContainer, data.segments, data.participants);
+		this.scrollContainer = this.contentEl.createDiv({ cls: 'meeting-scribe-sidebar-transcript-scroll' });
+		renderTranscriptView(this.scrollContainer, data.segments, data.participants);
+
+		// Scroll listener for manual scroll detection
+		this.scrollContainer.addEventListener('scroll', () => this.handleManualScroll());
+
+		// Timestamp click-to-seek via event delegation
+		this.scrollContainer.addEventListener('click', (e) => this.handleTimestampClick(e));
 
 		// Audio player at bottom
 		if (session.audioFile) {
-			this.audioPlayer = new AudioPlayerController();
+			this.audioPlayer = new AudioPlayerController((currentTime) => this.handleTimeUpdate(currentTime));
 			const playerContainer = this.contentEl.createDiv();
 			await this.audioPlayer.load(session.audioFile, this.app.vault);
 			this.audioPlayer.render(playerContainer);
@@ -161,11 +173,93 @@ export class TranscriptSidebarView extends ItemView {
 		await this.showTranscript(session.id);
 	}
 
+	private handleTimeUpdate(currentTime: number): void {
+		if (!this.scrollContainer) return;
+
+		const bubbles = Array.from(this.scrollContainer.querySelectorAll<HTMLElement>(
+			'.meeting-scribe-sidebar-bubble[data-segment-start]',
+		));
+
+		let matchedBubble: HTMLElement | null = null;
+		for (const bubble of bubbles) {
+			const start = parseFloat(bubble.getAttribute('data-segment-start') ?? '');
+			const end = parseFloat(bubble.getAttribute('data-segment-end') ?? '');
+			if (!isNaN(start) && !isNaN(end) && start <= currentTime && currentTime < end) {
+				matchedBubble = bubble;
+				break;
+			}
+		}
+
+		// Remove previous highlight
+		if (this.highlightedBubble && this.highlightedBubble !== matchedBubble) {
+			this.highlightedBubble.classList.remove('meeting-scribe-sidebar-bubble--active');
+		}
+
+		// Apply new highlight
+		if (matchedBubble) {
+			if (matchedBubble !== this.highlightedBubble) {
+				matchedBubble.classList.add('meeting-scribe-sidebar-bubble--active');
+				if (this.autoScrollEnabled) {
+					this.programmaticScroll = true;
+					if (this.programmaticScrollTimer !== null) {
+						clearTimeout(this.programmaticScrollTimer);
+					}
+					matchedBubble.scrollIntoView({ behavior: 'smooth', block: 'center' });
+					this.programmaticScrollTimer = setTimeout(() => {
+						this.programmaticScroll = false;
+						this.programmaticScrollTimer = null;
+					}, 400);
+				}
+			}
+		}
+
+		this.highlightedBubble = matchedBubble;
+	}
+
+	private handleManualScroll(): void {
+		if (this.programmaticScroll) {
+			return;
+		}
+
+		this.autoScrollEnabled = false;
+		if (this.scrollPauseTimer !== null) {
+			clearTimeout(this.scrollPauseTimer);
+		}
+		this.scrollPauseTimer = setTimeout(() => {
+			this.autoScrollEnabled = true;
+			this.scrollPauseTimer = null;
+		}, 3000);
+	}
+
+	private handleTimestampClick(e: MouseEvent): void {
+		const target = e.target as HTMLElement;
+		if (!target.classList.contains('meeting-scribe-sidebar-bubble-timestamp--clickable')) return;
+
+		const startTime = parseFloat(target.getAttribute('data-start') ?? '');
+		if (isNaN(startTime) || !this.audioPlayer) return;
+
+		this.audioPlayer.seekTo(startTime);
+		this.audioPlayer.play();
+	}
+
 	private destroyAudioPlayer(): void {
 		if (this.audioPlayer) {
 			this.audioPlayer.destroy();
 			this.audioPlayer = null;
 		}
+		// Reset sync state
+		this.highlightedBubble = null;
+		this.autoScrollEnabled = true;
+		this.programmaticScroll = false;
+		if (this.programmaticScrollTimer !== null) {
+			clearTimeout(this.programmaticScrollTimer);
+			this.programmaticScrollTimer = null;
+		}
+		if (this.scrollPauseTimer !== null) {
+			clearTimeout(this.scrollPauseTimer);
+			this.scrollPauseTimer = null;
+		}
+		this.scrollContainer = null;
 		this.contentEl.classList.remove('meeting-scribe-sidebar-transcript-layout');
 	}
 
