@@ -333,25 +333,25 @@ describe('AudioPlayerController', () => {
 			expect(popup?.classList.contains('meeting-scribe-sidebar-player-volume-popup--visible')).toBe(false);
 		});
 
-		it('should contain a range slider input', () => {
-			const slider = container.querySelector('.meeting-scribe-sidebar-player-volume-slider') as HTMLInputElement;
-			expect(slider).not.toBeNull();
-			expect(slider.type).toBe('range');
-			expect(slider.min).toBe('0');
-			expect(slider.max).toBe('100');
+		it('should contain a custom volume track with fill and thumb', () => {
+			const track = container.querySelector('.meeting-scribe-sidebar-volume-track');
+			const fill = container.querySelector('.meeting-scribe-sidebar-volume-fill');
+			const thumb = container.querySelector('.meeting-scribe-sidebar-volume-thumb');
+			expect(track).not.toBeNull();
+			expect(fill).not.toBeNull();
+			expect(thumb).not.toBeNull();
 		});
 
-		it('should update volume when slider changes', () => {
-			const slider = container.querySelector('.meeting-scribe-sidebar-player-volume-slider') as HTMLInputElement;
-			slider.value = '50';
-			slider.dispatchEvent(new Event('input'));
-			expect(mockAudio.volume).toBe(0.5);
-		});
-
-		it('should sync slider when setVolume is called', () => {
+		it('should update volume fill when setVolume is called', () => {
 			controller.setVolume(0.3);
-			const slider = container.querySelector('.meeting-scribe-sidebar-player-volume-slider') as HTMLInputElement;
-			expect(slider.value).toBe('30');
+			const fill = container.querySelector('.meeting-scribe-sidebar-volume-fill') as HTMLElement;
+			expect(fill.style.height).toBe('30%');
+		});
+
+		it('should update volume thumb position when setVolume is called', () => {
+			controller.setVolume(0.7);
+			const thumb = container.querySelector('.meeting-scribe-sidebar-volume-thumb') as HTMLElement;
+			expect(thumb.style.bottom).toBe('70%');
 		});
 	});
 

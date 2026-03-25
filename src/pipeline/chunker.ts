@@ -25,7 +25,7 @@ function yieldToMain(): Promise<void> {
 const SILENCE_SEARCH_WINDOW_SECONDS = 30;
 const SILENCE_WINDOW_SIZE_SECONDS = 0.1;
 const SILENCE_THRESHOLD = 0.01;
-const TARGET_SAMPLE_RATE = 16000;
+
 
 function detectAudioFormat(data: ArrayBuffer): { mimeType: string; fileExtension: string } {
 	const header = new Uint8Array(data, 0, Math.min(12, data.byteLength));
@@ -61,17 +61,6 @@ function writeString(view: DataView, offset: number, str: string): void {
 	}
 }
 
-function downsample(samples: Float32Array, fromRate: number, toRate: number): Float32Array {
-	if (fromRate <= toRate) return samples;
-	const ratio = fromRate / toRate;
-	const newLength = Math.floor(samples.length / ratio);
-	const result = new Float32Array(newLength);
-	for (let i = 0; i < newLength; i++) {
-		const srcIndex = Math.floor(i * ratio);
-		result[i] = samples[srcIndex] ?? 0;
-	}
-	return result;
-}
 
 function encodeWav(samples: Float32Array, sampleRate: number): ArrayBuffer {
 	const numSamples = samples.length;
@@ -195,7 +184,7 @@ export async function chunkAudio(
 
 	const duration = audioBuffer.duration;
 	const sampleRate = audioBuffer.sampleRate;
-	const outputSampleRate = sampleRate > TARGET_SAMPLE_RATE ? TARGET_SAMPLE_RATE : sampleRate;
+	const outputSampleRate = sampleRate;
 
 	// If under both size and duration limits, return original file as-is
 	if (audio.byteLength <= MAX_CHUNK_SIZE_BYTES && maxDurationSeconds && duration <= maxDurationSeconds) {
@@ -265,8 +254,7 @@ export async function chunkAudio(
 		const endSample = Math.min(Math.floor(endTime * sampleRate), pcmData.length);
 
 		const chunkPcm = pcmData.slice(startSample, endSample);
-		const downsampledPcm = downsample(chunkPcm, sampleRate, outputSampleRate);
-		const wavData = encodeWav(downsampledPcm, outputSampleRate);
+		const wavData = encodeWav(chunkPcm, outputSampleRate);
 
 		chunks.push({
 			data: wavData,
@@ -281,7 +269,7 @@ export async function chunkAudio(
 			chunkIndex: i,
 			startTime,
 			endTime,
-			samples: downsampledPcm.length,
+			samples: chunkPcm.length,
 			sizeBytes: wavData.byteLength,
 		});
 

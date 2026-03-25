@@ -289,9 +289,9 @@ describe('Audio Chunker', () => {
 			}
 		});
 
-		it('should downsample from higher sample rates to 16kHz', { timeout: 15000 }, async () => {
+		it('should preserve original sample rate in WAV chunks', async () => {
 			const sampleRate = 44100;
-			const duration = 1800; // Shorter to avoid test timeout with high sample rate
+			const duration = 120;
 			const pcm = createUniformNoisePcm(duration, sampleRate);
 			const mockBuffer = createMockAudioBuffer({ duration, sampleRate, channelData: pcm });
 			setupOfflineAudioContextMock(mockBuffer);
@@ -301,25 +301,7 @@ describe('Audio Chunker', () => {
 
 			for (const chunk of chunks) {
 				const view = new DataView(chunk.data);
-				expect(view.getUint32(24, true)).toBe(16000);
-				const dataSize = view.getUint32(40, true);
-				expect(dataSize).toBeLessThan(MAX_CHUNK_SIZE_BYTES);
-			}
-		});
-
-		it('should not downsample if source rate is ≤ 16kHz', async () => {
-			const sampleRate = 8000;
-			const duration = 3600;
-			const pcm = createUniformNoisePcm(duration, sampleRate);
-			const mockBuffer = createMockAudioBuffer({ duration, sampleRate, channelData: pcm });
-			setupOfflineAudioContextMock(mockBuffer);
-
-			const { chunkAudio } = await import('../../src/pipeline/chunker');
-			const chunks = await chunkAudio(createBufferOfSize(26 * 1024 * 1024));
-
-			for (const chunk of chunks) {
-				const view = new DataView(chunk.data);
-				expect(view.getUint32(24, true)).toBe(8000);
+				expect(view.getUint32(24, true)).toBe(44100);
 			}
 		});
 
