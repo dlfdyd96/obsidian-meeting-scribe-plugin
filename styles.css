@@ -93,6 +93,37 @@ Meeting Scribe plugin styles.
 	font-size: var(--font-ui-small);
 }
 
+.meeting-scribe-sidebar-session-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 8px 12px 4px;
+}
+
+.meeting-scribe-sidebar-session-header-title {
+	font-size: var(--font-ui-small);
+	font-weight: var(--font-semibold);
+	color: var(--text-muted);
+}
+
+.meeting-scribe-sidebar-refresh-btn {
+	background: none !important;
+	border: none !important;
+	box-shadow: none !important;
+	color: var(--text-muted);
+	cursor: pointer;
+	padding: 4px;
+	border-radius: 4px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.meeting-scribe-sidebar-refresh-btn:hover {
+	color: var(--text-normal);
+	background: var(--background-modifier-active-hover) !important;
+}
+
 .meeting-scribe-sidebar-session-list {
 	display: flex;
 	flex-direction: column;
@@ -364,8 +395,9 @@ Meeting Scribe plugin styles.
 }
 
 .meeting-scribe-sidebar-player-controls button {
-	background: none;
-	border: none;
+	background: none !important;
+	border: none !important;
+	box-shadow: none !important;
 	color: var(--text-muted);
 	cursor: pointer;
 	padding: 4px;
@@ -391,6 +423,54 @@ Meeting Scribe plugin styles.
 
 .meeting-scribe-sidebar-player-play-btn:hover {
 	background: var(--interactive-accent-hover) !important;
+}
+
+.meeting-scribe-sidebar-player-volume-wrapper {
+	position: relative;
+}
+
+.meeting-scribe-sidebar-player-volume-popup {
+	display: none;
+	position: absolute;
+	bottom: 100%;
+	left: 50%;
+	transform: translateX(-50%);
+	background: var(--background-primary);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 6px;
+	padding: 10px 6px;
+	margin-bottom: 6px;
+	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+	z-index: 20;
+}
+
+.meeting-scribe-sidebar-player-volume-popup--visible {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.meeting-scribe-sidebar-player-volume-slider {
+	writing-mode: vertical-lr;
+	direction: rtl;
+	width: 4px;
+	height: 80px;
+	appearance: none;
+	-webkit-appearance: none;
+	background: var(--background-modifier-border);
+	border-radius: 2px;
+	outline: none;
+	cursor: pointer;
+}
+
+.meeting-scribe-sidebar-player-volume-slider::-webkit-slider-thumb {
+	-webkit-appearance: none;
+	appearance: none;
+	width: 12px;
+	height: 12px;
+	background: var(--interactive-accent);
+	border-radius: 50%;
+	cursor: pointer;
 }
 
 .meeting-scribe-sidebar-player-speed-wrapper {
@@ -459,14 +539,18 @@ Meeting Scribe plugin styles.
 	border-radius: 2px;
 	position: relative;
 	cursor: pointer;
+	padding: 8px 0;
+	background-clip: content-box;
 }
 
 .meeting-scribe-sidebar-player-seek-fill {
-	height: 100%;
+	height: 4px;
 	background: var(--interactive-accent);
 	border-radius: 2px;
 	width: 0%;
-	position: relative;
+	position: absolute;
+	top: 8px;
+	left: 0;
 	transition: width 0.3s linear;
 }
 

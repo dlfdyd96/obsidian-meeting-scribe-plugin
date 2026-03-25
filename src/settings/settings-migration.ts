@@ -85,6 +85,13 @@ function migrateV9ToV10(data: Record<string, unknown>): Record<string, unknown> 
 	});
 }
 
+function migrateV10ToV11(data: Record<string, unknown>): Record<string, unknown> {
+	return Object.assign({}, data, {
+		settingsVersion: 11,
+		enableSummary: data['enableSummary'] ?? true,
+	});
+}
+
 const migrations: Migration[] = [
 	migrateV0ToV1,
 	migrateV1ToV2,
@@ -96,6 +103,7 @@ const migrations: Migration[] = [
 	migrateV7ToV8,
 	migrateV8ToV9,
 	migrateV9ToV10,
+	migrateV10ToV11,
 ];
 
 export function migrateSettings(data: unknown): MeetingScribeSettings {

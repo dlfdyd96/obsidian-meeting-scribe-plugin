@@ -33,7 +33,13 @@ export class StateManager {
 		logger.debug('StateManager', `${oldState} → ${state}`, logContext);
 
 		for (const observer of this.observers) {
-			observer(state, oldState, this.getContext());
+			try {
+				observer(state, oldState, this.getContext());
+			} catch (err) {
+				logger.error('StateManager', 'Observer error', {
+					error: (err as Error).message,
+				});
+			}
 		}
 	}
 

@@ -76,7 +76,7 @@ function createMockVault(transcriptPaths: string[] = []): PipelineContext['vault
 }
 
 function createMockSettings(): MeetingScribeSettings {
-	return {} as MeetingScribeSettings;
+	return { enableSummary: true } as MeetingScribeSettings;
 }
 
 describe('PipelineDispatcher', () => {

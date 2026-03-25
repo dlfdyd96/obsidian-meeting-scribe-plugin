@@ -5,13 +5,13 @@ import type { MeetingScribeSettings } from '../../src/settings/settings';
 describe('MeetingScribeSettings', () => {
 	describe('CURRENT_SETTINGS_VERSION', () => {
 		it('should be 10', () => {
-			expect(CURRENT_SETTINGS_VERSION).toBe(10);
+			expect(CURRENT_SETTINGS_VERSION).toBe(11);
 		});
 	});
 
 	describe('DEFAULT_SETTINGS', () => {
 		it('should have settingsVersion set to 10', () => {
-			expect(DEFAULT_SETTINGS.settingsVersion).toBe(10);
+			expect(DEFAULT_SETTINGS.settingsVersion).toBe(11);
 		});
 
 		it('should have sttProvider set to openai', () => {
@@ -74,8 +74,8 @@ describe('MeetingScribeSettings', () => {
 			expect(DEFAULT_SETTINGS.onboardingComplete).toBe(false);
 		});
 
-		it('should have exactly 22 fields', () => {
-			expect(Object.keys(DEFAULT_SETTINGS)).toHaveLength(22);
+		it('should have exactly 23 fields', () => {
+			expect(Object.keys(DEFAULT_SETTINGS)).toHaveLength(23);
 		});
 
 		it('should have CLOVA Speech defaults', () => {

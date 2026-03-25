@@ -73,13 +73,13 @@ describe('renderSessionList', () => {
 			expect(elementMap.has('s2')).toBe(true);
 		});
 
-		it('renders session title', () => {
-			const sessions = [createSession({ title: 'Weekly Standup' })];
+		it('renders session title from audio filename', () => {
+			const sessions = [createSession({ audioFile: 'audio/weekly-standup.webm' })];
 			renderSessionList(container, sessions, elementMap, onSessionClick, onRetry);
 
 			const title = container.querySelector('.meeting-scribe-sidebar-session-title');
 			expect(title).not.toBeNull();
-			expect(title!.textContent).toBe('Weekly Standup');
+			expect(title!.textContent).toBe('weekly-standup');
 		});
 
 		it('stores session ID in data attribute', () => {

@@ -87,6 +87,7 @@ export class TranscriptSidebarView extends ItemView {
 			this.sessionElements,
 			(sessionId) => this.showTranscript(sessionId),
 			this.onRetry,
+			() => this.showSessionList(),
 		);
 	}
 
@@ -165,6 +166,20 @@ export class TranscriptSidebarView extends ItemView {
 		const session = this.sessionManager.findSessionByNotePath(notePath);
 		if (!session) {
 			logger.debug(COMPONENT, 'No session found for note', { notePath });
+			return;
+		}
+		if (this.currentSessionId === session.id) {
+			return;
+		}
+		await this.showTranscript(session.id);
+	}
+
+	async showTranscriptForTranscriptFile(transcriptFilePath: string): Promise<void> {
+		// Find session by transcript file path
+		const sessions = this.sessionManager.getAllSessions();
+		const session = sessions.find(s => s.transcriptFile === transcriptFilePath);
+		if (!session) {
+			logger.debug(COMPONENT, 'No session found for transcript file', { transcriptFilePath });
 			return;
 		}
 		if (this.currentSessionId === session.id) {

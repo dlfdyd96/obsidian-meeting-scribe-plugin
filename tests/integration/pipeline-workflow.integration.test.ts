@@ -188,7 +188,7 @@ describe.skipIf(!canRun)('Pipeline Workflow E2E Integration', () => {
 
 		// Note should have frontmatter
 		expect(noteContent).toMatch(/^---\n/);
-		expect(noteContent).toContain('created_by: meeting-scribe');
+		expect(noteContent).toContain('transcript_data:');
 
 		// Note should contain summary content (not empty body)
 		const bodyStart = noteContent.indexOf('---', 4);

@@ -3,6 +3,9 @@ import type { PipelineState } from '../../transcript/transcript-data';
 
 type OnSessionClick = (sessionId: string) => void;
 type OnRetry = ((sessionId: string) => void) | undefined;
+type OnRefresh = (() => void) | undefined;
+
+const REFRESH_SVG = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>';
 
 const STATUS_CONFIG: Record<PipelineState['status'], { cls: string; label: string }> = {
 	queued: { cls: 'queued', label: 'Queued' },
@@ -21,7 +24,20 @@ export function renderSessionList(
 	elementMap: Map<string, HTMLElement>,
 	onSessionClick: OnSessionClick,
 	onRetry: OnRetry,
+	onRefresh?: OnRefresh,
 ): void {
+	// Header with title and refresh button
+	const header = container.createDiv({ cls: 'meeting-scribe-sidebar-session-header' });
+	header.createEl('span', { text: 'Sessions', cls: 'meeting-scribe-sidebar-session-header-title' });
+	if (onRefresh) {
+		const refreshBtn = header.createEl('button', {
+			cls: 'meeting-scribe-sidebar-refresh-btn',
+		});
+		refreshBtn.innerHTML = REFRESH_SVG;
+		refreshBtn.setAttribute('aria-label', 'Refresh sessions');
+		refreshBtn.addEventListener('click', onRefresh);
+	}
+
 	if (sessions.length === 0) {
 		container.createDiv({
 			text: 'No meeting sessions yet. Start recording or import audio.',
@@ -54,9 +70,11 @@ export function renderSingleItem(
 	});
 	dot.setAttribute('aria-label', config.label);
 
-	// Session info
+	// Session info — display audio filename instead of generated title
 	const info = item.createDiv({ cls: 'meeting-scribe-sidebar-session-info' });
-	info.createEl('span', { text: session.title, cls: 'meeting-scribe-sidebar-session-title' });
+	const rawFilename = session.audioFile.split('/').pop() ?? session.audioFile;
+	const displayTitle = rawFilename.includes('.') ? rawFilename.split('.').slice(0, -1).join('.') : rawFilename;
+	info.createEl('span', { text: displayTitle || session.title, cls: 'meeting-scribe-sidebar-session-title' });
 
 	const meta = info.createDiv({ cls: 'meeting-scribe-sidebar-session-meta' });
 	meta.createEl('span', { text: formatDateTime(session.createdAt) });

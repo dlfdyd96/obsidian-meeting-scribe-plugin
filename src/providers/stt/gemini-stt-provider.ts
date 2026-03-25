@@ -4,6 +4,12 @@ import type { STTProvider, STTOptions, STTModel, TranscriptionResult, Transcript
 
 const COMPONENT = 'GeminiSTTProvider';
 
+/**
+ * Known limitation: Gemini STT segment timestamps may drift from actual audio
+ * timing. Playback-transcript synchronization may be less accurate compared to
+ * providers like CLOVA Speech which produce precise timestamps.
+ */
+
 const GEMINI_API_BASE = 'https://generativelanguage.googleapis.com/v1beta';
 
 const INLINE_SIZE_LIMIT = 20 * 1024 * 1024; // 20 MB

@@ -430,6 +430,16 @@ export class MeetingScribeSettingTab extends PluginSettingTab {
 		const advancedEl = containerEl.createEl('details');
 		advancedEl.createEl('summary', { text: 'Advanced settings' });
 
+		new Setting(advancedEl)
+			.setName('Enable AI summary')
+			.setDesc('Use LLM to generate meeting summary. When disabled, creates a blank template note with Overview, Action Items, and Notes sections.')
+			.addToggle(cb => cb
+				.setValue(this.plugin.settings.enableSummary)
+				.onChange(async (value) => {
+					this.plugin.settings.enableSummary = value;
+					await this.plugin.saveSettings();
+				}));
+
 		let separateTranscriptSetting: Setting;
 
 		new Setting(advancedEl)

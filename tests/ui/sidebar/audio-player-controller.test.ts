@@ -16,11 +16,13 @@ class MockAudioElement {
 
 	play(): Promise<void> {
 		this.paused = false;
+		this.emit('play');
 		return Promise.resolve();
 	}
 
 	pause(): void {
 		this.paused = true;
+		this.emit('pause');
 	}
 
 	addEventListener(event: string, handler: (...args: unknown[]) => void): void {
@@ -136,14 +138,15 @@ describe('AudioPlayerController', () => {
 			expect(buttons!.length).toBeGreaterThanOrEqual(4);
 		});
 
-		it('should render seek time labels with 00:00', async () => {
+		it('should render seek time labels with current time and duration', async () => {
 			await controller.load('audio/test.webm', vault);
 			controller.render(container);
 
 			const times = container.querySelectorAll('.meeting-scribe-sidebar-player-seek-time');
 			expect(times.length).toBe(2);
 			expect(times[0]?.textContent).toBe('00:00');
-			expect(times[1]?.textContent).toBe('00:00');
+			// Duration is 100s in mock, so shows 01:40 when metadata is already loaded
+			expect(times[1]?.textContent).toBe('01:40');
 		});
 
 		it('should add meeting-scribe-sidebar-player class to container', async () => {
@@ -309,25 +312,46 @@ describe('AudioPlayerController', () => {
 		});
 	});
 
-	describe('volume mute toggle', () => {
+	describe('volume slider popup', () => {
 		beforeEach(async () => {
 			await controller.load('audio/test.webm', vault);
 			controller.render(container);
 		});
 
-		it('should mute when clicking volume button', () => {
+		it('should show volume popup when clicking volume button', () => {
 			const volumeBtn = container.querySelector('.meeting-scribe-sidebar-player-volume-btn') as HTMLElement;
 			volumeBtn.click();
-			expect(mockAudio.volume).toBe(0);
+			const popup = container.querySelector('.meeting-scribe-sidebar-player-volume-popup');
+			expect(popup?.classList.contains('meeting-scribe-sidebar-player-volume-popup--visible')).toBe(true);
 		});
 
-		it('should restore previous volume when clicking muted volume button', () => {
-			controller.setVolume(0.7);
+		it('should hide volume popup when clicking volume button again', () => {
 			const volumeBtn = container.querySelector('.meeting-scribe-sidebar-player-volume-btn') as HTMLElement;
-			volumeBtn.click(); // mute
-			expect(mockAudio.volume).toBe(0);
-			volumeBtn.click(); // unmute
-			expect(mockAudio.volume).toBe(0.7);
+			volumeBtn.click(); // show
+			volumeBtn.click(); // hide
+			const popup = container.querySelector('.meeting-scribe-sidebar-player-volume-popup');
+			expect(popup?.classList.contains('meeting-scribe-sidebar-player-volume-popup--visible')).toBe(false);
+		});
+
+		it('should contain a range slider input', () => {
+			const slider = container.querySelector('.meeting-scribe-sidebar-player-volume-slider') as HTMLInputElement;
+			expect(slider).not.toBeNull();
+			expect(slider.type).toBe('range');
+			expect(slider.min).toBe('0');
+			expect(slider.max).toBe('100');
+		});
+
+		it('should update volume when slider changes', () => {
+			const slider = container.querySelector('.meeting-scribe-sidebar-player-volume-slider') as HTMLInputElement;
+			slider.value = '50';
+			slider.dispatchEvent(new Event('input'));
+			expect(mockAudio.volume).toBe(0.5);
+		});
+
+		it('should sync slider when setVolume is called', () => {
+			controller.setVolume(0.3);
+			const slider = container.querySelector('.meeting-scribe-sidebar-player-volume-slider') as HTMLInputElement;
+			expect(slider.value).toBe('30');
 		});
 	});
 
@@ -371,7 +395,7 @@ describe('AudioPlayerController', () => {
 	});
 
 	describe('seek bar interaction', () => {
-		it('should seek on seek bar click', async () => {
+		it('should seek on seek bar mousedown', async () => {
 			await controller.load('audio/test.webm', vault);
 			controller.render(container);
 
@@ -383,11 +407,38 @@ describe('AudioPlayerController', () => {
 				toJSON() { return {}; },
 			});
 
-			const clickEvent = new MouseEvent('click', { clientX: 100, bubbles: true });
-			seekBar.dispatchEvent(clickEvent);
+			const mousedownEvent = new MouseEvent('mousedown', { clientX: 100, bubbles: true });
+			seekBar.dispatchEvent(mousedownEvent);
 
 			// 100/200 = 0.5 * 100 duration = 50
 			expect(mockAudio.currentTime).toBe(50);
+		});
+
+		it('should seek on drag (mousemove after mousedown)', async () => {
+			await controller.load('audio/test.webm', vault);
+			controller.render(container);
+
+			const seekBar = container.querySelector('.meeting-scribe-sidebar-player-seek-bar') as HTMLElement;
+			seekBar.getBoundingClientRect = () => ({
+				left: 0, right: 200, width: 200,
+				top: 0, bottom: 10, height: 10, x: 0, y: 0,
+				toJSON() { return {}; },
+			});
+
+			// mousedown at 50%
+			seekBar.dispatchEvent(new MouseEvent('mousedown', { clientX: 100, bubbles: true }));
+			expect(mockAudio.currentTime).toBe(50);
+
+			// drag to 75%
+			document.dispatchEvent(new MouseEvent('mousemove', { clientX: 150, bubbles: true }));
+			expect(mockAudio.currentTime).toBe(75);
+
+			// release
+			document.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+
+			// mousemove after release should not seek
+			document.dispatchEvent(new MouseEvent('mousemove', { clientX: 50, bubbles: true }));
+			expect(mockAudio.currentTime).toBe(75);
 		});
 	});
 

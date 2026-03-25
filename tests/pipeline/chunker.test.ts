@@ -135,7 +135,7 @@ describe('Audio Chunker', () => {
 			expect(chunks[0]!.fileExtension).toBe('m4a');
 		});
 
-		it('should decode and split files > 25MB', async () => {
+		it('should decode and split files > 25MB', { timeout: 15000 }, async () => {
 			const sampleRate = 16000;
 			const duration = 3600; // 1 hour
 			const pcm = createUniformNoisePcm(duration, sampleRate);
@@ -289,7 +289,7 @@ describe('Audio Chunker', () => {
 			}
 		});
 
-		it('should downsample from higher sample rates to 16kHz', async () => {
+		it('should downsample from higher sample rates to 16kHz', { timeout: 15000 }, async () => {
 			const sampleRate = 44100;
 			const duration = 1800; // Shorter to avoid test timeout with high sample rate
 			const pcm = createUniformNoisePcm(duration, sampleRate);

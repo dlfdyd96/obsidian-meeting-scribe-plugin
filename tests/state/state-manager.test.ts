@@ -153,15 +153,26 @@ describe('StateManager', () => {
 	});
 
 	describe('observer error safety', () => {
-		it('should propagate error when an observer throws (error is not caught)', () => {
+		it('should isolate observer errors and not propagate them', () => {
 			const throwingObserver = vi.fn().mockImplementation(() => {
 				throw new Error('observer exploded');
 			});
 			stateManager.subscribe(throwingObserver);
 
-			expect(() => stateManager.setState(PluginState.Recording)).toThrow(
-				'observer exploded',
-			);
+			expect(() => stateManager.setState(PluginState.Recording)).not.toThrow();
+			expect(throwingObserver).toHaveBeenCalled();
+		});
+
+		it('should notify remaining observers even if one throws', () => {
+			const throwingObserver = vi.fn().mockImplementation(() => {
+				throw new Error('observer exploded');
+			});
+			const healthyObserver = vi.fn();
+			stateManager.subscribe(throwingObserver);
+			stateManager.subscribe(healthyObserver);
+
+			stateManager.setState(PluginState.Recording);
+			expect(healthyObserver).toHaveBeenCalled();
 		});
 
 		it('should still update state even if observer throws (state is set before observers are called)', () => {

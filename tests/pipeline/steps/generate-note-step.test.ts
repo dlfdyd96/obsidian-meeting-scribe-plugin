@@ -169,11 +169,17 @@ describe('GenerateNoteStep', () => {
 		expect(path).toBe('Meeting Notes/2026-03-16 Weekly Standup 3.md');
 	});
 
-	it('throws DataError when summaryResult is missing', async () => {
+	it('generates template note when summaryResult is missing', async () => {
 		const context = createMockContext({ summaryResult: undefined });
 
-		await expect(step.execute(context)).rejects.toThrow(DataError);
-		await expect(step.execute(context)).rejects.toThrow('No summary result available for note generation');
+		const result = await step.execute(context);
+
+		expect(result.noteFilePath).toBeDefined();
+		const vault = context.vault as unknown as ReturnType<typeof createMockVault>;
+		const [, content] = vault.create.mock.calls[0]!;
+		expect(content).toContain('## Overview');
+		expect(content).toContain('## Action Items');
+		expect(content).toContain('## Notes');
 	});
 
 	it('sets noteFilePath in returned context', async () => {

@@ -3,7 +3,7 @@ import type { Vault } from 'obsidian';
 import type { PipelineStep, PipelineContext } from '../pipeline-types';
 import { DataError } from '../../utils/errors';
 import { logger } from '../../utils/logger';
-import { generateNote, generateFilename, generateTranscriptNote, generateTranscriptFilename, extractParticipants } from '../../note/note-generator';
+import { generateNote, generateFilename, generateTranscriptNote, generateTranscriptFilename, generateTemplateNote, extractParticipants } from '../../note/note-generator';
 
 const COMPONENT = 'GenerateNoteStep';
 
@@ -24,10 +24,6 @@ export class GenerateNoteStep implements PipelineStep {
 	async execute(context: PipelineContext): Promise<PipelineContext> {
 		const { vault, settings, audioFilePath } = context;
 
-		if (!context.summaryResult) {
-			throw new DataError('No summary result available for note generation');
-		}
-
 		if (!context.transcriptionResult) {
 			throw new DataError('No transcription result available for note generation');
 		}
@@ -35,6 +31,7 @@ export class GenerateNoteStep implements PipelineStep {
 		logger.info(COMPONENT, 'Generating note', {
 			outputFolder: settings.outputFolder,
 			separateTranscriptFile: settings.separateTranscriptFile,
+			enableSummary: settings.enableSummary,
 		});
 
 		// Ensure output folder exists
@@ -47,9 +44,30 @@ export class GenerateNoteStep implements PipelineStep {
 		// Extract participant aliases from transcription segments
 		const participants = extractParticipants(context.transcriptionResult);
 
-		// Generate filenames
-		const noteFilename = generateFilename(context.summaryResult.metadata);
+		// Resolve transcript JSON path for frontmatter linking
+		const transcriptDataPath = context.transcriptFilePath ?? `${audioFilePath}.transcript.json`;
+
+		// Generate filename: from summary metadata if available, otherwise from audio filename
+		const noteFilename = context.summaryResult
+			? generateFilename(context.summaryResult.metadata)
+			: this.filenameFromAudioPath(audioFilePath);
 		const useSeparateTranscript = settings.includeTranscript && settings.separateTranscriptFile;
+
+		// No-summary mode: generate template note
+		if (!context.summaryResult) {
+			const targetPath = getUniquePath(vault, outputFolder, noteFilename);
+			const noteContent = generateTemplateNote({
+				transcriptionResult: context.transcriptionResult,
+				audioFilePath,
+				participants,
+				transcriptDataPath,
+			});
+			await vault.create(targetPath, noteContent);
+
+			context.onProgress?.('generating-note', 1, 1);
+			logger.info(COMPONENT, 'Template note generated (no summary)', { path: targetPath });
+			return { ...context, noteFilePath: targetPath };
+		}
 
 		if (useSeparateTranscript) {
 			const transcriptFilename = generateTranscriptFilename(noteFilename);
@@ -69,6 +87,7 @@ export class GenerateNoteStep implements PipelineStep {
 				audioFilePath,
 				transcriptLink: `[[${transcriptTitle}]]`,
 				participants,
+				transcriptDataPath,
 			});
 
 			// Build transcript content with back-link to meeting note
@@ -101,6 +120,7 @@ export class GenerateNoteStep implements PipelineStep {
 			audioFilePath,
 			includeTranscript: settings.includeTranscript,
 			participants,
+			transcriptDataPath,
 		});
 
 		const targetPath = getUniquePath(vault, outputFolder, noteFilename);
@@ -111,5 +131,11 @@ export class GenerateNoteStep implements PipelineStep {
 		logger.info(COMPONENT, 'Note generated', { path: targetPath });
 
 		return { ...context, noteFilePath: targetPath };
+	}
+
+	private filenameFromAudioPath(audioFilePath: string): string {
+		const raw = audioFilePath.split('/').pop() ?? audioFilePath;
+		const base = raw.includes('.') ? raw.split('.').slice(0, -1).join('.') : raw;
+		return `${base}.md`;
 	}
 }

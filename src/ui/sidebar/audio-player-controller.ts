@@ -15,18 +15,25 @@ export class AudioPlayerController {
 	private objectUrl: string | null = null;
 	private container: HTMLElement | null = null;
 	private seekFillEl: HTMLElement | null = null;
+	private seekBarEl: HTMLElement | null = null;
+	private isDragging = false;
 	private currentTimeEl: HTMLElement | null = null;
 	private durationEl: HTMLElement | null = null;
 	private playBtnIcon: HTMLElement | null = null;
 	private speedBtnEl: HTMLElement | null = null;
 	private speedPopupEl: HTMLElement | null = null;
 	private volumeBtnIcon: HTMLElement | null = null;
+	private volumePopupEl: HTMLElement | null = null;
+	private volumeSliderEl: HTMLInputElement | null = null;
 	private previousVolume = 1;
 	private destroyed = false;
 
 	private boundTimeUpdate: (() => void) | null = null;
 	private boundLoadedMetadata: (() => void) | null = null;
 	private boundEnded: (() => void) | null = null;
+	private boundPlay: (() => void) | null = null;
+	private boundPause: (() => void) | null = null;
+	private boundDurationChange: (() => void) | null = null;
 	private boundDocumentClick: ((e: MouseEvent) => void) | null = null;
 
 	constructor(private readonly onTimeUpdate?: (currentTime: number) => void) {}
@@ -40,7 +47,9 @@ export class AudioPlayerController {
 
 		try {
 			const arrayBuffer = await vault.adapter.readBinary(audioFilePath);
-			const blob = new Blob([arrayBuffer]);
+			// Include MIME type hint so the browser can parse duration for webm/ogg
+			const mimeType = this.guessMimeType(audioFilePath);
+			const blob = new Blob([arrayBuffer], mimeType ? { type: mimeType } : undefined);
 			this.objectUrl = URL.createObjectURL(blob);
 
 			this.audioEl = new Audio();
@@ -50,10 +59,16 @@ export class AudioPlayerController {
 			this.boundTimeUpdate = () => this.handleTimeUpdate();
 			this.boundLoadedMetadata = () => this.handleLoadedMetadata();
 			this.boundEnded = () => this.handleEnded();
+			this.boundPlay = () => this.updatePlayIcon();
+			this.boundPause = () => this.updatePlayIcon();
+			this.boundDurationChange = () => this.handleLoadedMetadata();
 
 			this.audioEl.addEventListener('timeupdate', this.boundTimeUpdate);
 			this.audioEl.addEventListener('loadedmetadata', this.boundLoadedMetadata);
+			this.audioEl.addEventListener('durationchange', this.boundDurationChange);
 			this.audioEl.addEventListener('ended', this.boundEnded);
+			this.audioEl.addEventListener('play', this.boundPlay);
+			this.audioEl.addEventListener('pause', this.boundPause);
 
 			logger.debug(COMPONENT, 'Audio loaded', { audioFilePath });
 		} catch (err) {
@@ -81,7 +96,7 @@ export class AudioPlayerController {
 		const controls = document.createElement('div');
 		controls.className = 'meeting-scribe-sidebar-player-controls';
 
-		controls.appendChild(this.createVolumeButton());
+		controls.appendChild(this.createVolumeControl());
 		controls.appendChild(this.createSkipButton(-5, 'Skip back 5s'));
 		controls.appendChild(this.createPlayButton());
 		controls.appendChild(this.createSkipButton(5, 'Skip forward 5s'));
@@ -100,7 +115,8 @@ export class AudioPlayerController {
 
 		const seekBar = document.createElement('div');
 		seekBar.className = 'meeting-scribe-sidebar-player-seek-bar';
-		seekBar.addEventListener('click', (e) => this.handleSeekClick(e, seekBar));
+		this.seekBarEl = seekBar;
+		seekBar.addEventListener('mousedown', (e) => this.handleSeekDragStart(e));
 
 		this.seekFillEl = document.createElement('div');
 		this.seekFillEl.className = 'meeting-scribe-sidebar-player-seek-fill';
@@ -115,27 +131,28 @@ export class AudioPlayerController {
 
 		container.appendChild(seekRow);
 
+		// If metadata already loaded (e.g. render called after load completed), set duration now
+		if (this.duration > 0 && this.durationEl) {
+			this.durationEl.textContent = this.formatTime(this.duration);
+		}
+
 		// Register document click listener for closing speed popup
 		this.boundDocumentClick = (e: MouseEvent) => this.handleDocumentClick(e);
 		document.addEventListener('click', this.boundDocumentClick);
 	}
 
 	play(): void {
-		if (this.audioEl && this.audioEl.paused) {
-			this.audioEl.play().catch((err) => {
-				logger.warn(COMPONENT, 'Playback failed', {
-					error: err instanceof Error ? err.message : String(err),
-				});
+		if (!this.audioEl) return;
+		this.audioEl.play().catch((err) => {
+			logger.warn(COMPONENT, 'Playback failed', {
+				error: err instanceof Error ? err.message : String(err),
 			});
-			this.updatePlayIcon();
-		}
+		});
 	}
 
 	pause(): void {
-		if (this.audioEl && !this.audioEl.paused) {
-			this.audioEl.pause();
-			this.updatePlayIcon();
-		}
+		if (!this.audioEl) return;
+		this.audioEl.pause();
 	}
 
 	toggle(): void {
@@ -173,6 +190,9 @@ export class AudioPlayerController {
 		const clamped = Math.max(0, Math.min(1, level));
 		this.audioEl.volume = clamped;
 		this.updateVolumeIcon();
+		if (this.volumeSliderEl) {
+			this.volumeSliderEl.value = String(Math.round(clamped * 100));
+		}
 	}
 
 	/**
@@ -192,6 +212,15 @@ export class AudioPlayerController {
 			}
 			if (this.boundEnded) {
 				this.audioEl.removeEventListener('ended', this.boundEnded);
+			}
+			if (this.boundDurationChange) {
+				this.audioEl.removeEventListener('durationchange', this.boundDurationChange);
+			}
+			if (this.boundPlay) {
+				this.audioEl.removeEventListener('play', this.boundPlay);
+			}
+			if (this.boundPause) {
+				this.audioEl.removeEventListener('pause', this.boundPause);
 			}
 			this.audioEl = null;
 		}
@@ -261,15 +290,42 @@ export class AudioPlayerController {
 		return btn;
 	}
 
-	private createVolumeButton(): HTMLElement {
+	private createVolumeControl(): HTMLElement {
+		const wrapper = document.createElement('div');
+		wrapper.className = 'meeting-scribe-sidebar-player-volume-wrapper';
+
 		const btn = document.createElement('button');
 		btn.className = 'meeting-scribe-sidebar-player-volume-btn';
 		btn.setAttribute('aria-label', 'Volume');
 		this.volumeBtnIcon = document.createElement('span');
 		this.volumeBtnIcon.innerHTML = this.volumeOnSvg();
 		btn.appendChild(this.volumeBtnIcon);
-		btn.addEventListener('click', () => this.toggleMute());
-		return btn;
+		btn.addEventListener('click', (e) => {
+			e.stopPropagation();
+			this.toggleVolumePopup();
+		});
+		wrapper.appendChild(btn);
+
+		this.volumePopupEl = document.createElement('div');
+		this.volumePopupEl.className = 'meeting-scribe-sidebar-player-volume-popup';
+
+		this.volumeSliderEl = document.createElement('input');
+		this.volumeSliderEl.type = 'range';
+		this.volumeSliderEl.min = '0';
+		this.volumeSliderEl.max = '100';
+		this.volumeSliderEl.value = '100';
+		this.volumeSliderEl.className = 'meeting-scribe-sidebar-player-volume-slider';
+		this.volumeSliderEl.setAttribute('aria-label', 'Volume level');
+		this.volumeSliderEl.addEventListener('input', () => {
+			const val = parseInt(this.volumeSliderEl!.value, 10);
+			this.setVolume(val / 100);
+		});
+		this.volumeSliderEl.addEventListener('click', (e) => e.stopPropagation());
+
+		this.volumePopupEl.appendChild(this.volumeSliderEl);
+		wrapper.appendChild(this.volumePopupEl);
+
+		return wrapper;
 	}
 
 	private createSpeedControl(): HTMLElement {
@@ -305,14 +361,18 @@ export class AudioPlayerController {
 		return wrapper;
 	}
 
-	private toggleMute(): void {
-		if (!this.audioEl) return;
-		if (this.audioEl.volume > 0) {
-			this.previousVolume = this.audioEl.volume;
-			this.setVolume(0);
+	private toggleVolumePopup(): void {
+		if (!this.volumePopupEl) return;
+		const isVisible = this.volumePopupEl.classList.contains('meeting-scribe-sidebar-player-volume-popup--visible');
+		if (isVisible) {
+			this.closeVolumePopup();
 		} else {
-			this.setVolume(this.previousVolume || 1);
+			this.volumePopupEl.classList.add('meeting-scribe-sidebar-player-volume-popup--visible');
 		}
+	}
+
+	private closeVolumePopup(): void {
+		this.volumePopupEl?.classList.remove('meeting-scribe-sidebar-player-volume-popup--visible');
 	}
 
 	private toggleSpeedPopup(): void {
@@ -343,16 +403,44 @@ export class AudioPlayerController {
 	}
 
 	private handleDocumentClick(e: MouseEvent): void {
-		if (!this.speedPopupEl || !this.speedBtnEl) return;
 		const target = e.target as HTMLElement;
-		if (!this.speedBtnEl.contains(target) && !this.speedPopupEl.contains(target)) {
+		if (this.speedPopupEl && this.speedBtnEl &&
+			!this.speedBtnEl.contains(target) && !this.speedPopupEl.contains(target)) {
 			this.closeSpeedPopup();
+		}
+		if (this.volumePopupEl &&
+			!this.volumePopupEl.contains(target) &&
+			!this.volumePopupEl.previousElementSibling?.contains(target)) {
+			this.closeVolumePopup();
 		}
 	}
 
-	private handleSeekClick(e: MouseEvent, seekBar: HTMLElement): void {
-		const rect = seekBar.getBoundingClientRect();
-		const ratio = (e.clientX - rect.left) / rect.width;
+	private handleSeekDragStart(e: MouseEvent): void {
+		if (!this.seekBarEl) return;
+		e.preventDefault();
+		this.isDragging = true;
+
+		this.seekFromMouseEvent(e);
+
+		const onMove = (moveEvent: MouseEvent) => {
+			if (!this.isDragging) return;
+			this.seekFromMouseEvent(moveEvent);
+		};
+
+		const onUp = () => {
+			this.isDragging = false;
+			document.removeEventListener('mousemove', onMove);
+			document.removeEventListener('mouseup', onUp);
+		};
+
+		document.addEventListener('mousemove', onMove);
+		document.addEventListener('mouseup', onUp);
+	}
+
+	private seekFromMouseEvent(e: MouseEvent): void {
+		if (!this.seekBarEl) return;
+		const rect = this.seekBarEl.getBoundingClientRect();
+		const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
 		this.seekTo(ratio * this.duration);
 	}
 
@@ -377,6 +465,12 @@ export class AudioPlayerController {
 		if (!this.seekFillEl || !this.currentTimeEl) return;
 		const d = this.duration;
 		const progress = d > 0 ? (this.currentTime / d) * 100 : 0;
+		// Disable transition during drag for instant feedback
+		if (this.isDragging) {
+			this.seekFillEl.style.transition = 'none';
+		} else {
+			this.seekFillEl.style.transition = '';
+		}
 		this.seekFillEl.style.width = `${progress}%`;
 		this.currentTimeEl.textContent = this.formatTime(this.currentTime);
 	}
@@ -408,6 +502,20 @@ export class AudioPlayerController {
 		const m = Math.floor(total / 60);
 		const s = total % 60;
 		return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+	}
+
+	private guessMimeType(filePath: string): string | undefined {
+		const ext = filePath.split('.').pop()?.toLowerCase();
+		const map: Record<string, string> = {
+			webm: 'audio/webm',
+			ogg: 'audio/ogg',
+			mp3: 'audio/mpeg',
+			wav: 'audio/wav',
+			m4a: 'audio/mp4',
+			mp4: 'audio/mp4',
+			flac: 'audio/flac',
+		};
+		return ext ? map[ext] : undefined;
 	}
 
 	// SVG icon strings

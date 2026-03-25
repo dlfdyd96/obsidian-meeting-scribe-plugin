@@ -806,7 +806,7 @@ describe('Auto-open sidebar on active-leaf-change', () => {
 	it('should set autoOpenSidebar to false when loaded from saved settings', async () => {
 		const { default: MeetingScribePlugin } = await import('../src/main');
 		const plugin = new MeetingScribePlugin();
-		vi.spyOn(plugin, 'loadData').mockResolvedValue({ autoOpenSidebar: false, settingsVersion: 10 });
+		vi.spyOn(plugin, 'loadData').mockResolvedValue({ autoOpenSidebar: false, settingsVersion: 11 });
 
 		await plugin.onload();
 

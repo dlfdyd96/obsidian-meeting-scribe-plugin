@@ -9,6 +9,7 @@ export interface NoteInput {
 	includeTranscript?: boolean;
 	transcriptLink?: string;
 	participants?: ParticipantAlias[];
+	transcriptDataPath?: string;
 }
 
 export interface TranscriptNoteInput {
@@ -65,6 +66,75 @@ export function generateTranscriptNote(input: TranscriptNoteInput): string {
 	});
 	const transcript = formatTranscriptSection(input.transcriptionResult);
 	return `${frontmatter}\n\n## Transcript\n\n${transcript}\n`;
+}
+
+export interface TemplateNoteInput {
+	transcriptionResult: TranscriptionResult;
+	audioFilePath: string;
+	participants?: ParticipantAlias[];
+	transcriptDataPath?: string;
+}
+
+export function generateTemplateNote(input: TemplateNoteInput): string {
+	const date = new Date().toISOString().slice(0, 10);
+	const audioFilename = input.audioFilePath.split('/').pop() ?? input.audioFilePath;
+	const title = audioFilename.includes('.')
+		? audioFilename.split('.').slice(0, -1).join('.')
+		: audioFilename;
+	const duration = Math.round(
+		(input.transcriptionResult.segments.length > 0
+			? input.transcriptionResult.segments[input.transcriptionResult.segments.length - 1]!.end
+			: 0) / 60,
+	);
+
+	const lines: string[] = [
+		'---',
+		`date: ${date}`,
+		'type: meeting',
+		`title: ${title}`,
+	];
+
+	if (input.participants && input.participants.length > 0) {
+		lines.push('participants:');
+		for (const p of input.participants) {
+			lines.push(`  - alias: "${p.alias}"`);
+			lines.push(`    name: "${p.name}"`);
+		}
+	} else {
+		lines.push('participants: []');
+	}
+
+	lines.push(`duration: ${duration}`);
+	lines.push(`audio: ${input.audioFilePath}`);
+	if (input.transcriptDataPath) {
+		const YAML_SPECIAL_CHARS = /[:{}&*?|<>!%@#`[\]]/;
+		const val = YAML_SPECIAL_CHARS.test(input.transcriptDataPath)
+			? `'${input.transcriptDataPath.split("'").join("''")}'`
+			: input.transcriptDataPath;
+		lines.push(`transcript_data: ${val}`);
+	}
+	lines.push('---');
+
+	const audioEmbed = `![[${audioFilename}]]`;
+	const template = [
+		'',
+		audioEmbed,
+		'',
+		'## Overview',
+		'',
+		'',
+		'',
+		'## Action Items',
+		'',
+		'- [ ] ',
+		'',
+		'## Notes',
+		'',
+		'',
+		'',
+	].join('\n');
+
+	return lines.join('\n') + '\n' + template;
 }
 
 export interface ParticipantReplacementResult {

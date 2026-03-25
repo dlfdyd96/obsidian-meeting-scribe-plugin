@@ -181,7 +181,10 @@ export class PipelineDispatcher {
 	): Promise<void> {
 		this.runningCount++;
 
-		const allSteps = [new TranscribeStep(), new SummarizeStep(), new GenerateNoteStep()];
+		const settings = this.getSettings();
+		const allSteps = settings.enableSummary
+			? [new TranscribeStep(), new SummarizeStep(), new GenerateNoteStep()]
+			: [new TranscribeStep(), new GenerateNoteStep()];
 		const steps = allSteps.slice(startFromStep);
 
 		if (steps.length === 0) {
@@ -279,6 +282,7 @@ export class PipelineDispatcher {
 
 	private async findTranscriptFiles(): Promise<string[]> {
 		const result: string[] = [];
+		const audioFolder = this.getSettings().audioFolder;
 		const scan = async (folder: string): Promise<void> => {
 			try {
 				const listing = await this.vault.adapter.list(folder);
@@ -294,7 +298,7 @@ export class PipelineDispatcher {
 				// folder may not exist, skip
 			}
 		};
-		await scan('');
+		await scan(audioFolder);
 		return result;
 	}
 

@@ -312,15 +312,17 @@ export default class MeetingScribePlugin extends Plugin {
 
 				const tryAutoOpen = (): void => {
 					const cache = this.app.metadataCache.getFileCache(file);
-					if (cache?.frontmatter?.['created_by'] === 'meeting-scribe') {
-						void this.handleMeetingNoteOpened(file.path);
+					const transcriptDataPath = cache?.frontmatter?.['transcript_data'] as string | undefined;
+					if (transcriptDataPath) {
+						void this.handleMeetingNoteOpened(file.path, transcriptDataPath);
 					}
 				};
 
 				// metadataCache may not have frontmatter parsed yet on first open
 				const cache = this.app.metadataCache.getFileCache(file);
-				if (cache?.frontmatter?.['created_by'] === 'meeting-scribe') {
-					void this.handleMeetingNoteOpened(file.path);
+				const transcriptDataPath = cache?.frontmatter?.['transcript_data'] as string | undefined;
+				if (transcriptDataPath) {
+					void this.handleMeetingNoteOpened(file.path, transcriptDataPath);
 				} else if (!cache?.frontmatter) {
 					// Retry once after metadata resolves
 					setTimeout(tryAutoOpen, 300);
@@ -427,7 +429,8 @@ export default class MeetingScribePlugin extends Plugin {
 				return;
 			}
 
-			if (!parsed.frontmatter.includes('created_by: meeting-scribe')) {
+			if (!parsed.frontmatter.includes('created_by: meeting-scribe') &&
+				!parsed.frontmatter.includes('transcript_data:')) {
 				new Notice('This note was not created by Meeting Scribe');
 				return;
 			}
@@ -500,11 +503,15 @@ export default class MeetingScribePlugin extends Plugin {
 		return null;
 	}
 
-	private async handleMeetingNoteOpened(notePath: string): Promise<void> {
+	private async handleMeetingNoteOpened(notePath: string, transcriptDataPath?: string): Promise<void> {
 		try {
 			const sidebarView = await this.activateSidebarView();
 			if (sidebarView) {
-				await sidebarView.showTranscriptForNote(notePath);
+				if (transcriptDataPath) {
+					await sidebarView.showTranscriptForTranscriptFile(transcriptDataPath);
+				} else {
+					await sidebarView.showTranscriptForNote(notePath);
+				}
 			}
 		} catch (err) {
 			logger.error(COMPONENT, 'Failed to auto-open sidebar', {

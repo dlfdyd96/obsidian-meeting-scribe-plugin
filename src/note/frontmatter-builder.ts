@@ -8,6 +8,7 @@ export interface FrontmatterInput {
 	meeting?: string;
 	typeOverride?: string;
 	participants?: ParticipantAlias[];
+	transcriptDataPath?: string;
 }
 
 const YAML_SPECIAL_CHARS = /[:{}&*?|<>!%@#`[\]]/;
@@ -80,8 +81,10 @@ export function buildFrontmatter(input: FrontmatterInput): string {
 	if (input.meeting) {
 		lines.push(`meeting: ${yamlString(input.meeting)}`);
 	}
+	if (input.transcriptDataPath) {
+		lines.push(`transcript_data: ${yamlString(input.transcriptDataPath)}`);
+	}
 
-	lines.push('created_by: meeting-scribe');
 	lines.push('---');
 
 	return lines.join('\n');

@@ -67,7 +67,7 @@ describe('buildFrontmatter', () => {
 		expect(result).toContain('  - blockers');
 		expect(result).toContain('duration: 50');
 		expect(result).toContain('audio: _attachments/audio/2026-03-16-recording.webm');
-		expect(result).toContain('created_by: meeting-scribe');
+		expect(result).not.toContain('created_by:');
 	});
 
 	it('wraps output in --- delimiters', () => {
