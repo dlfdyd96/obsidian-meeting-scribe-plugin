@@ -5,6 +5,11 @@ import { renderTranscriptView } from './chat-bubble-renderer';
 import { AudioPlayerController } from './audio-player-controller';
 import { loadTranscriptData, saveTranscriptData, generateSegmentId } from '../../transcript/transcript-data';
 import type { TranscriptData } from '../../transcript/transcript-data';
+import {
+	createSpeakerPopoverDOM,
+	attachSpeakerPopoverBehavior,
+	updateParticipantMapping,
+} from './speaker-popover';
 import { logger } from '../../utils/logger';
 import type { MeetingSession, SessionObserver } from '../../session/types';
 
@@ -26,6 +31,7 @@ export class TranscriptSidebarView extends ItemView {
 	private scrollContainer: HTMLElement | null = null;
 	private transcriptData: TranscriptData | null = null;
 	private transcriptFilePath: string | null = null;
+	private activeSpeakerPopover: HTMLElement | null = null;
 
 	constructor(
 		leaf: WorkspaceLeaf,
@@ -258,6 +264,16 @@ export class TranscriptSidebarView extends ItemView {
 	private handleScrollContainerClick(e: MouseEvent): void {
 		const target = e.target as HTMLElement;
 
+		// Click inside active popover — let it handle internally
+		if (this.activeSpeakerPopover?.contains(target)) {
+			return;
+		}
+
+		// Click outside popover — close it
+		if (this.activeSpeakerPopover && !target.classList.contains('meeting-scribe-sidebar-bubble-speaker')) {
+			this.closeSpeakerPopover();
+		}
+
 		// Timestamp click-to-seek
 		if (target.classList.contains('meeting-scribe-sidebar-bubble-timestamp--clickable')) {
 			const startTime = parseFloat(target.getAttribute('data-start') ?? '');
@@ -279,6 +295,12 @@ export class TranscriptSidebarView extends ItemView {
 		if (target.closest('.meeting-scribe-sidebar-bubble-split-btn')) {
 			const bubble = target.closest('.meeting-scribe-sidebar-bubble') as HTMLElement | null;
 			if (bubble) this.handleSplitSegment(bubble);
+			return;
+		}
+
+		// Speaker name click → open name mapping popover
+		if (target.classList.contains('meeting-scribe-sidebar-bubble-speaker')) {
+			this.openSpeakerPopover(target);
 			return;
 		}
 
@@ -427,7 +449,71 @@ export class TranscriptSidebarView extends ItemView {
 		this.audioPlayer?.skip(deltaSeconds);
 	}
 
+	private openSpeakerPopover(speakerEl: HTMLElement): void {
+		// Close any existing popover
+		this.closeSpeakerPopover();
+
+		if (!this.transcriptData || !this.transcriptFilePath || !this.scrollContainer) return;
+
+		const alias = speakerEl.getAttribute('data-speaker-alias');
+		if (!alias) return;
+
+		const participant = this.transcriptData.participants.find(p => p.alias === alias);
+		if (!participant) return;
+
+		const currentName = participant.name || '';
+		const currentWikiLink = participant.wikiLink;
+
+		const popover = createSpeakerPopoverDOM(alias, currentName, currentWikiLink);
+		popover.classList.add('meeting-scribe-sidebar-speaker-popover--visible');
+
+		// Position relative to speaker element (account for scroll offset)
+		const rect = speakerEl.getBoundingClientRect();
+		const containerRect = this.scrollContainer.getBoundingClientRect();
+		popover.style.position = 'absolute';
+		popover.style.left = `${rect.left - containerRect.left}px`;
+		popover.style.top = `${rect.bottom - containerRect.top + this.scrollContainer.scrollTop + 4}px`;
+
+		attachSpeakerPopoverBehavior(popover, {
+			onApply: async (name, wikiLink) => {
+				await this.applySpeakerMapping(alias, name, wikiLink);
+				this.closeSpeakerPopover();
+			},
+			onCancel: () => {
+				this.closeSpeakerPopover();
+			},
+			getVaultFiles: () => {
+				return this.app.vault.getMarkdownFiles().map(f => ({
+					basename: f.basename,
+					path: f.path,
+				}));
+			},
+		});
+
+		this.scrollContainer.appendChild(popover);
+		this.activeSpeakerPopover = popover;
+	}
+
+	private closeSpeakerPopover(): void {
+		if (this.activeSpeakerPopover) {
+			this.activeSpeakerPopover.remove();
+			this.activeSpeakerPopover = null;
+		}
+	}
+
+	private async applySpeakerMapping(alias: string, name: string, wikiLink: boolean): Promise<void> {
+		if (!this.transcriptData || !this.transcriptFilePath || !this.scrollContainer) return;
+
+		updateParticipantMapping(this.transcriptData.participants, alias, name, wikiLink);
+		await saveTranscriptData(this.app.vault, this.transcriptFilePath, this.transcriptData);
+
+		// Re-render transcript view
+		while (this.scrollContainer.firstChild) this.scrollContainer.removeChild(this.scrollContainer.firstChild);
+		renderTranscriptView(this.scrollContainer, this.transcriptData.segments, this.transcriptData.participants);
+	}
+
 	private destroyAudioPlayer(): void {
+		this.closeSpeakerPopover();
 		if (this.audioPlayer) {
 			this.audioPlayer.destroy();
 			this.audioPlayer = null;

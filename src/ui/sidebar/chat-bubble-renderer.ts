@@ -1,4 +1,5 @@
 import type { TranscriptSegmentV2, ParticipantMapping } from '../../transcript/transcript-data';
+import { formatSpeakerDisplayName } from './speaker-popover';
 
 // Fallback hue if --interactive-accent cannot be parsed
 const DEFAULT_BASE_HUE = 260;
@@ -133,7 +134,9 @@ export function renderTranscriptView(
 			bubble.style.setProperty('--speaker-border-color', getSpeakerColor(participant));
 		}
 
-		const displayName = participant?.name || segment.speaker;
+		const displayName = participant
+			? formatSpeakerDisplayName(participant, segment.speaker)
+			: segment.speaker;
 		bubble.setAttribute('aria-label', `Speaker: ${displayName}`);
 		bubble.tabIndex = 0;
 
@@ -143,8 +146,9 @@ export function renderTranscriptView(
 
 		if (!isConsecutive) {
 			const speakerEl = document.createElement('span');
-			speakerEl.className = 'meeting-scribe-sidebar-bubble-speaker';
+			speakerEl.className = 'meeting-scribe-sidebar-bubble-speaker meeting-scribe-sidebar-bubble-speaker--clickable';
 			speakerEl.textContent = displayName;
+			speakerEl.setAttribute('data-speaker-alias', segment.speaker);
 			if (participant) {
 				speakerEl.style.color = getSpeakerColor(participant);
 			}

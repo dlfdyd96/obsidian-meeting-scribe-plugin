@@ -298,6 +298,7 @@ Meeting Scribe plugin styles.
 	padding: 6px 10px;
 	scroll-behavior: smooth;
 	background: var(--background-primary);
+	position: relative;
 }
 
 .meeting-scribe-sidebar-transcript-error {
@@ -610,6 +611,120 @@ Meeting Scribe plugin styles.
 	color: var(--text-muted);
 	font-family: var(--font-monospace);
 	min-width: 36px;
+}
+
+/* ===== Speaker Name Mapping Popover ===== */
+
+.meeting-scribe-sidebar-bubble-speaker--clickable {
+	cursor: pointer;
+}
+
+.meeting-scribe-sidebar-bubble-speaker--clickable:hover {
+	text-decoration: underline;
+	opacity: 0.85;
+}
+
+.meeting-scribe-sidebar-speaker-popover {
+	display: none;
+	position: absolute;
+	z-index: 30;
+	background: var(--background-primary);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 8px;
+	padding: 10px;
+	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+	min-width: 200px;
+	max-width: 280px;
+}
+
+.meeting-scribe-sidebar-speaker-popover--visible {
+	display: block;
+}
+
+.meeting-scribe-sidebar-speaker-popover-title {
+	font-size: 12px;
+	font-weight: var(--font-semibold);
+	color: var(--text-muted);
+	margin-bottom: 6px;
+}
+
+.meeting-scribe-sidebar-speaker-popover-input {
+	width: 100%;
+	padding: 4px 8px;
+	font-size: var(--font-ui-small);
+	background: var(--background-modifier-form-field);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 4px;
+	color: var(--text-normal);
+	outline: none;
+	box-sizing: border-box;
+}
+
+.meeting-scribe-sidebar-speaker-popover-input:focus {
+	border-color: var(--interactive-accent);
+}
+
+.meeting-scribe-sidebar-speaker-popover-suggestions {
+	max-height: 160px;
+	overflow-y: auto;
+	border: 1px solid var(--background-modifier-border);
+	border-top: none;
+	border-radius: 0 0 4px 4px;
+	background: var(--background-primary);
+}
+
+.meeting-scribe-sidebar-speaker-popover-suggestion {
+	padding: 4px 8px;
+	font-size: var(--font-ui-small);
+	color: var(--text-normal);
+	cursor: pointer;
+}
+
+.meeting-scribe-sidebar-speaker-popover-suggestion:hover {
+	background: var(--background-modifier-active-hover);
+}
+
+.meeting-scribe-sidebar-speaker-popover-checkbox {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	margin: 8px 0;
+	font-size: var(--font-ui-small);
+	color: var(--text-normal);
+	cursor: pointer;
+}
+
+.meeting-scribe-sidebar-speaker-popover-actions {
+	display: flex;
+	justify-content: flex-end;
+	gap: 6px;
+}
+
+.meeting-scribe-sidebar-speaker-popover-actions button {
+	padding: 4px 12px;
+	font-size: var(--font-ui-small);
+	border-radius: 4px;
+	cursor: pointer;
+	border: none;
+}
+
+.meeting-scribe-sidebar-speaker-popover-cancel-btn {
+	background: var(--background-modifier-hover);
+	color: var(--text-muted);
+}
+
+.meeting-scribe-sidebar-speaker-popover-cancel-btn:hover {
+	background: var(--background-modifier-active-hover);
+	color: var(--text-normal);
+}
+
+.meeting-scribe-sidebar-speaker-popover-apply-btn {
+	background: var(--interactive-accent);
+	color: #fff;
+}
+
+.meeting-scribe-sidebar-speaker-popover-apply-btn:hover {
+	background: var(--interactive-accent-hover);
 }
 
 /* Respect user's reduced-motion preference */
