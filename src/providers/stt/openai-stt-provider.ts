@@ -97,6 +97,7 @@ export class OpenAISTTProvider implements STTProvider {
 
 		let response: Response;
 		try {
+			// eslint-disable-next-line no-restricted-globals -- fetch required for multipart/form-data upload not supported by requestUrl
 			response = await fetch(TRANSCRIPTION_ENDPOINT, {
 				method: 'POST',
 				headers: { 'Authorization': `Bearer ${this.apiKey}` },

@@ -77,14 +77,6 @@ export interface TemplateNoteInput {
 export function generateTemplateNote(input: TemplateNoteInput): string {
 	const date = new Date().toISOString().slice(0, 10);
 	const audioFilename = input.audioFilePath.split('/').pop() ?? input.audioFilePath;
-	const title = audioFilename.includes('.')
-		? audioFilename.split('.').slice(0, -1).join('.')
-		: audioFilename;
-	const duration = Math.round(
-		(input.transcriptionResult.segments.length > 0
-			? input.transcriptionResult.segments[input.transcriptionResult.segments.length - 1]!.end
-			: 0) / 60,
-	);
 
 	const lines: string[] = [
 		'---',

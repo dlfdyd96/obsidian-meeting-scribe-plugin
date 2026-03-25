@@ -295,6 +295,7 @@ export class MeetingScribeSettingTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setName('Recording format')
+			// eslint-disable-next-line obsidianmd/ui/sentence-case -- technical abbreviation
 			.setDesc('Audio format for recordings. WebM is most compatible; M4A and WAV depend on browser support.')
 			.addDropdown(cb => cb
 				.addOptions({
@@ -447,6 +448,7 @@ export class MeetingScribeSettingTab extends PluginSettingTab {
 
 		new Setting(advancedEl)
 			.setName('Enable AI summary')
+			// eslint-disable-next-line obsidianmd/ui/sentence-case -- product name
 			.setDesc('Use LLM to generate meeting summary. When disabled, creates a blank template note with Overview, Action Items, and Notes sections.')
 			.addToggle(cb => cb
 				.setValue(this.plugin.settings.enableSummary)
@@ -466,7 +468,7 @@ export class MeetingScribeSettingTab extends PluginSettingTab {
 				.onChange(async (value) => {
 					this.plugin.settings.includeTranscript = value;
 					await this.plugin.saveSettings();
-					separateTranscriptSetting.settingEl.style.display = value ? '' : 'none';
+					separateTranscriptSetting.settingEl.classList.toggle('meeting-scribe-hidden', !value);
 				}));
 
 		separateTranscriptSetting = new Setting(advancedEl)
@@ -480,7 +482,7 @@ export class MeetingScribeSettingTab extends PluginSettingTab {
 				}));
 
 		if (!this.plugin.settings.includeTranscript) {
-			separateTranscriptSetting.settingEl.style.display = 'none';
+			separateTranscriptSetting.settingEl.classList.add('meeting-scribe-hidden');
 		}
 
 		new Setting(advancedEl)

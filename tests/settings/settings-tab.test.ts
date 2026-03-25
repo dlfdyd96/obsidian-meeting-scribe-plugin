@@ -240,7 +240,7 @@ describe('MeetingScribeSettingTab', () => {
 			const advancedSettings = collectSettings(details!);
 			const separateSetting = advancedSettings.find(s => s.nameEl.textContent === 'Separate transcript file');
 			expect(separateSetting).toBeDefined();
-			expect(separateSetting!.settingEl.style.display).not.toBe('none');
+			expect(separateSetting!.settingEl.classList.contains('meeting-scribe-hidden')).toBe(false);
 		});
 
 		it('should hide separate transcript toggle when includeTranscript is false', () => {
@@ -250,7 +250,7 @@ describe('MeetingScribeSettingTab', () => {
 			const advancedSettings = collectSettings(details!);
 			const separateSetting = advancedSettings.find(s => s.nameEl.textContent === 'Separate transcript file');
 			expect(separateSetting).toBeDefined();
-			expect(separateSetting!.settingEl.style.display).toBe('none');
+			expect(separateSetting!.settingEl.classList.contains('meeting-scribe-hidden')).toBe(true);
 		});
 
 		it('should toggle separate transcript visibility without collapsing advanced section', async () => {
@@ -271,7 +271,7 @@ describe('MeetingScribeSettingTab', () => {
 			expect(details.open).toBe(true);
 			// Separate transcript setting should be hidden
 			const separateSetting = advancedSettings.find(s => s.nameEl.textContent === 'Separate transcript file');
-			expect(separateSetting!.settingEl.style.display).toBe('none');
+			expect(separateSetting!.settingEl.classList.contains('meeting-scribe-hidden')).toBe(true);
 		});
 	});
 

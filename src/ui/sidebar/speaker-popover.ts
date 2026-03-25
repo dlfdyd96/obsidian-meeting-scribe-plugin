@@ -37,7 +37,7 @@ export function createSpeakerPopoverDOM(
 	// Suggestions container
 	const suggestions = document.createElement('div');
 	suggestions.className = 'meeting-scribe-sidebar-speaker-popover-suggestions';
-	suggestions.style.display = 'none';
+	suggestions.classList.add('meeting-scribe-hidden');
 	popover.appendChild(suggestions);
 
 	// Wiki-link checkbox
@@ -98,7 +98,7 @@ export function attachSpeakerPopoverBehavior(
 			const filtered = filterVaultFiles(files, query, MAX_SUGGESTIONS);
 			renderSuggestions(suggestionsEl, filtered, (basename) => {
 				input.value = basename;
-				suggestionsEl.style.display = 'none';
+				suggestionsEl.classList.add('meeting-scribe-hidden');
 				input.focus();
 			});
 		}, 150);
@@ -193,7 +193,7 @@ function renderSuggestions(
 	while (container.firstChild) container.removeChild(container.firstChild);
 
 	if (files.length === 0) {
-		container.style.display = 'none';
+		container.classList.add('meeting-scribe-hidden');
 		return;
 	}
 
@@ -208,5 +208,5 @@ function renderSuggestions(
 		container.appendChild(item);
 	}
 
-	container.style.display = 'block';
+	container.classList.remove('meeting-scribe-hidden');
 }

@@ -37,6 +37,7 @@ export class NoticeManager {
 		const fragment = document.createDocumentFragment();
 
 		const msg = document.createElement('span');
+		// eslint-disable-next-line obsidianmd/ui/sentence-case -- status text
 		msg.textContent = '✓ Meeting note created — ';
 		fragment.appendChild(msg);
 
@@ -119,6 +120,7 @@ export class NoticeManager {
 	}
 
 	showTestSuccess(): Notice {
+		// eslint-disable-next-line obsidianmd/ui/sentence-case -- status text
 		return new Notice('✓ Test complete — setup is working', NOTICE_SUCCESS_TIMEOUT_MS);
 	}
 

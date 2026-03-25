@@ -2,6 +2,10 @@
 Meeting Scribe plugin styles.
 */
 
+.meeting-scribe-hidden {
+	display: none !important;
+}
+
 .meeting-scribe-ribbon-recording {
 	color: var(--text-error);
 }

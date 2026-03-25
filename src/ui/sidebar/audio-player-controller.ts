@@ -276,6 +276,7 @@ export class AudioPlayerController {
 		btn.className = 'meeting-scribe-sidebar-player-play-btn';
 		btn.setAttribute('aria-label', 'Play');
 		this.playBtnIcon = document.createElement('span');
+		// eslint-disable-next-line @microsoft/sdl/no-inner-html -- static SVG icon, no user input
 		this.playBtnIcon.innerHTML = this.playSvg();
 		btn.appendChild(this.playBtnIcon);
 		btn.addEventListener('click', () => this.toggle());
@@ -287,8 +288,10 @@ export class AudioPlayerController {
 		btn.className = 'meeting-scribe-sidebar-player-skip-btn';
 		btn.setAttribute('aria-label', label);
 		if (delta < 0) {
+			// eslint-disable-next-line @microsoft/sdl/no-inner-html -- static SVG icon, no user input
 			btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M11 18V6l-8.5 6 8.5 6zm.5-6l8.5 6V6l-8.5 6z"/></svg>';
 		} else {
+			// eslint-disable-next-line @microsoft/sdl/no-inner-html -- static SVG icon, no user input
 			btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="transform:scaleX(-1)"><path d="M11 18V6l-8.5 6 8.5 6zm.5-6l8.5 6V6l-8.5 6z"/></svg>';
 		}
 		btn.addEventListener('click', () => this.skip(delta));
@@ -303,6 +306,7 @@ export class AudioPlayerController {
 		btn.className = 'meeting-scribe-sidebar-player-volume-btn';
 		btn.setAttribute('aria-label', 'Volume');
 		this.volumeBtnIcon = document.createElement('span');
+		// eslint-disable-next-line @microsoft/sdl/no-inner-html -- static SVG icon, no user input
 		this.volumeBtnIcon.innerHTML = this.volumeOnSvg();
 		btn.appendChild(this.volumeBtnIcon);
 		btn.addEventListener('click', (e) => {
@@ -320,10 +324,12 @@ export class AudioPlayerController {
 
 		this.volumeFillEl = document.createElement('div');
 		this.volumeFillEl.className = 'meeting-scribe-sidebar-volume-fill';
+		// eslint-disable-next-line obsidianmd/no-static-styles-assignment -- dynamic volume fill height
 		this.volumeFillEl.style.height = '100%';
 
 		this.volumeThumbEl = document.createElement('div');
 		this.volumeThumbEl.className = 'meeting-scribe-sidebar-volume-thumb';
+		// eslint-disable-next-line obsidianmd/no-static-styles-assignment -- dynamic volume thumb position
 		this.volumeThumbEl.style.bottom = '100%';
 
 		this.volumeTrackEl.appendChild(this.volumeFillEl);
@@ -500,8 +506,10 @@ export class AudioPlayerController {
 		const progress = d > 0 ? (this.currentTime / d) * 100 : 0;
 		// Disable transition during drag for instant feedback
 		if (this.isDragging) {
+			// eslint-disable-next-line obsidianmd/no-static-styles-assignment -- dynamic transition toggle during drag
 			this.seekFillEl.style.transition = 'none';
 		} else {
+			// eslint-disable-next-line obsidianmd/no-static-styles-assignment -- dynamic transition toggle during drag
 			this.seekFillEl.style.transition = '';
 		}
 		this.seekFillEl.style.width = `${progress}%`;
@@ -511,9 +519,11 @@ export class AudioPlayerController {
 	private updatePlayIcon(): void {
 		if (!this.playBtnIcon) return;
 		if (this.isPlaying) {
+			// eslint-disable-next-line @microsoft/sdl/no-inner-html -- static SVG icon, no user input
 			this.playBtnIcon.innerHTML = this.pauseSvg();
 			this.playBtnIcon.closest('button')?.setAttribute('aria-label', 'Pause');
 		} else {
+			// eslint-disable-next-line @microsoft/sdl/no-inner-html -- static SVG icon, no user input
 			this.playBtnIcon.innerHTML = this.playSvg();
 			this.playBtnIcon.closest('button')?.setAttribute('aria-label', 'Play');
 		}
@@ -522,9 +532,11 @@ export class AudioPlayerController {
 	private updateVolumeIcon(): void {
 		if (!this.volumeBtnIcon || !this.audioEl) return;
 		if (this.audioEl.volume === 0) {
+			// eslint-disable-next-line @microsoft/sdl/no-inner-html -- static SVG icon, no user input
 			this.volumeBtnIcon.innerHTML = this.volumeOffSvg();
 			this.volumeBtnIcon.closest('button')?.setAttribute('aria-label', 'Unmute');
 		} else {
+			// eslint-disable-next-line @microsoft/sdl/no-inner-html -- static SVG icon, no user input
 			this.volumeBtnIcon.innerHTML = this.volumeOnSvg();
 			this.volumeBtnIcon.closest('button')?.setAttribute('aria-label', 'Volume');
 		}

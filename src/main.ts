@@ -24,7 +24,7 @@ import { AnthropicLLMProvider } from './providers/llm/anthropic-llm-provider';
 import { PLUGIN_ID, PLUGIN_NAME, NOTICE_RETRY_TIMEOUT_MS, TEST_RECORDING_DURATION_MS } from './constants';
 import { logger } from './utils/logger';
 import { hasSTTCredentials } from './settings/settings';
-import { checkDurationGuard } from './pipeline/duration-guard';
+
 import { applyParticipantReplacements, parseParticipantsFromYaml, parseFrontmatter } from './note/note-generator';
 import type { MeetingScribeSettings } from './settings/settings';
 import { TranscriptSidebarView } from './ui/sidebar/transcript-sidebar-view';
@@ -273,6 +273,7 @@ export default class MeetingScribePlugin extends Plugin {
 
 		this.addCommand({
 			id: 'open-transcript-sidebar',
+			// eslint-disable-next-line obsidianmd/ui/sentence-case -- command name
 			name: 'Open Transcript Sidebar',
 			callback: () => {
 				void this.activateSidebarView();
@@ -281,6 +282,7 @@ export default class MeetingScribePlugin extends Plugin {
 
 		this.addCommand({
 			id: 'audio-play-pause',
+			// eslint-disable-next-line obsidianmd/ui/sentence-case -- command name
 			name: 'Play/Pause audio',
 			callback: () => {
 				this.getActiveSidebarView()?.toggleAudio();
@@ -433,7 +435,8 @@ export default class MeetingScribePlugin extends Plugin {
 
 			if (!parsed.frontmatter.includes('created_by: meeting-scribe') &&
 				!parsed.frontmatter.includes('transcript_data:')) {
-				new Notice('This note was not created by Meeting Scribe');
+				// eslint-disable-next-line obsidianmd/ui/sentence-case -- product name
+			new Notice('This note was not created by Meeting Scribe');
 				return;
 			}
 
@@ -493,13 +496,13 @@ export default class MeetingScribePlugin extends Plugin {
 	private async activateSidebarView(): Promise<TranscriptSidebarView | null> {
 		const existing = this.app.workspace.getLeavesOfType(TranscriptSidebarView.VIEW_TYPE);
 		if (existing.length > 0) {
-			this.app.workspace.revealLeaf(existing[0]!);
+			void this.app.workspace.revealLeaf(existing[0]!);
 			return existing[0]!.view as TranscriptSidebarView;
 		}
 		const leaf = this.app.workspace.getRightLeaf(false);
 		if (leaf) {
 			await leaf.setViewState({ type: TranscriptSidebarView.VIEW_TYPE, active: true });
-			this.app.workspace.revealLeaf(leaf);
+			void this.app.workspace.revealLeaf(leaf);
 			return leaf.view as TranscriptSidebarView;
 		}
 		return null;
@@ -529,7 +532,6 @@ export default class MeetingScribePlugin extends Plugin {
 	onunload() {
 		this.pipelineAborted = true;
 		this.dispatcher?.abortAll();
-		this.app.workspace.detachLeavesOfType(TranscriptSidebarView.VIEW_TYPE);
 		this.ribbonHandler?.destroy();
 		this.statusBar?.destroy();
 		this.recorder?.destroy();

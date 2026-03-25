@@ -55,6 +55,7 @@ export class TranscriptSidebarView extends ItemView {
 	}
 
 	getDisplayText(): string {
+		// eslint-disable-next-line obsidianmd/ui/sentence-case -- product name
 		return 'Meeting Scribe';
 	}
 
@@ -103,10 +104,10 @@ export class TranscriptSidebarView extends ItemView {
 			this.contentEl,
 			sessions,
 			this.sessionElements,
-			(sessionId) => this.showTranscript(sessionId),
+			(sessionId) => { void this.showTranscript(sessionId); },
 			this.onRetry,
-			() => this.handleRefresh(),
-			(sessionId) => this.handleDeleteSession(sessionId),
+			() => { void this.handleRefresh(); },
+			(sessionId) => { void this.handleDeleteSession(sessionId); },
 			(notePath) => !!this.app.vault.getAbstractFileByPath(notePath),
 		);
 	}
@@ -130,6 +131,7 @@ export class TranscriptSidebarView extends ItemView {
 		// Header: back button + title + action buttons
 		const header = this.contentEl.createDiv({ cls: 'meeting-scribe-sidebar-transcript-header' });
 		const backBtn = header.createEl('button', {
+			// eslint-disable-next-line obsidianmd/ui/sentence-case -- button label
 			text: '\u2190 Sessions',
 			cls: 'meeting-scribe-sidebar-back-btn',
 		});
@@ -142,15 +144,16 @@ export class TranscriptSidebarView extends ItemView {
 			text: 'Re-summarize',
 			cls: 'meeting-scribe-sidebar-action-btn',
 		});
+		// eslint-disable-next-line obsidianmd/ui/sentence-case -- technical abbreviation
 		this.resummarizeBtn.setAttribute('aria-label', 'Re-summarize transcript with LLM');
-		this.resummarizeBtn.addEventListener('click', () => this.handleResummarize());
+		this.resummarizeBtn.addEventListener('click', () => { this.handleResummarize(); });
 
 		this.exportBtn = actions.createEl('button', {
 			text: 'Export',
 			cls: 'meeting-scribe-sidebar-action-btn',
 		});
 		this.exportBtn.setAttribute('aria-label', 'Export transcript to Markdown');
-		this.exportBtn.addEventListener('click', () => this.handleExport(session.title));
+		this.exportBtn.addEventListener('click', () => { void this.handleExport(session.title); });
 
 		// Load transcript data
 		const data = await loadTranscriptData(this.app.vault, session.transcriptFile);
@@ -178,7 +181,7 @@ export class TranscriptSidebarView extends ItemView {
 		this.scrollContainer.addEventListener('click', (e) => this.handleScrollContainerClick(e));
 		this.scrollContainer.addEventListener('dblclick', (e) => this.handleTimestampDblClick(e));
 		this.scrollContainer.addEventListener('keydown', (e) => this.handleEditKeydown(e));
-		this.scrollContainer.addEventListener('blur', (e) => this.handleEditBlur(e), true);
+		this.scrollContainer.addEventListener('blur', (e) => { void this.handleEditBlur(e); }, true);
 
 		// Audio player at bottom
 		if (session.audioFile) {
@@ -299,15 +302,17 @@ export class TranscriptSidebarView extends ItemView {
 
 		// Delete button click
 		if (target.closest('.meeting-scribe-sidebar-bubble-delete-btn')) {
+			// eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion -- closest() returns Element, need HTMLElement
 			const bubble = target.closest('.meeting-scribe-sidebar-bubble') as HTMLElement | null;
-			if (bubble) this.handleDeleteSegment(bubble);
+			if (bubble) void this.handleDeleteSegment(bubble);
 			return;
 		}
 
 		// Split button click
 		if (target.closest('.meeting-scribe-sidebar-bubble-split-btn')) {
+			// eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion -- closest() returns Element, need HTMLElement
 			const bubble = target.closest('.meeting-scribe-sidebar-bubble') as HTMLElement | null;
-			if (bubble) this.handleSplitSegment(bubble);
+			if (bubble) void this.handleSplitSegment(bubble);
 			return;
 		}
 
@@ -322,6 +327,7 @@ export class TranscriptSidebarView extends ItemView {
 		}
 
 		// Bubble text click → enter edit mode (use closest() for child elements from contentEditable)
+		// eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion -- closest() returns Element, need HTMLElement
 		const textEl = target.closest('.meeting-scribe-sidebar-bubble-text') as HTMLElement | null;
 		if (textEl) {
 			this.enterEditMode(textEl);
@@ -332,6 +338,7 @@ export class TranscriptSidebarView extends ItemView {
 	private enterEditMode(textEl: HTMLElement): void {
 		if (textEl.contentEditable === 'true') return; // Already editing
 
+		// eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion -- closest() returns Element, need HTMLElement
 		const bubble = textEl.closest('.meeting-scribe-sidebar-bubble') as HTMLElement | null;
 		if (!bubble) return;
 
@@ -344,6 +351,7 @@ export class TranscriptSidebarView extends ItemView {
 	private exitEditMode(textEl: HTMLElement): void {
 		textEl.contentEditable = 'false';
 		textEl.removeAttribute('data-original-text');
+		// eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion -- closest() returns Element, need HTMLElement
 		const bubble = textEl.closest('.meeting-scribe-sidebar-bubble') as HTMLElement | null;
 		bubble?.classList.remove('meeting-scribe-sidebar-bubble--editing');
 	}
@@ -413,6 +421,7 @@ export class TranscriptSidebarView extends ItemView {
 		if (newText === originalText) return;
 		if (!this.transcriptData || !this.transcriptFilePath) return;
 
+		// eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion -- closest() returns Element, need HTMLElement
 		const bubble = target.closest('.meeting-scribe-sidebar-bubble') as HTMLElement | null;
 		const segmentId = bubble?.getAttribute('data-segment-id');
 		if (!segmentId) return;
@@ -463,6 +472,7 @@ export class TranscriptSidebarView extends ItemView {
 		const segmentId = bubble.getAttribute('data-segment-id');
 		if (!segmentId) return;
 
+		// eslint-disable-next-line no-alert -- simple confirmation for destructive action
 		if (!confirm('Delete this segment?')) return;
 
 		const index = this.transcriptData.segments.findIndex(s => s.id === segmentId);
@@ -558,14 +568,16 @@ export class TranscriptSidebarView extends ItemView {
 		// Position relative to speaker element (account for scroll offset)
 		const rect = speakerEl.getBoundingClientRect();
 		const containerRect = this.scrollContainer.getBoundingClientRect();
+		// eslint-disable-next-line obsidianmd/no-static-styles-assignment -- dynamic popover positioning
 		popover.style.position = 'absolute';
 		popover.style.left = `${rect.left - containerRect.left}px`;
 		popover.style.top = `${rect.bottom - containerRect.top + this.scrollContainer.scrollTop + 4}px`;
 
 		attachSpeakerPopoverBehavior(popover, {
-			onApply: async (name, wikiLink) => {
-				await this.applySpeakerMapping(alias, name, wikiLink);
-				this.closeSpeakerPopover();
+			onApply: (name, wikiLink) => {
+				void this.applySpeakerMapping(alias, name, wikiLink).then(() => {
+					this.closeSpeakerPopover();
+				});
 			},
 			onCancel: () => {
 				this.closeSpeakerPopover();
@@ -606,16 +618,20 @@ export class TranscriptSidebarView extends ItemView {
 			const opt = document.createElement('button');
 			opt.className = 'meeting-scribe-sidebar-speaker-popover-suggestion';
 			opt.textContent = p.name || p.alias;
+			// eslint-disable-next-line obsidianmd/no-static-styles-assignment -- dynamic reassign popover option layout
 			opt.style.display = 'block';
+			// eslint-disable-next-line obsidianmd/no-static-styles-assignment -- dynamic reassign popover option layout
 			opt.style.width = '100%';
+			// eslint-disable-next-line obsidianmd/no-static-styles-assignment -- dynamic reassign popover option layout
 			opt.style.textAlign = 'left';
-			opt.addEventListener('click', async (e) => {
+			opt.addEventListener('click', (e) => {
 				e.stopPropagation();
 				segment.speaker = p.alias;
-				await saveTranscriptData(this.app.vault, this.transcriptFilePath!, this.transcriptData!);
-				this.closeSpeakerPopover();
-				while (this.scrollContainer!.firstChild) this.scrollContainer!.removeChild(this.scrollContainer!.firstChild);
-				renderTranscriptView(this.scrollContainer!, this.transcriptData!.segments, this.transcriptData!.participants);
+				void saveTranscriptData(this.app.vault, this.transcriptFilePath!, this.transcriptData!).then(() => {
+					this.closeSpeakerPopover();
+					while (this.scrollContainer!.firstChild) this.scrollContainer!.removeChild(this.scrollContainer!.firstChild);
+					renderTranscriptView(this.scrollContainer!, this.transcriptData!.segments, this.transcriptData!.participants);
+				});
 			});
 			popover.appendChild(opt);
 		}
@@ -632,6 +648,7 @@ export class TranscriptSidebarView extends ItemView {
 		// Position
 		const rect = target.getBoundingClientRect();
 		const containerRect = this.scrollContainer.getBoundingClientRect();
+		// eslint-disable-next-line obsidianmd/no-static-styles-assignment -- dynamic popover positioning
 		popover.style.position = 'absolute';
 		popover.style.left = `${rect.left - containerRect.left}px`;
 		popover.style.top = `${rect.bottom - containerRect.top + this.scrollContainer.scrollTop + 4}px`;
@@ -675,8 +692,8 @@ export class TranscriptSidebarView extends ItemView {
 		}
 
 		// Show confirmation modal
-		const modal = new ConfirmResummarizeModal(this.app, async () => {
-			await this.executeResummarize();
+		const modal = new ConfirmResummarizeModal(this.app, () => {
+			void this.executeResummarize();
 		});
 		modal.open();
 	}
@@ -853,7 +870,7 @@ export class TranscriptSidebarView extends ItemView {
 			// Delete transcript JSON file
 			const transcriptFile = this.app.vault.getAbstractFileByPath(session.transcriptFile);
 			if (transcriptFile instanceof TFile) {
-				await this.app.vault.delete(transcriptFile);
+				await this.app.fileManager.trashFile(transcriptFile);
 			}
 		}
 		this.sessionManager.removeSession(sessionId);
@@ -875,7 +892,7 @@ export class TranscriptSidebarView extends ItemView {
 			// Update existing element in place
 			const newEl = renderSingleItem(
 				session,
-				(id) => this.showTranscript(id),
+				(id) => { void this.showTranscript(id); },
 				this.onRetry,
 			);
 			existingEl.replaceWith(newEl);
@@ -889,7 +906,7 @@ export class TranscriptSidebarView extends ItemView {
 				const list = this.contentEl.createDiv({ cls: 'meeting-scribe-sidebar-session-list' });
 				const newEl = renderSingleItem(
 					session,
-					(id) => this.showTranscript(id),
+					(id) => { void this.showTranscript(id); },
 					this.onRetry,
 				);
 				list.appendChild(newEl);
@@ -897,7 +914,7 @@ export class TranscriptSidebarView extends ItemView {
 			} else if (listContainer) {
 				const newEl = renderSingleItem(
 					session,
-					(id) => this.showTranscript(id),
+					(id) => { void this.showTranscript(id); },
 					this.onRetry,
 				);
 				listContainer.insertBefore(newEl, listContainer.firstChild);
@@ -918,6 +935,7 @@ class ConfirmResummarizeModal extends Modal {
 	onOpen(): void {
 		const { contentEl } = this;
 		contentEl.createEl('p', {
+			// eslint-disable-next-line obsidianmd/ui/sentence-case -- technical abbreviation
 			text: 'This will send the edited transcript to LLM for a new summary. API cost will be incurred.',
 		});
 		const btnRow = contentEl.createDiv({ cls: 'meeting-scribe-modal-actions' });

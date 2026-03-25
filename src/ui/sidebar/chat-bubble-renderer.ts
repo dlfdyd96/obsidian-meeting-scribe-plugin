@@ -158,7 +158,8 @@ export function renderTranscriptView(
 			if (participant && hasWikiLink(participant)) {
 				const linkIcon = document.createElement('span');
 				linkIcon.className = 'meeting-scribe-sidebar-bubble-speaker-link-icon';
-				linkIcon.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg>';
+				// eslint-disable-next-line @microsoft/sdl/no-inner-html -- static SVG icon, no user input
+			linkIcon.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg>';
 				linkIcon.setAttribute('aria-label', 'Wiki-linked');
 				speakerRow.appendChild(linkIcon);
 			}
@@ -195,12 +196,14 @@ export function renderTranscriptView(
 		const deleteBtn = document.createElement('button');
 		deleteBtn.className = 'meeting-scribe-sidebar-bubble-delete-btn';
 		deleteBtn.setAttribute('aria-label', 'Delete segment');
+		// eslint-disable-next-line @microsoft/sdl/no-inner-html -- static SVG icon, no user input
 		deleteBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6"/></svg>';
 		actionsEl.appendChild(deleteBtn);
 
 		const splitBtn = document.createElement('button');
 		splitBtn.className = 'meeting-scribe-sidebar-bubble-split-btn';
 		splitBtn.setAttribute('aria-label', 'Split segment at cursor (enter edit mode first)');
+		// eslint-disable-next-line @microsoft/sdl/no-inner-html -- static SVG icon, no user input
 		splitBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20"/><path d="M8 8l-4 4 4 4"/><path d="M16 8l4 4-4 4"/></svg>';
 		// Prevent mousedown from moving focus away from text (preserves cursor position for split)
 		splitBtn.addEventListener('mousedown', (e) => e.preventDefault());
