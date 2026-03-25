@@ -25,6 +25,7 @@ data.json
 _bmad*
 .claude
 docs
+!docs/images/
 .playwright-mcp
 
 # E2E testing

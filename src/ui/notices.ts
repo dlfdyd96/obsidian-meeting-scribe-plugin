@@ -124,7 +124,7 @@ export class NoticeManager {
 
 	showWelcome(): Notice {
 		return new Notice(
-			// eslint-disable-next-line obsidianmd/ui/sentence-case
+			// eslint-disable-next-line obsidianmd/ui/sentence-case -- product name
 			'Welcome to Meeting Scribe! Set up your API keys to get started.',
 			NOTICE_WELCOME_TIMEOUT_MS,
 		);
@@ -148,7 +148,7 @@ export class NoticeManager {
 		const fragment = document.createDocumentFragment();
 
 		const msg = document.createElement('div');
-		// eslint-disable-next-line obsidianmd/ui/sentence-case
+		// eslint-disable-next-line obsidianmd/ui/sentence-case -- technical abbreviation
 		msg.textContent = 'Set up API keys in Settings to start recording';
 		fragment.appendChild(msg);
 
