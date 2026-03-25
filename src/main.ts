@@ -303,6 +303,14 @@ export default class MeetingScribePlugin extends Plugin {
 			},
 		});
 
+		// Recover sessions first, then enable auto-open to avoid race condition
+		const sessionRecovery = this.dispatcher.recoverSessions().then(count => {
+			if (count > 0) {
+				logger.info(COMPONENT, 'Recovered sessions', { count });
+				this.getActiveSidebarView()?.showSessionList();
+			}
+		});
+
 		// Auto-open sidebar when a meeting note becomes active
 		this.registerEvent(
 			this.app.workspace.on('active-leaf-change', (leaf) => {
@@ -317,7 +325,8 @@ export default class MeetingScribePlugin extends Plugin {
 					const cache = this.app.metadataCache.getFileCache(file);
 					const transcriptDataPath = cache?.frontmatter?.['transcript_data'] as string | undefined;
 					if (transcriptDataPath) {
-						void this.handleMeetingNoteOpened(file.path, transcriptDataPath);
+						// Wait for session recovery before opening transcript
+						void sessionRecovery.then(() => this.handleMeetingNoteOpened(file.path, transcriptDataPath));
 					}
 				};
 
@@ -325,22 +334,12 @@ export default class MeetingScribePlugin extends Plugin {
 				const cache = this.app.metadataCache.getFileCache(file);
 				const transcriptDataPath = cache?.frontmatter?.['transcript_data'] as string | undefined;
 				if (transcriptDataPath) {
-					void this.handleMeetingNoteOpened(file.path, transcriptDataPath);
+					void sessionRecovery.then(() => this.handleMeetingNoteOpened(file.path, transcriptDataPath));
 				} else if (!cache?.frontmatter) {
-					// Retry once after metadata resolves
 					setTimeout(tryAutoOpen, 300);
 				}
 			}),
 		);
-
-		// Recover sessions from previous app run (complete, error, interrupted)
-		void this.dispatcher.recoverSessions().then(count => {
-			if (count > 0) {
-				logger.info(COMPONENT, 'Recovered sessions', { count });
-				// Refresh sidebar if already open so it shows recovered sessions at once
-				this.getActiveSidebarView()?.showSessionList();
-			}
-		});
 
 		logger.debug(COMPONENT, 'Plugin loaded');
 	}

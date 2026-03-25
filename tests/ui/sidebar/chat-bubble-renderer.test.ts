@@ -73,7 +73,7 @@ describe('chat-bubble-renderer', () => {
 			expect(text!.textContent).toBe('Test content');
 		});
 
-		it('omits speaker name for consecutive same-speaker segments', () => {
+		it('shows reassign button for consecutive same-speaker segments', () => {
 			const container = document.createElement('div');
 			const segments = [
 				createSegment({ id: 'seg-1', speaker: 'Participant 1', start: 0, text: 'First' }),
@@ -91,14 +91,18 @@ describe('chat-bubble-renderer', () => {
 			const bubbles = container.querySelectorAll('.meeting-scribe-sidebar-bubble');
 			expect(bubbles.length).toBe(4);
 
-			// First bubble of each speaker group has speaker name
-			expect(bubbles[0]!.querySelector('.meeting-scribe-sidebar-bubble-speaker')).not.toBeNull();
-			// Second consecutive same speaker omits name
-			expect(bubbles[1]!.querySelector('.meeting-scribe-sidebar-bubble-speaker')).toBeNull();
-			// New speaker shows name
+			// First bubble of each speaker group has full speaker name
+			const speaker0 = bubbles[0]!.querySelector('.meeting-scribe-sidebar-bubble-speaker');
+			expect(speaker0).not.toBeNull();
+			expect(speaker0!.classList.contains('meeting-scribe-sidebar-bubble-speaker--reassign')).toBe(false);
+			// Consecutive bubble has reassign button with segment ID
+			const reassign1 = bubbles[1]!.querySelector('.meeting-scribe-sidebar-bubble-speaker--reassign');
+			expect(reassign1).not.toBeNull();
+			expect(reassign1!.getAttribute('data-segment-id')).toBe('seg-2');
+			// New speaker shows full name
 			expect(bubbles[2]!.querySelector('.meeting-scribe-sidebar-bubble-speaker')).not.toBeNull();
-			// Consecutive same speaker omits name
-			expect(bubbles[3]!.querySelector('.meeting-scribe-sidebar-bubble-speaker')).toBeNull();
+			// Consecutive has reassign button
+			expect(bubbles[3]!.querySelector('.meeting-scribe-sidebar-bubble-speaker--reassign')).not.toBeNull();
 		});
 
 		it('applies speaker color to speaker name via inline style', () => {

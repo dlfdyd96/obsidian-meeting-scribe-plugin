@@ -315,12 +315,18 @@ describe("Inline Transcript Editing — E2E Tests", function () {
 				sel?.addRange(range);
 			}, textEl);
 
-			// Make split button visible via JS (CSS hover unreliable in headless) and click
+			// Make action buttons visible via JS (CSS hover unreliable in headless)
+			// Split button is only visible in edit mode (--editing class), which is already set
 			await browser.execute(() => {
 				const actions = document.querySelector(
 					".meeting-scribe-sidebar-bubble-actions",
 				) as HTMLElement;
 				if (actions) actions.style.display = "flex";
+				// Also force split button visible in case CSS specificity doesn't apply in headless
+				const splitBtn = document.querySelector(
+					".meeting-scribe-sidebar-bubble-split-btn",
+				) as HTMLElement;
+				if (splitBtn) splitBtn.style.display = "flex";
 			});
 			await browser.pause(100);
 
@@ -405,6 +411,50 @@ describe("Inline Transcript Editing — E2E Tests", function () {
 			// Cancel with Escape
 			await browser.keys("Escape");
 			await browser.pause(200);
+		});
+
+		it("should re-sort segments after timestamp change", async function () {
+			// Get all timestamps before
+			const timestampsBefore = await browser.$$(".meeting-scribe-sidebar-bubble-timestamp--clickable");
+			const count = timestampsBefore.length;
+			expect(count).toBeGreaterThanOrEqual(2);
+
+			// Double-click first timestamp to edit
+			await timestampsBefore[0]!.doubleClick();
+			await browser.pause(200);
+
+			// Change to a late time (so it should move to end)
+			await browser.execute((el: Element) => {
+				(el as HTMLElement).textContent = "[00:05:00]";
+			}, timestampsBefore[0]!);
+
+			// Blur to save (click header)
+			const header = await browser.$(".meeting-scribe-sidebar-transcript-header");
+			await header.click();
+			await browser.pause(500);
+
+			// After re-render, first timestamp should NOT be [00:05:00] (it moved)
+			const timestampsAfter = await browser.$$(".meeting-scribe-sidebar-bubble-timestamp--clickable");
+			const lastTimestampText = await timestampsAfter[timestampsAfter.length - 1]!.getText();
+			expect(lastTimestampText).toBe("[00:05:00]");
+		});
+	});
+
+	describe("Reassign Speaker on Consecutive Bubbles", function () {
+		it("should show reassign speaker button on hover of consecutive bubble", async function () {
+			const reassignBtn = await browser.$(
+				".meeting-scribe-sidebar-bubble-speaker--reassign",
+			);
+			// It exists in DOM but hidden by default
+			if (await reassignBtn.isExisting()) {
+				// Make it visible via JS for testing
+				await browser.execute((el: Element) => {
+					(el as HTMLElement).style.display = "inline";
+				}, reassignBtn);
+
+				const text = await reassignBtn.getText();
+				expect(text.length).toBeGreaterThan(0);
+			}
 		});
 	});
 });

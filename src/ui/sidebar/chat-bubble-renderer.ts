@@ -162,6 +162,17 @@ export function renderTranscriptView(
 				linkIcon.setAttribute('aria-label', 'Wiki-linked');
 				speakerRow.appendChild(linkIcon);
 			}
+		} else {
+			// Consecutive bubble: show small reassign-speaker button (hover-visible)
+			const reassignBtn = document.createElement('span');
+			reassignBtn.className = 'meeting-scribe-sidebar-bubble-speaker meeting-scribe-sidebar-bubble-speaker--clickable meeting-scribe-sidebar-bubble-speaker--reassign';
+			reassignBtn.textContent = displayName;
+			reassignBtn.setAttribute('data-speaker-alias', segment.speaker);
+			reassignBtn.setAttribute('data-segment-id', segment.id);
+			if (participant) {
+				reassignBtn.style.color = getSpeakerColor(participant);
+			}
+			speakerRow.appendChild(reassignBtn);
 		}
 
 		const timestampEl = document.createElement('span');
@@ -191,6 +202,8 @@ export function renderTranscriptView(
 		splitBtn.className = 'meeting-scribe-sidebar-bubble-split-btn';
 		splitBtn.setAttribute('aria-label', 'Split segment at cursor (enter edit mode first)');
 		splitBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20"/><path d="M8 8l-4 4 4 4"/><path d="M16 8l4 4-4 4"/></svg>';
+		// Prevent mousedown from moving focus away from text (preserves cursor position for split)
+		splitBtn.addEventListener('mousedown', (e) => e.preventDefault());
 		actionsEl.appendChild(splitBtn);
 
 		bubble.appendChild(actionsEl);

@@ -577,24 +577,40 @@ Meeting Scribe plugin styles.
 .meeting-scribe-sidebar-player-volume-slider {
 	writing-mode: vertical-lr;
 	direction: rtl;
-	width: 4px;
+	width: 6px;
 	height: 80px;
 	appearance: none;
 	-webkit-appearance: none;
 	background: var(--background-modifier-border);
-	border-radius: 2px;
+	border-radius: 3px;
 	outline: none;
 	cursor: pointer;
+	margin: 0;
 }
 
 .meeting-scribe-sidebar-player-volume-slider::-webkit-slider-thumb {
 	-webkit-appearance: none;
 	appearance: none;
-	width: 12px;
-	height: 12px;
+	width: 10px;
+	height: 10px;
 	background: var(--interactive-accent);
 	border-radius: 50%;
 	cursor: pointer;
+}
+
+.meeting-scribe-sidebar-player-volume-slider::-moz-range-thumb {
+	width: 10px;
+	height: 10px;
+	background: var(--interactive-accent);
+	border-radius: 50%;
+	border: none;
+	cursor: pointer;
+}
+
+.meeting-scribe-sidebar-player-volume-slider::-moz-range-track {
+	background: var(--background-modifier-border);
+	border-radius: 3px;
+	width: 6px;
 }
 
 .meeting-scribe-sidebar-player-speed-wrapper {
@@ -705,6 +721,17 @@ Meeting Scribe plugin styles.
 .meeting-scribe-sidebar-bubble-speaker--clickable:hover {
 	text-decoration: underline;
 	opacity: 0.85;
+}
+
+/* Reassign speaker on consecutive bubbles — hidden until hover */
+.meeting-scribe-sidebar-bubble-speaker--reassign {
+	display: none;
+	font-size: 0.8em;
+	opacity: 0.6;
+}
+
+.meeting-scribe-sidebar-bubble:hover .meeting-scribe-sidebar-bubble-speaker--reassign {
+	display: inline;
 }
 
 .meeting-scribe-sidebar-bubble-speaker-link-icon {

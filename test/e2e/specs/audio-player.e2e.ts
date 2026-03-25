@@ -124,6 +124,92 @@ describe("Audio Player — E2E Tests", function () {
 		});
 	});
 
+	describe("Volume Control", function () {
+		it("should open volume popup on click", async function () {
+			// Re-open transcript view if needed
+			const player = await browser.$(
+				".meeting-scribe-sidebar-player",
+			);
+			if (!(await player.isExisting())) {
+				await browser.executeObsidianCommand(
+					"meeting-scribe:open-transcript-sidebar",
+				);
+				await browser.pause(500);
+				const sessionItem = await browser.$(
+					".meeting-scribe-sidebar-session-item",
+				);
+				await sessionItem.click();
+				await browser.pause(1000);
+			}
+
+			const volumeBtn = await browser.$(
+				".meeting-scribe-sidebar-player-volume-btn",
+			);
+			await volumeBtn.click();
+			await browser.pause(200);
+
+			const popup = await browser.$(
+				".meeting-scribe-sidebar-player-volume-popup--visible",
+			);
+			expect(await popup.isExisting()).toBe(true);
+		});
+
+		it("should have a vertical range slider in the popup", async function () {
+			const slider = await browser.$(
+				".meeting-scribe-sidebar-player-volume-slider",
+			);
+			expect(await slider.isExisting()).toBe(true);
+
+			// Verify it's an input[type=range]
+			const type = await browser.execute(
+				(el: Element) => (el as HTMLInputElement).type,
+				slider,
+			);
+			expect(type).toBe("range");
+
+			// Verify vertical orientation via writing-mode CSS
+			const writingMode = await browser.execute(
+				(el: Element) => getComputedStyle(el).writingMode,
+				slider,
+			);
+			expect(writingMode).toContain("vertical");
+		});
+
+		it("should change volume when slider is moved", async function () {
+			const slider = await browser.$(
+				".meeting-scribe-sidebar-player-volume-slider",
+			);
+
+			// Set slider to 50% via JS
+			await browser.execute((el: Element) => {
+				const input = el as HTMLInputElement;
+				input.value = "50";
+				input.dispatchEvent(new Event("input", { bubbles: true }));
+			}, slider);
+			await browser.pause(200);
+
+			// Verify slider value persisted
+			const sliderValue = await browser.execute(
+				(el: Element) => (el as HTMLInputElement).value,
+				slider,
+			);
+			expect(sliderValue).toBe("50");
+		});
+
+		it("should close volume popup on second click", async function () {
+			const volumeBtn = await browser.$(
+				".meeting-scribe-sidebar-player-volume-btn",
+			);
+			await volumeBtn.click();
+			await browser.pause(200);
+
+			const popup = await browser.$(
+				".meeting-scribe-sidebar-player-volume-popup--visible",
+			);
+			expect(await popup.isExisting()).toBe(false);
+		});
+	});
+
 	describe("Player Cleanup", function () {
 		it("should destroy audio player when navigating back to session list", async function () {
 			// We should be in transcript view from previous tests

@@ -4,7 +4,7 @@ export const config: WebdriverIO.Config = {
 	runner: "local",
 	framework: "mocha",
 	specs: ["./test/e2e/specs/**/*.e2e.ts"],
-	maxInstances: 1,
+	maxInstances: 4,
 
 	capabilities: [
 		{

@@ -311,9 +311,13 @@ export class TranscriptSidebarView extends ItemView {
 			return;
 		}
 
-		// Speaker name click → open name mapping popover
+		// Speaker name click → open name mapping popover or reassign single segment
 		if (target.classList.contains('meeting-scribe-sidebar-bubble-speaker')) {
-			this.openSpeakerPopover(target);
+			if (target.classList.contains('meeting-scribe-sidebar-bubble-speaker--reassign')) {
+				this.openReassignPopover(target);
+			} else {
+				this.openSpeakerPopover(target);
+			}
 			return;
 		}
 
@@ -418,6 +422,7 @@ export class TranscriptSidebarView extends ItemView {
 
 		if (isText) {
 			segment.text = newText;
+			await saveTranscriptData(this.app.vault, this.transcriptFilePath, this.transcriptData);
 		} else {
 			// Parse timestamp [HH:MM:SS] to seconds
 			const parsed = this.parseTimestamp(newText);
@@ -425,16 +430,23 @@ export class TranscriptSidebarView extends ItemView {
 				const duration = segment.end - segment.start;
 				segment.start = parsed;
 				segment.end = parsed + duration;
-				target.setAttribute('data-start', String(parsed));
-				bubble?.setAttribute('data-segment-start', String(parsed));
-				bubble?.setAttribute('data-segment-end', String(segment.end));
+
+				// Re-sort segments by start time to maintain chronological order
+				this.transcriptData.segments.sort((a, b) => a.start - b.start);
+
+				await saveTranscriptData(this.app.vault, this.transcriptFilePath, this.transcriptData);
+
+				// Re-render to reflect new order
+				if (this.scrollContainer) {
+					while (this.scrollContainer.firstChild) this.scrollContainer.removeChild(this.scrollContainer.firstChild);
+					renderTranscriptView(this.scrollContainer, this.transcriptData.segments, this.transcriptData.participants);
+				}
 			} else {
 				// Invalid format — restore original
 				target.textContent = originalText;
 				return;
 			}
 		}
-		await saveTranscriptData(this.app.vault, this.transcriptFilePath, this.transcriptData);
 	}
 
 	private parseTimestamp(text: string): number | null {
@@ -565,6 +577,64 @@ export class TranscriptSidebarView extends ItemView {
 				}));
 			},
 		});
+
+		this.scrollContainer.appendChild(popover);
+		this.activeSpeakerPopover = popover;
+	}
+
+	private openReassignPopover(target: HTMLElement): void {
+		this.closeSpeakerPopover();
+		if (!this.transcriptData || !this.transcriptFilePath || !this.scrollContainer) return;
+
+		const segmentId = target.getAttribute('data-segment-id');
+		if (!segmentId) return;
+
+		const segment = this.transcriptData.segments.find(s => s.id === segmentId);
+		if (!segment) return;
+
+		// Build a simple dropdown of existing participants
+		const popover = document.createElement('div');
+		popover.className = 'meeting-scribe-sidebar-speaker-popover meeting-scribe-sidebar-speaker-popover--visible';
+
+		const title = document.createElement('div');
+		title.className = 'meeting-scribe-sidebar-speaker-popover-title';
+		title.textContent = 'Reassign speaker';
+		popover.appendChild(title);
+
+		for (const p of this.transcriptData.participants) {
+			if (p.alias === segment.speaker) continue; // Skip current speaker
+			const opt = document.createElement('button');
+			opt.className = 'meeting-scribe-sidebar-speaker-popover-suggestion';
+			opt.textContent = p.name || p.alias;
+			opt.style.display = 'block';
+			opt.style.width = '100%';
+			opt.style.textAlign = 'left';
+			opt.addEventListener('click', async (e) => {
+				e.stopPropagation();
+				segment.speaker = p.alias;
+				await saveTranscriptData(this.app.vault, this.transcriptFilePath!, this.transcriptData!);
+				this.closeSpeakerPopover();
+				while (this.scrollContainer!.firstChild) this.scrollContainer!.removeChild(this.scrollContainer!.firstChild);
+				renderTranscriptView(this.scrollContainer!, this.transcriptData!.segments, this.transcriptData!.participants);
+			});
+			popover.appendChild(opt);
+		}
+
+		const cancelBtn = document.createElement('button');
+		cancelBtn.className = 'meeting-scribe-sidebar-speaker-popover-cancel-btn';
+		cancelBtn.textContent = 'Cancel';
+		cancelBtn.addEventListener('click', (e) => {
+			e.stopPropagation();
+			this.closeSpeakerPopover();
+		});
+		popover.appendChild(cancelBtn);
+
+		// Position
+		const rect = target.getBoundingClientRect();
+		const containerRect = this.scrollContainer.getBoundingClientRect();
+		popover.style.position = 'absolute';
+		popover.style.left = `${rect.left - containerRect.left}px`;
+		popover.style.top = `${rect.bottom - containerRect.top + this.scrollContainer.scrollTop + 4}px`;
 
 		this.scrollContainer.appendChild(popover);
 		this.activeSpeakerPopover = popover;
