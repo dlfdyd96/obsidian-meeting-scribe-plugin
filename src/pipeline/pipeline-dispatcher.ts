@@ -37,9 +37,18 @@ export class PipelineDispatcher {
 		private getSettings: () => MeetingScribeSettings,
 	) {}
 
-	async dispatch(audioFilePath: string): Promise<string> {
-		const session = this.sessionManager.createSession(audioFilePath);
-		const sessionId = session.id;
+	async dispatch(audioFilePath: string, existingSessionId?: string): Promise<string> {
+		let sessionId: string;
+		if (existingSessionId) {
+			sessionId = existingSessionId;
+			this.sessionManager.updateSessionState(sessionId, {
+				status: 'transcribing',
+				progress: 0,
+			});
+		} else {
+			const session = this.sessionManager.createSession(audioFilePath);
+			sessionId = session.id;
+		}
 
 		logger.info(COMPONENT, 'Dispatching pipeline', { sessionId, audioFilePath });
 
@@ -89,22 +98,28 @@ export class PipelineDispatcher {
 	async recoverSessions(): Promise<number> {
 		let recovered = 0;
 		try {
-			const files = this.vault.getFiles();
-			const transcriptFiles = files.filter(f => f.path.endsWith('.transcript.json'));
+			const transcriptFiles = await this.findTranscriptFiles();
 
-			for (const file of transcriptFiles) {
+			for (const filePath of transcriptFiles) {
 				try {
-					const data = await loadTranscriptData(this.vault, file.path);
+					const data = await loadTranscriptData(this.vault, filePath);
 					if (!data) continue;
 
 					const status = data.pipeline.status;
+					const title = this.deriveTitleFromData(data);
+
 					if (status === 'transcribing' || status === 'summarizing' || status === 'queued') {
-						const session = this.sessionManager.createSession(data.audioFile);
-						this.sessionManager.updateSessionState(session.id, {
-							status: 'error',
-							error: 'Pipeline interrupted — app was closed during processing',
-							completedSteps: data.pipeline.completedSteps,
-							failedStep: data.pipeline.failedStep ?? status,
+						const session = this.sessionManager.restoreSession({
+							audioFile: data.audioFile,
+							transcriptFile: filePath,
+							title,
+							pipeline: {
+								...data.pipeline,
+								status: 'error',
+								error: 'Pipeline interrupted — app was closed during processing',
+								failedStep: data.pipeline.failedStep ?? status,
+							},
+							createdAt: data.createdAt,
 						});
 						recovered++;
 						logger.info(COMPONENT, 'Recovered interrupted session', {
@@ -112,10 +127,23 @@ export class PipelineDispatcher {
 							audioFile: data.audioFile,
 							previousStatus: status,
 						});
+					} else if (status === 'complete' || status === 'error') {
+						this.sessionManager.restoreSession({
+							audioFile: data.audioFile,
+							transcriptFile: filePath,
+							title,
+							pipeline: data.pipeline,
+							createdAt: data.createdAt,
+						});
+						recovered++;
+						logger.info(COMPONENT, 'Recovered session', {
+							audioFile: data.audioFile,
+							status,
+						});
 					}
 				} catch (err) {
 					logger.warn(COMPONENT, 'Failed to recover transcript file', {
-						path: file.path,
+						path: filePath,
 						error: (err as Error).message,
 					});
 				}
@@ -247,6 +275,34 @@ export class PipelineDispatcher {
 		const next = this.queue.shift()!;
 		logger.info(COMPONENT, 'Dequeuing session', { sessionId: next.sessionId });
 		void this.executeSession(next.sessionId, next.audioFilePath, next.startFromStep);
+	}
+
+	private async findTranscriptFiles(): Promise<string[]> {
+		const result: string[] = [];
+		const scan = async (folder: string): Promise<void> => {
+			try {
+				const listing = await this.vault.adapter.list(folder);
+				for (const filePath of listing.files) {
+					if (filePath.endsWith('.transcript.json')) {
+						result.push(filePath);
+					}
+				}
+				for (const subfolder of listing.folders) {
+					await scan(subfolder);
+				}
+			} catch {
+				// folder may not exist, skip
+			}
+		};
+		await scan('');
+		return result;
+	}
+
+	private deriveTitleFromData(data: TranscriptData): string {
+		const date = new Date(data.createdAt);
+		const dateStr = date.toISOString().slice(0, 10);
+		const timeStr = date.toTimeString().slice(0, 5);
+		return `Meeting ${dateStr} ${timeStr}`;
 	}
 
 	private async persistPipelineState(sessionId: string): Promise<void> {

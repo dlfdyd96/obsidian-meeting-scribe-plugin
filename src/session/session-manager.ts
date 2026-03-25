@@ -78,6 +78,52 @@ export class SessionManager {
 		this.observers.delete(observer);
 	}
 
+	restoreSession(params: {
+		audioFile: string;
+		transcriptFile: string;
+		title: string;
+		pipeline: PipelineState;
+		createdAt: string;
+	}): MeetingSession {
+		const id = this.generateId();
+		const now = new Date().toISOString();
+
+		const session: MeetingSession = {
+			id,
+			title: params.title,
+			audioFile: params.audioFile,
+			transcriptFile: params.transcriptFile,
+			pipeline: {
+				...params.pipeline,
+				completedSteps: [...params.pipeline.completedSteps],
+			},
+			createdAt: params.createdAt,
+			updatedAt: now,
+		};
+
+		this.sessions.set(id, session);
+		logger.info(COMPONENT, 'Session restored', { id, audioFile: params.audioFile, status: params.pipeline.status });
+		// Do NOT notify observers — restored sessions should not trigger
+		// "Meeting note created" notices or other side effects.
+		// Caller is responsible for refreshing UI after batch restore.
+
+		return this.copySession(session);
+	}
+
+	updateSessionAudioFile(sessionId: string, audioFile: string): void {
+		const session = this.sessions.get(sessionId);
+		if (!session) {
+			throw new DataError(`Session not found: ${sessionId}`);
+		}
+
+		session.audioFile = audioFile;
+		session.transcriptFile = `${audioFile}.transcript.json`;
+		session.updatedAt = new Date().toISOString();
+
+		logger.debug(COMPONENT, 'Session audio file updated', { sessionId, audioFile });
+		this.notifyObservers(sessionId, session);
+	}
+
 	findSessionByNotePath(notePath: string): MeetingSession | undefined {
 		for (const session of this.sessions.values()) {
 			if (session.pipeline.noteFilePath === notePath) {

@@ -102,9 +102,10 @@ Meeting Scribe plugin styles.
 .meeting-scribe-sidebar-session-item {
 	display: flex;
 	align-items: center;
-	gap: 8px;
-	padding: 8px 12px;
+	gap: 10px;
+	padding: 10px 12px;
 	border-radius: var(--radius-s);
+	transition: background-color 0.12s ease;
 }
 
 .meeting-scribe-sidebar-session-item--clickable {
@@ -112,7 +113,7 @@ Meeting Scribe plugin styles.
 }
 
 .meeting-scribe-sidebar-session-item--clickable:hover {
-	background-color: var(--background-modifier-hover);
+	background-color: var(--background-secondary);
 }
 
 .meeting-scribe-sidebar-status-dot {
@@ -124,7 +125,7 @@ Meeting Scribe plugin styles.
 }
 
 .meeting-scribe-sidebar-status-dot--complete {
-	background-color: var(--interactive-accent);
+	background-color: var(--text-success);
 }
 
 .meeting-scribe-sidebar-status-dot--processing {
@@ -191,6 +192,15 @@ Meeting Scribe plugin styles.
 	font-size: var(--font-ui-smaller);
 	padding: 2px 8px;
 	cursor: pointer;
+	border: 1px solid var(--text-error);
+	color: var(--text-error);
+	background: none;
+	border-radius: 4px;
+}
+
+.meeting-scribe-sidebar-retry-btn:hover {
+	background-color: var(--text-error);
+	color: var(--background-primary);
 }
 
 .meeting-scribe-sidebar-transcript-header {
@@ -204,7 +214,14 @@ Meeting Scribe plugin styles.
 .meeting-scribe-sidebar-back-btn {
 	font-size: var(--font-ui-small);
 	cursor: pointer;
-	padding: 2px 8px;
+	padding: 2px 4px;
+	background: none;
+	border: none;
+	color: var(--text-muted);
+}
+
+.meeting-scribe-sidebar-back-btn:hover {
+	color: var(--interactive-accent);
 }
 
 .meeting-scribe-sidebar-transcript-header h3 {
@@ -226,8 +243,17 @@ Meeting Scribe plugin styles.
 
 .meeting-scribe-sidebar-action-btn {
 	font-size: var(--font-ui-smaller);
-	padding: 2px 8px;
+	padding: 3px 8px;
 	cursor: pointer;
+	background: none;
+	border: 1px solid var(--background-modifier-border);
+	color: var(--text-muted);
+	border-radius: 4px;
+}
+
+.meeting-scribe-sidebar-action-btn:hover:not(:disabled) {
+	background-color: var(--background-modifier-hover);
+	color: var(--text-normal);
 }
 
 .meeting-scribe-sidebar-action-btn:disabled {
@@ -238,7 +264,9 @@ Meeting Scribe plugin styles.
 .meeting-scribe-sidebar-transcript-scroll {
 	overflow-y: auto;
 	flex: 1;
-	padding: 8px 12px;
+	padding: 6px 10px;
+	scroll-behavior: smooth;
+	background: var(--background-primary);
 }
 
 .meeting-scribe-sidebar-transcript-error {
@@ -249,31 +277,42 @@ Meeting Scribe plugin styles.
 }
 
 .meeting-scribe-sidebar-bubble {
-	border-left: 3px solid var(--interactive-accent);
-	background-color: var(--background-secondary);
-	padding: 6px 10px;
-	margin-bottom: 4px;
-	border-radius: var(--radius-s);
+	background: var(--background-secondary);
+	padding: 8px 10px;
+	margin-top: 10px;
+	margin-bottom: 2px;
+	border-radius: 6px;
+	position: relative;
+}
+
+/* Consecutive same-speaker bubbles: tighter spacing, no top gap */
+.meeting-scribe-sidebar-bubble--consecutive {
+	margin-top: 2px;
+}
+
+.meeting-scribe-sidebar-bubble-speaker-row {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	margin-bottom: 3px;
 }
 
 .meeting-scribe-sidebar-bubble-speaker {
-	display: block;
 	font-weight: var(--font-semibold);
-	font-size: var(--font-ui-small);
+	font-size: 12px;
 	color: var(--text-normal);
-	margin-bottom: 2px;
 }
 
 .meeting-scribe-sidebar-bubble-timestamp {
-	font-size: var(--font-ui-smaller);
-	color: var(--text-muted);
-	margin-right: 4px;
+	font-size: 10px;
+	color: var(--text-faint);
+	font-family: var(--font-monospace);
 }
 
 .meeting-scribe-sidebar-bubble-text {
 	font-size: var(--font-ui-small);
 	color: var(--text-normal);
-	line-height: 1.4;
+	line-height: 1.5;
 }
 
 /* Respect user's reduced-motion preference */

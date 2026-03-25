@@ -101,7 +101,7 @@ describe('chat-bubble-renderer', () => {
 			expect(bubbles[3]!.querySelector('.meeting-scribe-sidebar-bubble-speaker')).toBeNull();
 		});
 
-		it('applies speaker border color via inline style', () => {
+		it('applies speaker color to speaker name via inline style', () => {
 			const container = document.createElement('div');
 			const segments = [
 				createSegment({ speaker: 'Participant 1', start: 0 }),
@@ -112,12 +112,11 @@ describe('chat-bubble-renderer', () => {
 
 			renderTranscriptView(container, segments, participants);
 
-			const bubble = container.querySelector('.meeting-scribe-sidebar-bubble') as HTMLElement;
-			// JSDOM converts hsl() to rgb(), so just check that a border color is set
-			expect(bubble.style.borderLeftColor).not.toBe('');
+			const speakerEl = container.querySelector('.meeting-scribe-sidebar-bubble-speaker') as HTMLElement;
+			expect(speakerEl.style.color).not.toBe('');
 		});
 
-		it('renders different border colors for different speakers', () => {
+		it('renders different speaker name colors for different speakers', () => {
 			const container = document.createElement('div');
 			const segments = [
 				createSegment({ id: 'seg-1', speaker: 'Participant 1', start: 0 }),
@@ -130,8 +129,8 @@ describe('chat-bubble-renderer', () => {
 
 			renderTranscriptView(container, segments, participants);
 
-			const bubbles = container.querySelectorAll('.meeting-scribe-sidebar-bubble') as NodeListOf<HTMLElement>;
-			expect(bubbles[0]!.style.borderLeftColor).not.toBe(bubbles[1]!.style.borderLeftColor);
+			const speakers = container.querySelectorAll('.meeting-scribe-sidebar-bubble-speaker') as NodeListOf<HTMLElement>;
+			expect(speakers[0]!.style.color).not.toBe(speakers[1]!.style.color);
 		});
 
 		it('renders empty state when no segments', () => {

@@ -1,0 +1,68 @@
+{
+  "version": 2,
+  "audioFile": "_attachments/audio/meeting-2026-01-15.webm",
+  "duration": 450,
+  "provider": "openai",
+  "model": "whisper-1",
+  "language": "ko",
+  "segments": [
+    {
+      "id": "seg-001",
+      "speaker": "Participant 1",
+      "start": 0,
+      "end": 15,
+      "text": "Meeting start. Let's review the design mockups."
+    },
+    {
+      "id": "seg-002",
+      "speaker": "Participant 2",
+      "start": 16,
+      "end": 30,
+      "text": "Sure. I updated the component spacing from 8px to 12px."
+    },
+    {
+      "id": "seg-003",
+      "speaker": "Participant 1",
+      "start": 31,
+      "end": 50,
+      "text": "Looks good. What about the mobile responsive issues?"
+    },
+    {
+      "id": "seg-004",
+      "speaker": "Participant 2",
+      "start": 51,
+      "end": 70,
+      "text": "I switched the sidebar to overlay mode below 768px."
+    },
+    {
+      "id": "seg-005",
+      "speaker": "Participant 1",
+      "start": 71,
+      "end": 90,
+      "text": "Great work. Let's wrap up."
+    }
+  ],
+  "participants": [
+    {
+      "alias": "Participant 1",
+      "name": "Participant 1",
+      "wikiLink": false,
+      "color": 0
+    },
+    {
+      "alias": "Participant 2",
+      "name": "Participant 2",
+      "wikiLink": false,
+      "color": 1
+    }
+  ],
+  "pipeline": {
+    "status": "complete",
+    "progress": 100,
+    "completedSteps": ["transcribing", "summarizing", "generating"],
+    "noteFilePath": "Meeting Notes/Meeting 2026-01-15.md"
+  },
+  "meetingNote": "Meeting Notes/Meeting 2026-01-15.md",
+  "createdAt": "2026-01-15T10:00:00.000Z",
+  "updatedAt": "2026-01-15T10:07:30.000Z"
+}

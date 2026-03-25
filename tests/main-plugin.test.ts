@@ -503,7 +503,7 @@ describe('MeetingScribePlugin pipeline integration', () => {
 
 		(plugin as any).startProcessingFlow('audio/test.webm');
 
-		expect(dispatchSpy).toHaveBeenCalledWith('audio/test.webm');
+		expect(dispatchSpy).toHaveBeenCalledWith('audio/test.webm', undefined);
 	});
 
 	it('should allow multiple concurrent pipeline dispatches', async () => {

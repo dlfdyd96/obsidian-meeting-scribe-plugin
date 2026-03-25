@@ -119,25 +119,34 @@ export function renderTranscriptView(
 
 		const bubble = document.createElement('div');
 		bubble.className = 'meeting-scribe-sidebar-bubble';
-		if (participant) {
-			bubble.style.borderLeftColor = getSpeakerColor(participant);
+		if (isConsecutive) {
+			bubble.classList.add('meeting-scribe-sidebar-bubble--consecutive');
 		}
 
 		const displayName = participant?.name || segment.speaker;
 		bubble.setAttribute('aria-label', `Speaker: ${displayName}`);
 		bubble.tabIndex = 0;
 
+		// Speaker row: colored name + timestamp on same line (name omitted for consecutive)
+		const speakerRow = document.createElement('div');
+		speakerRow.className = 'meeting-scribe-sidebar-bubble-speaker-row';
+
 		if (!isConsecutive) {
 			const speakerEl = document.createElement('span');
 			speakerEl.className = 'meeting-scribe-sidebar-bubble-speaker';
 			speakerEl.textContent = displayName;
-			bubble.appendChild(speakerEl);
+			if (participant) {
+				speakerEl.style.color = getSpeakerColor(participant);
+			}
+			speakerRow.appendChild(speakerEl);
 		}
 
 		const timestampEl = document.createElement('span');
 		timestampEl.className = 'meeting-scribe-sidebar-bubble-timestamp';
 		timestampEl.textContent = formatTimestamp(segment.start);
-		bubble.appendChild(timestampEl);
+		speakerRow.appendChild(timestampEl);
+
+		bubble.appendChild(speakerRow);
 
 		const textEl = document.createElement('div');
 		textEl.className = 'meeting-scribe-sidebar-bubble-text';

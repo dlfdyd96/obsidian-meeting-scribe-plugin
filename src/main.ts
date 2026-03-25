@@ -51,6 +51,7 @@ export default class MeetingScribePlugin extends Plugin {
 	private dispatcher!: PipelineDispatcher;
 	private pipelineAborted = false;
 	private recordingAvailable = true;
+	private currentRecordingSessionId: string | null = null;
 
 	async onload() {
 		const data: unknown = await this.loadData();
@@ -90,6 +91,11 @@ export default class MeetingScribePlugin extends Plugin {
 				this.noticeManager.showConsentReminder();
 			}
 			void this.recorder.startRecording();
+
+			// Create session with recording status so sidebar shows red dot
+			const session = this.sessionManager.createSession('recording-in-progress');
+			this.sessionManager.updateSessionState(session.id, { status: 'recording' });
+			this.currentRecordingSessionId = session.id;
 		};
 
 		const stopRecordingFlow = (): void => {
@@ -98,9 +104,16 @@ export default class MeetingScribePlugin extends Plugin {
 					const blob = await this.recorder.stopRecording();
 					if (blob) {
 						const audioPath = await this.audioFileManager.saveRecording(blob);
-						this.startProcessingFlow(audioPath);
+						if (this.currentRecordingSessionId) {
+							this.sessionManager.updateSessionAudioFile(this.currentRecordingSessionId, audioPath);
+							this.startProcessingFlow(audioPath, this.currentRecordingSessionId);
+						} else {
+							this.startProcessingFlow(audioPath);
+						}
 					}
+					this.currentRecordingSessionId = null;
 				} catch (err) {
+					this.currentRecordingSessionId = null;
 					logger.error(COMPONENT, 'Failed to save recording', { error: (err as Error).message });
 				}
 			})();
@@ -273,25 +286,42 @@ export default class MeetingScribePlugin extends Plugin {
 				const file = leafView.file;
 				if (!file) return;
 
-				const cache = this.app.metadataCache.getFileCache(file);
-				if (cache?.frontmatter?.['created_by'] !== 'meeting-scribe') return;
+				const tryAutoOpen = (): void => {
+					const cache = this.app.metadataCache.getFileCache(file);
+					if (cache?.frontmatter?.['created_by'] === 'meeting-scribe') {
+						void this.handleMeetingNoteOpened(file.path);
+					}
+				};
 
-				void this.handleMeetingNoteOpened(file.path);
+				// metadataCache may not have frontmatter parsed yet on first open
+				const cache = this.app.metadataCache.getFileCache(file);
+				if (cache?.frontmatter?.['created_by'] === 'meeting-scribe') {
+					void this.handleMeetingNoteOpened(file.path);
+				} else if (!cache?.frontmatter) {
+					// Retry once after metadata resolves
+					setTimeout(tryAutoOpen, 300);
+				}
 			}),
 		);
 
-		// Recover interrupted sessions from previous app run
+		// Recover sessions from previous app run (complete, error, interrupted)
 		void this.dispatcher.recoverSessions().then(count => {
 			if (count > 0) {
-				logger.info(COMPONENT, 'Recovered interrupted sessions', { count });
+				logger.info(COMPONENT, 'Recovered sessions', { count });
+				// Refresh sidebar if already open so it shows recovered sessions at once
+				const leaves = this.app.workspace.getLeavesOfType(TranscriptSidebarView.VIEW_TYPE);
+				if (leaves.length > 0) {
+					const view = leaves[0]!.view as TranscriptSidebarView;
+					view.showSessionList();
+				}
 			}
 		});
 
 		logger.debug(COMPONENT, 'Plugin loaded');
 	}
 
-	private startProcessingFlow(audioFilePath: string): void {
-		void this.dispatcher.dispatch(audioFilePath);
+	private startProcessingFlow(audioFilePath: string, existingSessionId?: string): void {
+		void this.dispatcher.dispatch(audioFilePath, existingSessionId);
 		new Notice('Processing started...', NOTICE_RETRY_TIMEOUT_MS);
 	}
 

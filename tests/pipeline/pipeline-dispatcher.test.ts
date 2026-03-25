@@ -60,13 +60,17 @@ import { SessionManager } from '../../src/session/session-manager';
 import { loadTranscriptData } from '../../src/transcript/transcript-data';
 import type { MeetingScribeSettings } from '../../src/settings/settings';
 
-function createMockVault(): PipelineContext['vault'] {
+function createMockVault(transcriptPaths: string[] = []): PipelineContext['vault'] {
 	return {
 		getFiles: vi.fn().mockReturnValue([]),
 		adapter: {
 			exists: vi.fn().mockResolvedValue(false),
 			read: vi.fn(),
 			write: vi.fn(),
+			list: vi.fn().mockResolvedValue({
+				files: transcriptPaths,
+				folders: [],
+			}),
 		},
 	} as unknown as PipelineContext['vault'];
 }
@@ -295,11 +299,7 @@ describe('PipelineDispatcher', () => {
 
 	describe('recoverSessions', () => {
 		it('creates error sessions for interrupted transcripts', async () => {
-			const mockVault = createMockVault();
-			(mockVault.getFiles as ReturnType<typeof vi.fn>).mockReturnValue([
-				{ path: 'audio/meeting1.webm.transcript.json' },
-				{ path: 'audio/meeting2.webm.transcript.json' },
-			]);
+			const mockVault = createMockVault(['audio/meeting1.webm.transcript.json']);
 
 			(loadTranscriptData as ReturnType<typeof vi.fn>)
 				.mockResolvedValueOnce({
@@ -309,14 +309,7 @@ describe('PipelineDispatcher', () => {
 						progress: 30,
 						completedSteps: [],
 					},
-				})
-				.mockResolvedValueOnce({
-					audioFile: 'audio/meeting2.webm',
-					pipeline: {
-						status: 'complete',
-						progress: 100,
-						completedSteps: ['transcribe', 'summarize', 'generate-note'],
-					},
+					createdAt: '2026-01-15T10:00:00.000Z',
 				});
 
 			const recoveryDispatcher = new PipelineDispatcher(sessionManager, mockVault, () => settings);
@@ -331,10 +324,7 @@ describe('PipelineDispatcher', () => {
 		});
 
 		it('recovers summarizing sessions as error', async () => {
-			const mockVault = createMockVault();
-			(mockVault.getFiles as ReturnType<typeof vi.fn>).mockReturnValue([
-				{ path: 'audio/meeting.webm.transcript.json' },
-			]);
+			const mockVault = createMockVault(['audio/meeting.webm.transcript.json']);
 
 			(loadTranscriptData as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
 				audioFile: 'audio/meeting.webm',
@@ -344,6 +334,7 @@ describe('PipelineDispatcher', () => {
 					completedSteps: ['transcribe'],
 					failedStep: undefined,
 				},
+				createdAt: '2026-01-15T10:00:00.000Z',
 			});
 
 			const recoveryDispatcher = new PipelineDispatcher(sessionManager, mockVault, () => settings);
@@ -354,11 +345,8 @@ describe('PipelineDispatcher', () => {
 			expect(sessions[0]!.pipeline.completedSteps).toContain('transcribe');
 		});
 
-		it('ignores complete transcripts', async () => {
-			const mockVault = createMockVault();
-			(mockVault.getFiles as ReturnType<typeof vi.fn>).mockReturnValue([
-				{ path: 'audio/done.webm.transcript.json' },
-			]);
+		it('recovers complete transcripts as complete sessions', async () => {
+			const mockVault = createMockVault(['audio/done.webm.transcript.json']);
 
 			(loadTranscriptData as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
 				audioFile: 'audio/done.webm',
@@ -366,21 +354,48 @@ describe('PipelineDispatcher', () => {
 					status: 'complete',
 					progress: 100,
 					completedSteps: ['transcribe', 'summarize', 'generate-note'],
+					noteFilePath: 'Meeting Notes/done.md',
 				},
+				createdAt: '2026-01-15T10:00:00.000Z',
 			});
 
 			const recoveryDispatcher = new PipelineDispatcher(sessionManager, mockVault, () => settings);
 			const recovered = await recoveryDispatcher.recoverSessions();
 
-			expect(recovered).toBe(0);
-			expect(sessionManager.getAllSessions()).toHaveLength(0);
+			expect(recovered).toBe(1);
+			const sessions = sessionManager.getAllSessions();
+			expect(sessions).toHaveLength(1);
+			expect(sessions[0]!.pipeline.status).toBe('complete');
+			expect(sessions[0]!.pipeline.noteFilePath).toBe('Meeting Notes/done.md');
+		});
+
+		it('recovers error transcripts preserving error state', async () => {
+			const mockVault = createMockVault(['audio/failed.webm.transcript.json']);
+
+			(loadTranscriptData as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+				audioFile: 'audio/failed.webm',
+				pipeline: {
+					status: 'error',
+					progress: 30,
+					completedSteps: ['transcribe'],
+					error: 'API rate limit exceeded',
+					failedStep: 'summarize',
+				},
+				createdAt: '2026-01-15T10:00:00.000Z',
+			});
+
+			const recoveryDispatcher = new PipelineDispatcher(sessionManager, mockVault, () => settings);
+			const recovered = await recoveryDispatcher.recoverSessions();
+
+			expect(recovered).toBe(1);
+			const sessions = sessionManager.getAllSessions();
+			expect(sessions).toHaveLength(1);
+			expect(sessions[0]!.pipeline.status).toBe('error');
+			expect(sessions[0]!.pipeline.error).toBe('API rate limit exceeded');
 		});
 
 		it('handles load failures gracefully', async () => {
-			const mockVault = createMockVault();
-			(mockVault.getFiles as ReturnType<typeof vi.fn>).mockReturnValue([
-				{ path: 'audio/corrupt.webm.transcript.json' },
-			]);
+			const mockVault = createMockVault(['audio/corrupt.webm.transcript.json']);
 
 			(loadTranscriptData as ReturnType<typeof vi.fn>).mockResolvedValueOnce(null);
 

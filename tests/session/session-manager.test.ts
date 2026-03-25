@@ -398,4 +398,116 @@ describe('SessionManager', () => {
 			expect(found!.id).toBe(session2.id);
 		});
 	});
+
+	describe('restoreSession', () => {
+		it('restores a session with provided data', () => {
+			const session = manager.restoreSession({
+				audioFile: 'audio/meeting.webm',
+				transcriptFile: 'audio/meeting.webm.transcript.json',
+				title: 'Meeting 2026-01-15 10:00',
+				pipeline: {
+					status: 'complete',
+					progress: 100,
+					completedSteps: ['transcribe', 'summarize', 'generate-note'],
+					noteFilePath: 'Meeting Notes/Meeting.md',
+				},
+				createdAt: '2026-01-15T10:00:00.000Z',
+			});
+
+			expect(session.id).toBeDefined();
+			expect(session.title).toBe('Meeting 2026-01-15 10:00');
+			expect(session.audioFile).toBe('audio/meeting.webm');
+			expect(session.transcriptFile).toBe('audio/meeting.webm.transcript.json');
+			expect(session.pipeline.status).toBe('complete');
+			expect(session.pipeline.noteFilePath).toBe('Meeting Notes/Meeting.md');
+			expect(session.createdAt).toBe('2026-01-15T10:00:00.000Z');
+		});
+
+		it('restored session appears in getAllSessions', () => {
+			manager.restoreSession({
+				audioFile: 'audio/meeting.webm',
+				transcriptFile: 'audio/meeting.webm.transcript.json',
+				title: 'Restored Meeting',
+				pipeline: { status: 'complete', progress: 100, completedSteps: [] },
+				createdAt: '2026-01-15T10:00:00.000Z',
+			});
+
+			const sessions = manager.getAllSessions();
+			expect(sessions).toHaveLength(1);
+			expect(sessions[0]!.title).toBe('Restored Meeting');
+		});
+
+		it('does not notify observers (silent restore)', () => {
+			const observer = vi.fn();
+			manager.subscribe(observer);
+
+			manager.restoreSession({
+				audioFile: 'audio/meeting.webm',
+				transcriptFile: 'audio/meeting.webm.transcript.json',
+				title: 'Restored',
+				pipeline: { status: 'complete', progress: 100, completedSteps: [] },
+				createdAt: '2026-01-15T10:00:00.000Z',
+			});
+
+			expect(observer).not.toHaveBeenCalled();
+		});
+
+		it('returns defensive copy', () => {
+			const session = manager.restoreSession({
+				audioFile: 'audio/meeting.webm',
+				transcriptFile: 'audio/meeting.webm.transcript.json',
+				title: 'Restored',
+				pipeline: { status: 'complete', progress: 100, completedSteps: ['transcribe'] },
+				createdAt: '2026-01-15T10:00:00.000Z',
+			});
+
+			session.pipeline.completedSteps.push('mutated');
+			const fetched = manager.getSession(session.id)!;
+			expect(fetched.pipeline.completedSteps).not.toContain('mutated');
+		});
+
+		it('restored session is findable by noteFilePath', () => {
+			manager.restoreSession({
+				audioFile: 'audio/meeting.webm',
+				transcriptFile: 'audio/meeting.webm.transcript.json',
+				title: 'Restored',
+				pipeline: {
+					status: 'complete',
+					progress: 100,
+					completedSteps: [],
+					noteFilePath: 'Meeting Notes/Restored.md',
+				},
+				createdAt: '2026-01-15T10:00:00.000Z',
+			});
+
+			const found = manager.findSessionByNotePath('Meeting Notes/Restored.md');
+			expect(found).toBeDefined();
+			expect(found!.title).toBe('Restored');
+		});
+	});
+
+	describe('updateSessionAudioFile', () => {
+		it('updates audioFile and transcriptFile', () => {
+			const session = manager.createSession('recording-in-progress');
+			manager.updateSessionAudioFile(session.id, 'audio/meeting.webm');
+
+			const updated = manager.getSession(session.id)!;
+			expect(updated.audioFile).toBe('audio/meeting.webm');
+			expect(updated.transcriptFile).toBe('audio/meeting.webm.transcript.json');
+		});
+
+		it('throws for non-existent session', () => {
+			expect(() => manager.updateSessionAudioFile('fake-id', 'audio/test.webm'))
+				.toThrow(DataError);
+		});
+
+		it('notifies observers', () => {
+			const session = manager.createSession('recording-in-progress');
+			const observer = vi.fn();
+			manager.subscribe(observer);
+
+			manager.updateSessionAudioFile(session.id, 'audio/meeting.webm');
+			expect(observer).toHaveBeenCalledOnce();
+		});
+	});
 });

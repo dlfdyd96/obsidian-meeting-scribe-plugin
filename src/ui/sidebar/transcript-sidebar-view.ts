@@ -37,6 +37,14 @@ export class TranscriptSidebarView extends ItemView {
 	}
 
 	async onOpen(): Promise<void> {
+		// Defensively unsubscribe stale observer from prior open cycle
+		if (this.observer) {
+			this.sessionManager.unsubscribe(this.observer);
+			this.observer = null;
+		}
+		this.sessionElements.clear();
+		this.contentEl.empty();
+
 		this.observer = (sessionId: string, session: MeetingSession) => {
 			this.onSessionUpdate(sessionId, session);
 		};
