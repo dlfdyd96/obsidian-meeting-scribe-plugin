@@ -151,7 +151,7 @@ describe('Recorder', () => {
 			const blob = await recorder.stopRecording();
 
 			expect(blob).toBeInstanceOf(Blob);
-			expect(blob!.type).toBe('audio/webm');
+			expect(blob!.type).toMatch(/^audio\/webm/);
 		});
 
 		it('should transition StateManager from Recording to Idle', async () => {

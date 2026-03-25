@@ -293,6 +293,21 @@ export class MeetingScribeSettingTab extends PluginSettingTab {
 
 		new Setting(containerEl).setName('Recording').setHeading();
 
+		new Setting(containerEl)
+			.setName('Recording format')
+			.setDesc('Audio format for recordings. WebM is most compatible; M4A and WAV depend on browser support.')
+			.addDropdown(cb => cb
+				.addOptions({
+					'webm': 'WebM (default)',
+					'm4a': 'M4A (AAC)',
+					'wav': 'WAV',
+				})
+				.setValue(this.plugin.settings.audioFormat)
+				.onChange(async (value) => {
+					this.plugin.settings.audioFormat = value as 'webm' | 'm4a' | 'wav';
+					await this.plugin.saveSettings();
+				}));
+
 		if (this.plugin.settings.sttProvider === 'openai') {
 			new Setting(containerEl)
 				.setName('Speech-to-text model')

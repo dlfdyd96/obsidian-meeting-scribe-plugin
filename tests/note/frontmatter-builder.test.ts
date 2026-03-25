@@ -57,15 +57,10 @@ describe('buildFrontmatter', () => {
 
 		expect(result).toContain('---');
 		expect(result).toContain('date: 2026-03-16');
-		expect(result).toContain('type: meeting');
-		expect(result).toContain('title: Weekly Standup');
-		expect(result).toContain('  - Alice');
-		expect(result).toContain('  - Bob');
 		expect(result).toContain('  - meeting');
 		expect(result).toContain('  - standup');
 		expect(result).toContain('  - sprint progress');
 		expect(result).toContain('  - blockers');
-		expect(result).toContain('duration: 50');
 		expect(result).toContain('audio: _attachments/audio/2026-03-16-recording.webm');
 		expect(result).not.toContain('created_by:');
 	});
@@ -93,7 +88,7 @@ describe('buildFrontmatter', () => {
 		expect(result).toContain('date: 2026-03-16');
 	});
 
-	it('falls back to "Untitled Meeting" when metadata.title is undefined', () => {
+	it('does not include title field when metadata.title is undefined', () => {
 		const result = buildFrontmatter({
 			summaryResult: createMockSummaryResult({
 				metadata: { date: '2026-03-16', title: undefined },
@@ -102,7 +97,8 @@ describe('buildFrontmatter', () => {
 			audioFilePath: 'test/audio.webm',
 		});
 
-		expect(result).toContain('title: Untitled Meeting');
+		expect(result).not.toContain('title:');
+		expect(result).toContain('date: 2026-03-16');
 	});
 
 	it('falls back to ["meeting"] when metadata.tags is undefined', () => {
@@ -118,7 +114,7 @@ describe('buildFrontmatter', () => {
 		expect(result).toContain('  - meeting');
 	});
 
-	it('falls back to empty arrays for undefined participants and topics', () => {
+	it('falls back to empty array for undefined topics', () => {
 		const result = buildFrontmatter({
 			summaryResult: createMockSummaryResult({
 				metadata: { title: 'Test', participants: undefined, topics: undefined },
@@ -127,34 +123,8 @@ describe('buildFrontmatter', () => {
 			audioFilePath: 'test/audio.webm',
 		});
 
-		expect(result).toContain('participants: []');
 		expect(result).toContain('topics: []');
-	});
-
-	it('computes duration from last segment end time', () => {
-		const result = buildFrontmatter({
-			summaryResult: createMockSummaryResult(),
-			transcriptionResult: createMockTranscriptionResult({
-				segments: [
-					{ start: 0, end: 120, text: 'Short meeting.' },
-					{ start: 120, end: 2700, text: 'End of meeting.' },
-				],
-			}),
-			audioFilePath: 'test/audio.webm',
-		});
-
-		// 2700 seconds = 45 minutes
-		expect(result).toContain('duration: 45');
-	});
-
-	it('handles zero segments with duration 0', () => {
-		const result = buildFrontmatter({
-			summaryResult: createMockSummaryResult(),
-			transcriptionResult: createMockTranscriptionResult({ segments: [] }),
-			audioFilePath: 'test/audio.webm',
-		});
-
-		expect(result).toContain('duration: 0');
+		expect(result).not.toContain('participants:');
 	});
 
 	it('handles metadata being entirely undefined', () => {
@@ -165,23 +135,12 @@ describe('buildFrontmatter', () => {
 		});
 
 		expect(result).toContain('date: 2026-03-16');
-		expect(result).toContain('title: Untitled Meeting');
-		expect(result).toContain('participants: []');
 		expect(result).toContain('tags:');
 		expect(result).toContain('  - meeting');
 		expect(result).toContain('topics: []');
-	});
-
-	it('quotes title containing special YAML characters', () => {
-		const result = buildFrontmatter({
-			summaryResult: createMockSummaryResult({
-				metadata: { title: 'Meeting: Discussion & Planning' },
-			}),
-			transcriptionResult: createMockTranscriptionResult(),
-			audioFilePath: 'test/audio.webm',
-		});
-
-		expect(result).toContain("title: 'Meeting: Discussion & Planning'");
+		expect(result).not.toContain('title:');
+		expect(result).not.toContain('participants:');
+		expect(result).not.toContain('duration:');
 	});
 
 	it('quotes array items containing special YAML characters', () => {
@@ -199,8 +158,6 @@ describe('buildFrontmatter', () => {
 			audioFilePath: 'test/audio.webm',
 		});
 
-		expect(result).toContain("  - 'Bob: Manager'");
-		expect(result).toContain("  - 'Alice & Co'");
 		expect(result).toContain("  - 'Q&A: Next Steps'");
 	});
 
@@ -211,7 +168,6 @@ describe('buildFrontmatter', () => {
 			audioFilePath: 'test/audio.webm',
 		});
 
-		expect(result).toContain('participants:\n  - Alice\n  - Bob');
 		expect(result).toContain('tags:\n  - meeting\n  - standup');
 		expect(result).toContain('topics:\n  - sprint progress\n  - blockers');
 	});
@@ -227,7 +183,7 @@ describe('buildFrontmatter with ParticipantAlias[]', () => {
 		vi.useRealTimers();
 	});
 
-	it('emits nested YAML for participant aliases', () => {
+	it('does not emit participants in frontmatter even when provided', () => {
 		const participants: ParticipantAlias[] = [
 			{ alias: 'Participant 1', name: '' },
 			{ alias: 'Participant 2', name: '' },
@@ -240,46 +196,8 @@ describe('buildFrontmatter with ParticipantAlias[]', () => {
 			participants,
 		});
 
-		expect(result).toContain('participants:\n  - alias: "Participant 1"\n    name: ""');
-		expect(result).toContain('  - alias: "Participant 2"\n    name: ""');
-	});
-
-	it('emits empty array when participants is empty', () => {
-		const result = buildFrontmatter({
-			summaryResult: createMockSummaryResult(),
-			transcriptionResult: createMockTranscriptionResult(),
-			audioFilePath: 'test/audio.webm',
-			participants: [],
-		});
-
-		expect(result).toContain('participants: []');
-	});
-
-	it('emits participant aliases with filled names', () => {
-		const participants: ParticipantAlias[] = [
-			{ alias: 'Paul', name: 'Paul' },
-			{ alias: '[[People/김과장]]', name: '[[People/김과장]]' },
-		];
-
-		const result = buildFrontmatter({
-			summaryResult: createMockSummaryResult(),
-			transcriptionResult: createMockTranscriptionResult(),
-			audioFilePath: 'test/audio.webm',
-			participants,
-		});
-
-		expect(result).toContain('  - alias: "Paul"\n    name: "Paul"');
-		expect(result).toContain('  - alias: "[[People/김과장]]"\n    name: "[[People/김과장]]"');
-	});
-
-	it('falls back to metadata.participants when participants field is not provided', () => {
-		const result = buildFrontmatter({
-			summaryResult: createMockSummaryResult(),
-			transcriptionResult: createMockTranscriptionResult(),
-			audioFilePath: 'test/audio.webm',
-		});
-
-		// Old format: simple string array
-		expect(result).toContain('participants:\n  - Alice\n  - Bob');
+		expect(result).not.toContain('participants:');
+		expect(result).toContain('date: 2026-03-16');
+		expect(result).toContain('tags:');
 	});
 });

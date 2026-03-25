@@ -147,6 +147,35 @@ Meeting Scribe plugin styles.
 	background-color: var(--background-secondary);
 }
 
+/* Session delete button (hover-visible) */
+.meeting-scribe-sidebar-session-delete-btn {
+	display: none;
+	background: none !important;
+	border: none !important;
+	box-shadow: none !important;
+	color: var(--text-faint);
+	cursor: pointer;
+	padding: 2px;
+	flex-shrink: 0;
+}
+
+.meeting-scribe-sidebar-session-item:hover .meeting-scribe-sidebar-session-delete-btn {
+	display: flex;
+}
+
+.meeting-scribe-sidebar-session-delete-btn:hover {
+	color: var(--text-error);
+}
+
+/* Missing meeting note warning */
+.meeting-scribe-sidebar-session-warning {
+	display: inline-flex;
+	align-items: center;
+	color: var(--text-warning, #e0a526);
+	flex-shrink: 0;
+	margin-left: 4px;
+}
+
 .meeting-scribe-sidebar-status-dot {
 	flex-shrink: 0;
 	width: 8px;
@@ -447,6 +476,15 @@ Meeting Scribe plugin styles.
 
 .meeting-scribe-sidebar-bubble-timestamp--clickable:hover {
 	color: var(--text-accent);
+}
+
+.meeting-scribe-sidebar-bubble-timestamp--editing {
+	background: var(--background-modifier-form-field);
+	border: 1px solid var(--interactive-accent);
+	border-radius: 3px;
+	padding: 0 4px;
+	outline: none;
+	min-width: 70px;
 }
 
 /* ===== Audio Player ===== */

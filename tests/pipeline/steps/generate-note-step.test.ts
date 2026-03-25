@@ -210,7 +210,7 @@ describe('GenerateNoteStep', () => {
 		expect(result.settings).toBe(context.settings);
 	});
 
-	it('includes participant aliases in generated note frontmatter when segments have speakers', async () => {
+	it('does not include participants in generated note frontmatter', async () => {
 		const context = createMockContext({
 			transcriptionResult: createMockTranscriptionResult({
 				segments: [
@@ -225,18 +225,7 @@ describe('GenerateNoteStep', () => {
 		await step.execute(context);
 
 		const noteContent = vault.create.mock.calls[0]![1] as string;
-		expect(noteContent).toContain('- alias: "Participant 1"');
-		expect(noteContent).toContain('- alias: "Participant 2"');
-	});
-
-	it('includes empty participants array when no speakers in segments', async () => {
-		const context = createMockContext();
-		const vault = context.vault as unknown as ReturnType<typeof createMockVault>;
-
-		await step.execute(context);
-
-		const noteContent = vault.create.mock.calls[0]![1] as string;
-		expect(noteContent).toContain('participants: []');
+		expect(noteContent).not.toContain('participants:');
 	});
 
 	describe('two-file output (separateTranscriptFile)', () => {
@@ -285,7 +274,6 @@ describe('GenerateNoteStep', () => {
 
 			const transcriptContent = vault.create.mock.calls[1]![1] as string;
 			expect(transcriptContent).toContain('[[2026-03-16 Weekly Standup]]');
-			expect(transcriptContent).toContain('type: transcript');
 			expect(transcriptContent).toContain('## Transcript');
 		});
 

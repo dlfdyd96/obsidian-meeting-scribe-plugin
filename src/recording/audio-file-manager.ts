@@ -5,6 +5,7 @@ export class AudioFileManager {
 	constructor(
 		private vault: Vault,
 		private getAudioFolder: () => string,
+		private getAudioFormat: () => string = () => 'webm',
 	) {}
 
 	async saveRecording(blob: Blob): Promise<string> {
@@ -35,7 +36,8 @@ export class AudioFileManager {
 		const now = new Date();
 		const dateStr = now.toISOString().slice(0, 10);
 		const timeStr = now.toTimeString().slice(0, 8).replace(/:/g, '');
-		return `${dateStr}-${timeStr}-recording.webm`;
+		const ext = this.getAudioFormat();
+		return `${dateStr}-${timeStr}-recording.${ext}`;
 	}
 
 	private async ensureFolder(folderPath: string): Promise<void> {

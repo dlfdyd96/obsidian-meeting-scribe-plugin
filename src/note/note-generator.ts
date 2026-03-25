@@ -60,7 +60,6 @@ export function generateTranscriptNote(input: TranscriptNoteInput): string {
 		summaryResult: input.summaryResult,
 		transcriptionResult: input.transcriptionResult,
 		audioFilePath: input.audioFilePath,
-		typeOverride: 'transcript',
 		meeting: input.meetingNoteLink,
 		participants: input.participants,
 	});
@@ -90,22 +89,8 @@ export function generateTemplateNote(input: TemplateNoteInput): string {
 	const lines: string[] = [
 		'---',
 		`date: ${date}`,
-		'type: meeting',
-		`title: ${title}`,
+		`audio: ${input.audioFilePath}`,
 	];
-
-	if (input.participants && input.participants.length > 0) {
-		lines.push('participants:');
-		for (const p of input.participants) {
-			lines.push(`  - alias: "${p.alias}"`);
-			lines.push(`    name: "${p.name}"`);
-		}
-	} else {
-		lines.push('participants: []');
-	}
-
-	lines.push(`duration: ${duration}`);
-	lines.push(`audio: ${input.audioFilePath}`);
 	if (input.transcriptDataPath) {
 		const YAML_SPECIAL_CHARS = /[:{}&*?|<>!%@#`[\]]/;
 		const val = YAML_SPECIAL_CHARS.test(input.transcriptDataPath)

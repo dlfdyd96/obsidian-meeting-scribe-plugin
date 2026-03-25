@@ -377,4 +377,34 @@ describe("Inline Transcript Editing — E2E Tests", function () {
 			await browser.pause(200);
 		});
 	});
+
+	describe("Timestamp Editing (double-click)", function () {
+		it("should make timestamp editable on double-click", async function () {
+			const timestamp = await browser.$(
+				".meeting-scribe-sidebar-bubble-timestamp--clickable",
+			);
+			expect(await timestamp.isExisting()).toBe(true);
+
+			// Double-click to edit
+			await timestamp.doubleClick();
+			await browser.pause(200);
+
+			const isEditable = await browser.execute(
+				(el: Element) => (el as HTMLElement).contentEditable,
+				timestamp,
+			);
+			expect(isEditable).toBe("true");
+
+			const hasEditClass = await browser.execute(
+				(el: Element) =>
+					el.classList.contains("meeting-scribe-sidebar-bubble-timestamp--editing"),
+				timestamp,
+			);
+			expect(hasEditClass).toBe(true);
+
+			// Cancel with Escape
+			await browser.keys("Escape");
+			await browser.pause(200);
+		});
+	});
 });

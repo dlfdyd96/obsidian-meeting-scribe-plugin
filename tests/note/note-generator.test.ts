@@ -300,7 +300,6 @@ describe('generateTranscriptNote', () => {
 			meetingNoteLink: '[[2026-03-16 Weekly Standup]]',
 		});
 
-		expect(result).toContain('type: transcript');
 		expect(result).toContain('meeting:');
 		expect(result).toContain('## Transcript');
 		expect(result).toContain('Meeting content. More content.');
@@ -317,7 +316,7 @@ describe('generateTranscriptNote', () => {
 		expect(result).toContain("meeting: '[[2026-03-16 Weekly Standup]]'");
 	});
 
-	it('does not include title field as type:meeting frontmatter', () => {
+	it('does not include type field in transcript frontmatter', () => {
 		const result = generateTranscriptNote({
 			summaryResult: createMockSummaryResult(),
 			transcriptionResult: createMockTranscriptionResult(),
@@ -325,9 +324,8 @@ describe('generateTranscriptNote', () => {
 			meetingNoteLink: '[[2026-03-16 Weekly Standup]]',
 		});
 
-		// Type should be transcript, not meeting
-		expect(result).toContain('type: transcript');
-		expect(result).not.toMatch(/^type: meeting$/m);
+		expect(result).not.toContain('type:');
+		expect(result).toContain('meeting:');
 	});
 
 	it('formats diarized transcript with speaker labels', () => {
@@ -417,7 +415,7 @@ describe('generateNote with participants', () => {
 		vi.useRealTimers();
 	});
 
-	it('passes participants through to frontmatter', () => {
+	it('does not include participants in frontmatter', () => {
 		const participants = [
 			{ alias: 'Participant 1', name: '' },
 			{ alias: 'Participant 2', name: '' },
@@ -430,8 +428,8 @@ describe('generateNote with participants', () => {
 			participants,
 		});
 
-		expect(result).toContain('  - alias: "Participant 1"');
-		expect(result).toContain('  - alias: "Participant 2"');
+		expect(result).not.toContain('participants:');
+		expect(result).toContain('date: 2026-03-16');
 	});
 });
 
@@ -445,7 +443,7 @@ describe('generateTranscriptNote with participants', () => {
 		vi.useRealTimers();
 	});
 
-	it('passes participants through to transcript frontmatter', () => {
+	it('does not include participants in transcript frontmatter', () => {
 		const participants = [
 			{ alias: 'Participant 1', name: '' },
 		];
@@ -458,8 +456,8 @@ describe('generateTranscriptNote with participants', () => {
 			participants,
 		});
 
-		expect(result).toContain('  - alias: "Participant 1"');
-		expect(result).toContain('type: transcript');
+		expect(result).not.toContain('participants:');
+		expect(result).toContain('meeting:');
 	});
 });
 
@@ -694,8 +692,7 @@ describe('Integration: full pipeline flow → replacement', () => {
 		});
 
 		// Verify initial state: plain text, no wiki-links
-		expect(note).toContain('alias: "Participant 1"');
-		expect(note).toContain('alias: "Participant 2"');
+		expect(note).not.toContain('participants:');
 		expect(transcript).toContain('**Participant 1:**');
 		expect(transcript).toContain('**Participant 2:**');
 		expect(transcript).not.toContain('**[[Participant 1]]:**');
@@ -776,7 +773,7 @@ describe('Integration: full pipeline flow → replacement', () => {
 			participants,
 		});
 
-		expect(note).toContain('participants: []');
+		expect(note).not.toContain('participants:');
 		expect(note).not.toContain('[[Participant');
 	});
 });

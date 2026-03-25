@@ -3,9 +3,13 @@ import type { PipelineState } from '../../transcript/transcript-data';
 
 type OnSessionClick = (sessionId: string) => void;
 type OnRetry = ((sessionId: string) => void) | undefined;
+type OnDelete = ((sessionId: string) => void) | undefined;
 type OnRefresh = (() => void) | undefined;
+type NoteExistsCheck = ((notePath: string) => boolean) | undefined;
 
 const REFRESH_SVG = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>';
+const DELETE_SVG = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6"/></svg>';
+const WARNING_SVG = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 9v4"/><path d="M12 17h.01"/><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>';
 
 const STATUS_CONFIG: Record<PipelineState['status'], { cls: string; label: string }> = {
 	queued: { cls: 'queued', label: 'Queued' },
@@ -25,6 +29,8 @@ export function renderSessionList(
 	onSessionClick: OnSessionClick,
 	onRetry: OnRetry,
 	onRefresh?: OnRefresh,
+	onDelete?: OnDelete,
+	noteExistsCheck?: NoteExistsCheck,
 ): void {
 	// Header with title and refresh button
 	const header = container.createDiv({ cls: 'meeting-scribe-sidebar-session-header' });
@@ -48,7 +54,7 @@ export function renderSessionList(
 
 	const list = container.createDiv({ cls: 'meeting-scribe-sidebar-session-list' });
 	for (const session of sessions) {
-		const el = renderSingleItem(session, onSessionClick, onRetry);
+		const el = renderSingleItem(session, onSessionClick, onRetry, onDelete, noteExistsCheck);
 		list.appendChild(el);
 		elementMap.set(session.id, el);
 	}
@@ -58,6 +64,8 @@ export function renderSingleItem(
 	session: MeetingSession,
 	onSessionClick: OnSessionClick,
 	onRetry: OnRetry,
+	onDelete?: OnDelete,
+	noteExistsCheck?: NoteExistsCheck,
 ): HTMLElement {
 	const config = STATUS_CONFIG[session.pipeline.status] ?? STATUS_CONFIG.error;
 	const item = document.createElement('div');
@@ -96,6 +104,33 @@ export function renderSingleItem(
 		retryBtn.addEventListener('click', (e) => {
 			e.stopPropagation();
 			onRetry(session.id);
+		});
+	}
+
+	// Missing meeting note warning for complete sessions
+	if (session.pipeline.status === 'complete' && noteExistsCheck) {
+		const notePath = session.pipeline.noteFilePath;
+		if (notePath && !noteExistsCheck(notePath)) {
+			const warning = item.createEl('span', {
+				cls: 'meeting-scribe-sidebar-session-warning',
+			});
+			warning.innerHTML = WARNING_SVG;
+			warning.setAttribute('aria-label', 'Meeting note file not found');
+		}
+	}
+
+	// Delete button (hover-visible)
+	if (onDelete) {
+		const deleteBtn = item.createEl('button', {
+			cls: 'meeting-scribe-sidebar-session-delete-btn',
+		});
+		deleteBtn.innerHTML = DELETE_SVG;
+		deleteBtn.setAttribute('aria-label', 'Delete session');
+		deleteBtn.addEventListener('click', (e) => {
+			e.stopPropagation();
+			if (confirm('Delete this session and its transcript data?')) {
+				onDelete(session.id);
+			}
 		});
 	}
 

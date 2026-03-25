@@ -28,9 +28,11 @@ export interface MeetingScribeSettings {
 	enableSummary: boolean;
 	// Sidebar
 	autoOpenSidebar: boolean;
+	// Recording
+	audioFormat: 'webm' | 'm4a' | 'wav';
 }
 
-export const CURRENT_SETTINGS_VERSION = 11;
+export const CURRENT_SETTINGS_VERSION = 12;
 
 export function hasSTTCredentials(settings: MeetingScribeSettings): boolean {
 	switch (settings.sttProvider) {
@@ -65,4 +67,5 @@ export const DEFAULT_SETTINGS: MeetingScribeSettings = {
 	separateTranscriptFile: false,
 	enableSummary: true,
 	autoOpenSidebar: true,
+	audioFormat: 'webm',
 };

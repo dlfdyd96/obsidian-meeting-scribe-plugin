@@ -65,10 +65,11 @@ export default class MeetingScribePlugin extends Plugin {
 		providerRegistry.registerLLMProvider(new OpenAILLMProvider());
 		providerRegistry.registerLLMProvider(new AnthropicLLMProvider());
 
-		this.recorder = new Recorder(stateManager);
+		this.recorder = new Recorder(stateManager, () => this.settings.audioFormat);
 		this.audioFileManager = new AudioFileManager(
 			this.app.vault,
 			() => this.settings.audioFolder,
+			() => this.settings.audioFormat,
 		);
 
 		this.sessionManager = new SessionManager();

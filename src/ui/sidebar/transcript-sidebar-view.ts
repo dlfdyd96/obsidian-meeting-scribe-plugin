@@ -106,6 +106,8 @@ export class TranscriptSidebarView extends ItemView {
 			(sessionId) => this.showTranscript(sessionId),
 			this.onRetry,
 			() => this.handleRefresh(),
+			(sessionId) => this.handleDeleteSession(sessionId),
+			(notePath) => !!this.app.vault.getAbstractFileByPath(notePath),
 		);
 	}
 
@@ -174,6 +176,7 @@ export class TranscriptSidebarView extends ItemView {
 
 		// Event delegation for timestamp click-to-seek and inline editing
 		this.scrollContainer.addEventListener('click', (e) => this.handleScrollContainerClick(e));
+		this.scrollContainer.addEventListener('dblclick', (e) => this.handleTimestampDblClick(e));
 		this.scrollContainer.addEventListener('keydown', (e) => this.handleEditKeydown(e));
 		this.scrollContainer.addEventListener('blur', (e) => this.handleEditBlur(e), true);
 
@@ -283,8 +286,9 @@ export class TranscriptSidebarView extends ItemView {
 			this.closeSpeakerPopover();
 		}
 
-		// Timestamp click-to-seek
+		// Timestamp click-to-seek (single click) or edit (double click handled separately)
 		if (target.classList.contains('meeting-scribe-sidebar-bubble-timestamp--clickable')) {
+			if (target.contentEditable === 'true') return; // Already in edit mode
 			const startTime = parseFloat(target.getAttribute('data-start') ?? '');
 			if (!isNaN(startTime) && this.audioPlayer) {
 				this.audioPlayer.seekTo(startTime);
@@ -340,10 +344,33 @@ export class TranscriptSidebarView extends ItemView {
 		bubble?.classList.remove('meeting-scribe-sidebar-bubble--editing');
 	}
 
+	private handleTimestampDblClick(e: MouseEvent): void {
+		const target = e.target as HTMLElement;
+		if (!target.classList.contains('meeting-scribe-sidebar-bubble-timestamp--clickable')) return;
+		if (target.contentEditable === 'true') return;
+
+		e.preventDefault();
+		e.stopPropagation();
+
+		target.setAttribute('data-original-text', target.textContent ?? '');
+		target.contentEditable = 'true';
+		target.classList.add('meeting-scribe-sidebar-bubble-timestamp--editing');
+		target.focus();
+
+		// Select all text for easy replacement
+		const range = document.createRange();
+		range.selectNodeContents(target);
+		const sel = window.getSelection();
+		sel?.removeAllRanges();
+		sel?.addRange(range);
+	}
+
 	private handleEditKeydown(e: KeyboardEvent): void {
 		if (e.key !== 'Escape') return;
 		const target = e.target as HTMLElement;
-		if (!target.classList.contains('meeting-scribe-sidebar-bubble-text')) return;
+		const isText = target.classList.contains('meeting-scribe-sidebar-bubble-text');
+		const isTimestamp = target.classList.contains('meeting-scribe-sidebar-bubble-timestamp--clickable');
+		if (!isText && !isTimestamp) return;
 		if (target.contentEditable !== 'true') return;
 
 		// Restore original text and exit edit mode
@@ -351,18 +378,32 @@ export class TranscriptSidebarView extends ItemView {
 		if (originalText !== null) {
 			target.textContent = originalText;
 		}
-		this.exitEditMode(target);
+		if (isText) {
+			this.exitEditMode(target);
+		} else {
+			target.contentEditable = 'false';
+			target.removeAttribute('data-original-text');
+			target.classList.remove('meeting-scribe-sidebar-bubble-timestamp--editing');
+		}
 	}
 
 	private async handleEditBlur(e: FocusEvent): Promise<void> {
 		const target = e.target as HTMLElement;
-		if (!target.classList.contains('meeting-scribe-sidebar-bubble-text')) return;
+		const isText = target.classList.contains('meeting-scribe-sidebar-bubble-text');
+		const isTimestamp = target.classList.contains('meeting-scribe-sidebar-bubble-timestamp--clickable');
+		if (!isText && !isTimestamp) return;
 		if (target.contentEditable !== 'true') return;
 
 		const originalText = target.getAttribute('data-original-text');
 		const newText = target.textContent ?? '';
 
-		this.exitEditMode(target);
+		if (isText) {
+			this.exitEditMode(target);
+		} else {
+			target.contentEditable = 'false';
+			target.removeAttribute('data-original-text');
+			target.classList.remove('meeting-scribe-sidebar-bubble-timestamp--editing');
+		}
 
 		// Only save if text actually changed
 		if (newText === originalText) return;
@@ -375,8 +416,33 @@ export class TranscriptSidebarView extends ItemView {
 		const segment = this.transcriptData.segments.find(s => s.id === segmentId);
 		if (!segment) return;
 
-		segment.text = newText;
+		if (isText) {
+			segment.text = newText;
+		} else {
+			// Parse timestamp [HH:MM:SS] to seconds
+			const parsed = this.parseTimestamp(newText);
+			if (parsed !== null) {
+				const duration = segment.end - segment.start;
+				segment.start = parsed;
+				segment.end = parsed + duration;
+				target.setAttribute('data-start', String(parsed));
+				bubble?.setAttribute('data-segment-start', String(parsed));
+				bubble?.setAttribute('data-segment-end', String(segment.end));
+			} else {
+				// Invalid format — restore original
+				target.textContent = originalText;
+				return;
+			}
+		}
 		await saveTranscriptData(this.app.vault, this.transcriptFilePath, this.transcriptData);
+	}
+
+	private parseTimestamp(text: string): number | null {
+		// Parse [HH:MM:SS] or HH:MM:SS
+		const clean = text.replace(/[[\]]/g, '').trim();
+		const match = clean.match(/^(\d{1,2}):(\d{2}):(\d{2})$/);
+		if (!match || !match[1] || !match[2] || !match[3]) return null;
+		return parseInt(match[1]) * 3600 + parseInt(match[2]) * 60 + parseInt(match[3]);
 	}
 
 	private async handleDeleteSegment(bubble: HTMLElement): Promise<void> {
@@ -709,6 +775,19 @@ export class TranscriptSidebarView extends ItemView {
 		this.resummarizeBtn = null;
 		this.exportBtn = null;
 		this.contentEl.classList.remove('meeting-scribe-sidebar-transcript-layout');
+	}
+
+	private async handleDeleteSession(sessionId: string): Promise<void> {
+		const session = this.sessionManager.getSession(sessionId);
+		if (session) {
+			// Delete transcript JSON file
+			const transcriptFile = this.app.vault.getAbstractFileByPath(session.transcriptFile);
+			if (transcriptFile instanceof TFile) {
+				await this.app.vault.delete(transcriptFile);
+			}
+		}
+		this.sessionManager.removeSession(sessionId);
+		this.showSessionList();
 	}
 
 	private async handleRefresh(): Promise<void> {

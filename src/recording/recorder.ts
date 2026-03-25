@@ -3,12 +3,36 @@ import { StateManager } from '../state/state-manager';
 import { PluginState } from '../state/types';
 import { logger } from '../utils/logger';
 
+type AudioFormat = 'webm' | 'm4a' | 'wav';
+
+const MIME_CANDIDATES: Record<AudioFormat, string[]> = {
+	webm: ['audio/webm;codecs=opus', 'audio/webm'],
+	m4a: ['audio/mp4;codecs=aac', 'audio/mp4', 'audio/aac'],
+	wav: ['audio/wav', 'audio/wave'],
+};
+
+function selectMimeType(format: AudioFormat): string {
+	const candidates = MIME_CANDIDATES[format] ?? MIME_CANDIDATES['webm'];
+	for (const mime of candidates) {
+		if (MediaRecorder.isTypeSupported(mime)) return mime;
+	}
+	// Fallback to webm if requested format not supported
+	for (const mime of MIME_CANDIDATES['webm']) {
+		if (MediaRecorder.isTypeSupported(mime)) return mime;
+	}
+	return '';
+}
+
 export class Recorder {
 	private mediaRecorder: MediaRecorder | null = null;
 	private chunks: Blob[] = [];
 	private stream: MediaStream | null = null;
+	private activeMimeType = '';
 
-	constructor(private stateManager: StateManager) {}
+	constructor(
+		private stateManager: StateManager,
+		private getAudioFormat: () => AudioFormat = () => 'webm',
+	) {}
 
 	async startRecording(): Promise<void> {
 		if (this.mediaRecorder?.state === 'recording') return;
@@ -17,11 +41,8 @@ export class Recorder {
 			this.stream = await navigator.mediaDevices.getUserMedia({ audio: true });
 			this.chunks = [];
 
-			const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
-				? 'audio/webm;codecs=opus'
-				: MediaRecorder.isTypeSupported('audio/webm')
-					? 'audio/webm'
-					: '';
+			const mimeType = selectMimeType(this.getAudioFormat());
+			this.activeMimeType = mimeType;
 
 			const options: MediaRecorderOptions = mimeType ? { mimeType } : {};
 			this.mediaRecorder = new MediaRecorder(this.stream, options);
@@ -45,7 +66,7 @@ export class Recorder {
 
 		return new Promise((resolve) => {
 			this.mediaRecorder!.onstop = () => {
-				const blob = new Blob(this.chunks, { type: 'audio/webm' });
+				const blob = new Blob(this.chunks, { type: this.activeMimeType || 'audio/webm' });
 				this.releaseStream();
 				this.stateManager.setState(PluginState.Idle);
 				logger.debug('Recorder', 'Recording stopped', { size: blob.size });

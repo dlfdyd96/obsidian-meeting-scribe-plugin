@@ -92,6 +92,13 @@ function migrateV10ToV11(data: Record<string, unknown>): Record<string, unknown>
 	});
 }
 
+function migrateV11ToV12(data: Record<string, unknown>): Record<string, unknown> {
+	return Object.assign({}, data, {
+		settingsVersion: 12,
+		audioFormat: data['audioFormat'] ?? 'webm',
+	});
+}
+
 const migrations: Migration[] = [
 	migrateV0ToV1,
 	migrateV1ToV2,
@@ -104,6 +111,7 @@ const migrations: Migration[] = [
 	migrateV8ToV9,
 	migrateV9ToV10,
 	migrateV10ToV11,
+	migrateV11ToV12,
 ];
 
 export function migrateSettings(data: unknown): MeetingScribeSettings {
