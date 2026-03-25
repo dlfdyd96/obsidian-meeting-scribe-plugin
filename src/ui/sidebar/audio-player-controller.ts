@@ -25,6 +25,10 @@ export class AudioPlayerController {
 	private volumeBtnIcon: HTMLElement | null = null;
 	private volumePopupEl: HTMLElement | null = null;
 	private volumeSliderEl: HTMLInputElement | null = null;
+	private volumeTrackEl: HTMLElement | null = null;
+	private volumeFillEl: HTMLElement | null = null;
+	private volumeThumbEl: HTMLElement | null = null;
+	private volumeDragging = false;
 	private previousVolume = 1;
 	private destroyed = false;
 
@@ -190,9 +194,10 @@ export class AudioPlayerController {
 		const clamped = Math.max(0, Math.min(1, level));
 		this.audioEl.volume = clamped;
 		this.updateVolumeIcon();
-		if (this.volumeSliderEl) {
-			this.volumeSliderEl.value = String(Math.round(clamped * 100));
-		}
+		// Update custom slider visuals
+		const pct = `${Math.round(clamped * 100)}%`;
+		if (this.volumeFillEl) this.volumeFillEl.style.height = pct;
+		if (this.volumeThumbEl) this.volumeThumbEl.style.bottom = pct;
 	}
 
 	/**
@@ -309,20 +314,48 @@ export class AudioPlayerController {
 		this.volumePopupEl = document.createElement('div');
 		this.volumePopupEl.className = 'meeting-scribe-sidebar-player-volume-popup';
 
-		this.volumeSliderEl = document.createElement('input');
-		this.volumeSliderEl.type = 'range';
-		this.volumeSliderEl.min = '0';
-		this.volumeSliderEl.max = '100';
-		this.volumeSliderEl.value = '100';
-		this.volumeSliderEl.className = 'meeting-scribe-sidebar-player-volume-slider';
-		this.volumeSliderEl.setAttribute('aria-label', 'Volume level');
-		this.volumeSliderEl.addEventListener('input', () => {
-			const val = parseInt(this.volumeSliderEl!.value, 10);
-			this.setVolume(val / 100);
-		});
-		this.volumeSliderEl.addEventListener('click', (e) => e.stopPropagation());
+		// Custom vertical volume slider (track + fill + thumb)
+		this.volumeTrackEl = document.createElement('div');
+		this.volumeTrackEl.className = 'meeting-scribe-sidebar-volume-track';
 
-		this.volumePopupEl.appendChild(this.volumeSliderEl);
+		this.volumeFillEl = document.createElement('div');
+		this.volumeFillEl.className = 'meeting-scribe-sidebar-volume-fill';
+		this.volumeFillEl.style.height = '100%';
+
+		this.volumeThumbEl = document.createElement('div');
+		this.volumeThumbEl.className = 'meeting-scribe-sidebar-volume-thumb';
+		this.volumeThumbEl.style.bottom = '100%';
+
+		this.volumeTrackEl.appendChild(this.volumeFillEl);
+		this.volumeTrackEl.appendChild(this.volumeThumbEl);
+
+		const setVolumeFromY = (e: MouseEvent): void => {
+			if (!this.volumeTrackEl) return;
+			const rect = this.volumeTrackEl.getBoundingClientRect();
+			const y = Math.max(0, Math.min(rect.height, rect.bottom - e.clientY));
+			const level = y / rect.height;
+			this.setVolume(level);
+		};
+
+		this.volumeTrackEl.addEventListener('mousedown', (e) => {
+			e.stopPropagation();
+			e.preventDefault();
+			this.volumeDragging = true;
+			setVolumeFromY(e);
+
+			const onMove = (ev: MouseEvent): void => {
+				if (this.volumeDragging) setVolumeFromY(ev);
+			};
+			const onUp = (): void => {
+				this.volumeDragging = false;
+				document.removeEventListener('mousemove', onMove);
+				document.removeEventListener('mouseup', onUp);
+			};
+			document.addEventListener('mousemove', onMove);
+			document.addEventListener('mouseup', onUp);
+		});
+
+		this.volumePopupEl.appendChild(this.volumeTrackEl);
 		wrapper.appendChild(this.volumePopupEl);
 
 		return wrapper;

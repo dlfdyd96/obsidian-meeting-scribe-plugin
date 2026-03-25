@@ -562,9 +562,9 @@ Meeting Scribe plugin styles.
 	background: var(--background-primary);
 	border: 1px solid var(--background-modifier-border);
 	border-radius: 6px;
-	padding: 10px 6px;
-	margin-bottom: 6px;
-	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+	padding: 6px 8px;
+	margin-bottom: 4px;
+	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 	z-index: 20;
 }
 
@@ -574,43 +574,36 @@ Meeting Scribe plugin styles.
 	justify-content: center;
 }
 
-.meeting-scribe-sidebar-player-volume-slider {
-	writing-mode: vertical-lr;
-	direction: rtl;
-	width: 6px;
+/* Custom vertical volume slider (no input[type=range]) */
+.meeting-scribe-sidebar-volume-track {
+	width: 3px;
 	height: 80px;
-	appearance: none;
-	-webkit-appearance: none;
 	background: var(--background-modifier-border);
-	border-radius: 3px;
-	outline: none;
+	border-radius: 2px;
+	position: relative;
 	cursor: pointer;
-	margin: 0;
 }
 
-.meeting-scribe-sidebar-player-volume-slider::-webkit-slider-thumb {
-	-webkit-appearance: none;
-	appearance: none;
-	width: 10px;
-	height: 10px;
+.meeting-scribe-sidebar-volume-fill {
+	position: absolute;
+	bottom: 0;
+	left: 0;
+	width: 100%;
 	background: var(--interactive-accent);
-	border-radius: 50%;
-	cursor: pointer;
+	border-radius: 2px;
+	pointer-events: none;
 }
 
-.meeting-scribe-sidebar-player-volume-slider::-moz-range-thumb {
-	width: 10px;
-	height: 10px;
-	background: var(--interactive-accent);
+.meeting-scribe-sidebar-volume-thumb {
+	position: absolute;
+	left: 50%;
+	width: 8px;
+	height: 8px;
+	background: var(--text-normal);
 	border-radius: 50%;
-	border: none;
+	transform: translate(-50%, 50%);
 	cursor: pointer;
-}
-
-.meeting-scribe-sidebar-player-volume-slider::-moz-range-track {
-	background: var(--background-modifier-border);
-	border-radius: 3px;
-	width: 6px;
+	pointer-events: none;
 }
 
 .meeting-scribe-sidebar-player-speed-wrapper {
