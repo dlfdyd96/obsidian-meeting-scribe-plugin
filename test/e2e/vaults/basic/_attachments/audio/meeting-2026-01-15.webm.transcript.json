@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "audioFile": "_attachments/audio/meeting-2026-01-15.webm",
+  "audioFile": "_attachments/audio/meeting-2026-01-15.wav",
   "duration": 450,
   "provider": "openai",
   "model": "whisper-1",

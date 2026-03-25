@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { WorkspaceLeaf } from 'obsidian';
 import { TranscriptSidebarView } from '../../../src/ui/sidebar/transcript-sidebar-view';
 import { SessionManager } from '../../../src/session/session-manager';
@@ -58,17 +58,43 @@ function createMockSession(overrides: Partial<MeetingSession> = {}): MeetingSess
 	};
 }
 
+// Store originals for URL mock
+const originalCreateObjectURL = URL.createObjectURL;
+const originalRevokeObjectURL = URL.revokeObjectURL;
+const OriginalAudio = globalThis.Audio;
+
 describe('TranscriptSidebarView', () => {
 	let leaf: WorkspaceLeaf;
 	let sessionManager: SessionManager;
 	let view: TranscriptSidebarView;
 	let onRetry: ReturnType<typeof vi.fn>;
+	let mockAudioInstance: { src: string; paused: boolean; currentTime: number; duration: number; playbackRate: number; volume: number; preload: string; play: () => Promise<void>; pause: () => void; addEventListener: () => void; removeEventListener: () => void };
+	let revokedUrls: string[];
 
 	beforeEach(() => {
 		leaf = new WorkspaceLeaf();
 		sessionManager = new SessionManager();
 		onRetry = vi.fn();
 		view = new TranscriptSidebarView(leaf, sessionManager, onRetry);
+
+		// Mock Audio/URL for AudioPlayerController integration
+		revokedUrls = [];
+		mockAudioInstance = {
+			src: '', paused: true, currentTime: 0, duration: 100,
+			playbackRate: 1, volume: 1, preload: '',
+			play: vi.fn().mockResolvedValue(undefined),
+			pause: vi.fn(() => { mockAudioInstance.paused = true; }),
+			addEventListener: vi.fn(), removeEventListener: vi.fn(),
+		};
+		globalThis.Audio = vi.fn(() => mockAudioInstance) as unknown as typeof Audio;
+		URL.createObjectURL = vi.fn(() => 'blob:mock-url');
+		URL.revokeObjectURL = vi.fn((url: string) => { revokedUrls.push(url); });
+	});
+
+	afterEach(() => {
+		globalThis.Audio = OriginalAudio;
+		URL.createObjectURL = originalCreateObjectURL;
+		URL.revokeObjectURL = originalRevokeObjectURL;
 	});
 
 	describe('View identity', () => {
@@ -446,6 +472,92 @@ describe('TranscriptSidebarView', () => {
 
 			// showTranscript should not be called again
 			expect(showTranscriptSpy).not.toHaveBeenCalled();
+		});
+	});
+
+	describe('Audio player lifecycle (integration)', () => {
+		function createCompleteSession(): MeetingSession {
+			const session = sessionManager.createSession('audio/test.webm');
+			sessionManager.updateSessionState(session.id, {
+				status: 'complete',
+				progress: 100,
+				completedSteps: ['transcribe', 'summarize', 'generate'],
+			});
+			return sessionManager.getSession(session.id)!;
+		}
+
+		it('creates audio player when showing transcript with audioFile', async () => {
+			const session = createCompleteSession();
+			mockLoadTranscriptData.mockResolvedValueOnce(createMockTranscriptData());
+			await view.onOpen();
+
+			await view.showTranscript(session.id);
+
+			const player = view.contentEl.querySelector('.meeting-scribe-sidebar-player');
+			expect(player).not.toBeNull();
+			expect(view.contentEl.querySelector('.meeting-scribe-sidebar-player-play-btn')).not.toBeNull();
+		});
+
+		it('adds flex layout class to contentEl in transcript view', async () => {
+			const session = createCompleteSession();
+			mockLoadTranscriptData.mockResolvedValueOnce(createMockTranscriptData());
+			await view.onOpen();
+
+			await view.showTranscript(session.id);
+
+			expect(view.contentEl.classList.contains('meeting-scribe-sidebar-transcript-layout')).toBe(true);
+		});
+
+		it('destroys audio player and removes layout class when returning to session list', async () => {
+			const session = createCompleteSession();
+			mockLoadTranscriptData.mockResolvedValueOnce(createMockTranscriptData());
+			await view.onOpen();
+
+			await view.showTranscript(session.id);
+			expect(view.contentEl.querySelector('.meeting-scribe-sidebar-player')).not.toBeNull();
+
+			view.showSessionList();
+
+			// Player should be gone, layout class removed
+			expect(view.contentEl.querySelector('.meeting-scribe-sidebar-player')).toBeNull();
+			expect(view.contentEl.classList.contains('meeting-scribe-sidebar-transcript-layout')).toBe(false);
+		});
+
+		it('revokes ObjectURL when switching sessions', async () => {
+			const session1 = createCompleteSession();
+			const session2 = createCompleteSession();
+			mockLoadTranscriptData.mockResolvedValue(createMockTranscriptData());
+			await view.onOpen();
+
+			await view.showTranscript(session1.id);
+			await view.showTranscript(session2.id);
+
+			// First player's ObjectURL should have been revoked
+			expect(revokedUrls).toContain('blob:mock-url');
+		});
+
+		it('destroys audio player on view close', async () => {
+			const session = createCompleteSession();
+			mockLoadTranscriptData.mockResolvedValueOnce(createMockTranscriptData());
+			await view.onOpen();
+
+			await view.showTranscript(session.id);
+			await view.onClose();
+
+			expect(revokedUrls).toContain('blob:mock-url');
+		});
+
+		it('does not render audio player when session has no audioFile', async () => {
+			const session = createCompleteSession();
+			// Override session to have no audioFile
+			const noAudioSession = createMockSession({ id: session.id, audioFile: undefined });
+			vi.spyOn(sessionManager, 'getSession').mockReturnValue(noAudioSession);
+			mockLoadTranscriptData.mockResolvedValueOnce(createMockTranscriptData());
+			await view.onOpen();
+
+			await view.showTranscript(session.id);
+
+			expect(view.contentEl.querySelector('.meeting-scribe-sidebar-player')).toBeNull();
 		});
 	});
 });

@@ -315,9 +315,168 @@ Meeting Scribe plugin styles.
 	line-height: 1.5;
 }
 
+/* ===== Audio Player ===== */
+
+.meeting-scribe-sidebar-transcript-layout {
+	display: flex;
+	flex-direction: column;
+	height: 100%;
+}
+
+.meeting-scribe-sidebar-player {
+	flex-shrink: 0;
+	border-top: 1px solid var(--background-modifier-border);
+	padding: 8px 12px;
+	background: var(--background-primary);
+}
+
+.meeting-scribe-sidebar-player-disabled {
+	padding: 8px 12px;
+	color: var(--text-muted);
+	font-size: var(--font-ui-smaller);
+	text-align: center;
+	border-top: 1px solid var(--background-modifier-border);
+}
+
+.meeting-scribe-sidebar-player-controls {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: 8px;
+	margin-bottom: 6px;
+}
+
+.meeting-scribe-sidebar-player-controls button {
+	background: none;
+	border: none;
+	color: var(--text-muted);
+	cursor: pointer;
+	padding: 4px;
+	border-radius: 4px;
+	transition: color 0.12s, background 0.12s;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.meeting-scribe-sidebar-player-controls button:hover {
+	color: var(--text-normal);
+	background: var(--background-modifier-active-hover);
+}
+
+.meeting-scribe-sidebar-player-play-btn {
+	width: 32px;
+	height: 32px;
+	border-radius: 50% !important;
+	background: var(--interactive-accent) !important;
+	color: #fff !important;
+}
+
+.meeting-scribe-sidebar-player-play-btn:hover {
+	background: var(--interactive-accent-hover) !important;
+}
+
+.meeting-scribe-sidebar-player-speed-wrapper {
+	position: relative;
+}
+
+.meeting-scribe-sidebar-player-speed-btn {
+	font-size: 11px;
+	font-weight: 600;
+	min-width: 30px;
+	color: var(--text-muted);
+}
+
+.meeting-scribe-sidebar-player-speed-popup {
+	display: none;
+	position: absolute;
+	bottom: 100%;
+	left: 50%;
+	transform: translateX(-50%);
+	background: var(--background-primary);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 6px;
+	padding: 4px;
+	margin-bottom: 6px;
+	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+	z-index: 20;
+}
+
+.meeting-scribe-sidebar-player-speed-popup--visible {
+	display: block;
+}
+
+.meeting-scribe-sidebar-player-speed-option {
+	display: block;
+	width: 100%;
+	text-align: center;
+	padding: 4px 16px;
+	font-size: 12px;
+	border: none;
+	background: none;
+	color: var(--text-normal);
+	cursor: pointer;
+	border-radius: 3px;
+	white-space: nowrap;
+}
+
+.meeting-scribe-sidebar-player-speed-option:hover {
+	background: var(--background-modifier-active-hover);
+}
+
+.meeting-scribe-sidebar-player-speed-option--selected {
+	color: var(--interactive-accent);
+	font-weight: 600;
+}
+
+.meeting-scribe-sidebar-player-seek-row {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.meeting-scribe-sidebar-player-seek-bar {
+	flex: 1;
+	height: 4px;
+	background: var(--background-modifier-border);
+	border-radius: 2px;
+	position: relative;
+	cursor: pointer;
+}
+
+.meeting-scribe-sidebar-player-seek-fill {
+	height: 100%;
+	background: var(--interactive-accent);
+	border-radius: 2px;
+	width: 0%;
+	position: relative;
+	transition: width 0.3s linear;
+}
+
+.meeting-scribe-sidebar-player-seek-fill::after {
+	content: '';
+	position: absolute;
+	right: -5px;
+	top: -3px;
+	width: 10px;
+	height: 10px;
+	background: var(--interactive-accent);
+	border-radius: 50%;
+}
+
+.meeting-scribe-sidebar-player-seek-time {
+	font-size: 10px;
+	color: var(--text-muted);
+	font-family: var(--font-monospace);
+	min-width: 36px;
+}
+
 /* Respect user's reduced-motion preference */
 @media (prefers-reduced-motion: reduce) {
 	.meeting-scribe-sidebar-status-dot--recording {
 		animation: none;
+	}
+	.meeting-scribe-sidebar-player-seek-fill {
+		transition: none;
 	}
 }

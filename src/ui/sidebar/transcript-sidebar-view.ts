@@ -2,6 +2,7 @@ import { ItemView, WorkspaceLeaf } from 'obsidian';
 import { SessionManager } from '../../session/session-manager';
 import { renderSessionList, renderSingleItem } from './session-list-renderer';
 import { renderTranscriptView } from './chat-bubble-renderer';
+import { AudioPlayerController } from './audio-player-controller';
 import { loadTranscriptData } from '../../transcript/transcript-data';
 import { logger } from '../../utils/logger';
 import type { MeetingSession, SessionObserver } from '../../session/types';
@@ -15,6 +16,7 @@ export class TranscriptSidebarView extends ItemView {
 	private currentSessionId: string | null = null;
 	private observer: SessionObserver | null = null;
 	private sessionElements: Map<string, HTMLElement> = new Map();
+	private audioPlayer: AudioPlayerController | null = null;
 
 	constructor(
 		leaf: WorkspaceLeaf,
@@ -54,6 +56,7 @@ export class TranscriptSidebarView extends ItemView {
 	}
 
 	async onClose(): Promise<void> {
+		this.destroyAudioPlayer();
 		if (this.observer) {
 			this.sessionManager.unsubscribe(this.observer);
 			this.observer = null;
@@ -65,6 +68,7 @@ export class TranscriptSidebarView extends ItemView {
 	}
 
 	showSessionList(): void {
+		this.destroyAudioPlayer();
 		this.currentView = 'session-list';
 		this.currentSessionId = null;
 		this.sessionElements.clear();
@@ -87,10 +91,14 @@ export class TranscriptSidebarView extends ItemView {
 			return;
 		}
 
+		this.destroyAudioPlayer();
 		this.currentView = 'transcript';
 		this.currentSessionId = sessionId;
 		this.sessionElements.clear();
 		this.contentEl.empty();
+
+		// Flex column wrapper for header + scroll + player layout
+		this.contentEl.classList.add('meeting-scribe-sidebar-transcript-layout');
 
 		// Header: back button + title + action buttons
 		const header = this.contentEl.createDiv({ cls: 'meeting-scribe-sidebar-transcript-header' });
@@ -131,6 +139,14 @@ export class TranscriptSidebarView extends ItemView {
 		// Scrollable transcript container
 		const scrollContainer = this.contentEl.createDiv({ cls: 'meeting-scribe-sidebar-transcript-scroll' });
 		renderTranscriptView(scrollContainer, data.segments, data.participants);
+
+		// Audio player at bottom
+		if (session.audioFile) {
+			this.audioPlayer = new AudioPlayerController();
+			const playerContainer = this.contentEl.createDiv();
+			await this.audioPlayer.load(session.audioFile, this.app.vault);
+			this.audioPlayer.render(playerContainer);
+		}
 	}
 
 	async showTranscriptForNote(notePath: string): Promise<void> {
@@ -143,6 +159,14 @@ export class TranscriptSidebarView extends ItemView {
 			return;
 		}
 		await this.showTranscript(session.id);
+	}
+
+	private destroyAudioPlayer(): void {
+		if (this.audioPlayer) {
+			this.audioPlayer.destroy();
+			this.audioPlayer = null;
+		}
+		this.contentEl.classList.remove('meeting-scribe-sidebar-transcript-layout');
 	}
 
 	private onSessionUpdate(sessionId: string, session: MeetingSession): void {
