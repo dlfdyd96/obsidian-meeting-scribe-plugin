@@ -789,6 +789,45 @@ describe('TranscriptSidebarView', () => {
 			expect(mockAudioInstance.play).not.toHaveBeenCalled();
 		});
 
+		it('toggleAudio() delegates to audioPlayer.toggle()', async () => {
+			const { fireTimeUpdate } = await setupTranscriptView();
+
+			// Verify audioPlayer exists by checking player element
+			const player = view.contentEl.querySelector('.meeting-scribe-sidebar-player');
+			expect(player).not.toBeNull();
+
+			// Call toggleAudio — should call play on paused audio
+			view.toggleAudio();
+			expect(mockAudioInstance.play).toHaveBeenCalled();
+		});
+
+		it('toggleAudio() is no-op when audioPlayer is null', async () => {
+			await view.onOpen();
+			// No transcript loaded, so audioPlayer is null
+			// Should not throw
+			view.toggleAudio();
+			expect(mockAudioInstance.play).not.toHaveBeenCalled();
+		});
+
+		it('skipAudio() delegates to audioPlayer.skip() with correct delta', async () => {
+			await setupTranscriptView();
+
+			view.skipAudio(5);
+			// skip(5) calls seekTo(currentTime + 5), which sets audioEl.currentTime
+			expect(mockAudioInstance.currentTime).toBe(5);
+
+			view.skipAudio(-3);
+			expect(mockAudioInstance.currentTime).toBe(2);
+		});
+
+		it('skipAudio() is no-op when audioPlayer is null', async () => {
+			await view.onOpen();
+			// No transcript loaded, no audioPlayer
+			view.skipAudio(5);
+			// Should not throw, currentTime should remain at default
+			expect(mockAudioInstance.currentTime).toBe(0);
+		});
+
 		it('cleans up sync state when destroying audio player', async () => {
 			const { fireTimeUpdate } = await setupTranscriptView();
 

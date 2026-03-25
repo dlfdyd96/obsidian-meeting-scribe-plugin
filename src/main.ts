@@ -276,6 +276,30 @@ export default class MeetingScribePlugin extends Plugin {
 			},
 		});
 
+		this.addCommand({
+			id: 'audio-play-pause',
+			name: 'Play/Pause audio',
+			callback: () => {
+				this.getActiveSidebarView()?.toggleAudio();
+			},
+		});
+
+		this.addCommand({
+			id: 'audio-skip-back',
+			name: 'Skip back 5 seconds',
+			callback: () => {
+				this.getActiveSidebarView()?.skipAudio(-5);
+			},
+		});
+
+		this.addCommand({
+			id: 'audio-skip-forward',
+			name: 'Skip forward 5 seconds',
+			callback: () => {
+				this.getActiveSidebarView()?.skipAudio(5);
+			},
+		});
+
 		// Auto-open sidebar when a meeting note becomes active
 		this.registerEvent(
 			this.app.workspace.on('active-leaf-change', (leaf) => {
@@ -309,11 +333,7 @@ export default class MeetingScribePlugin extends Plugin {
 			if (count > 0) {
 				logger.info(COMPONENT, 'Recovered sessions', { count });
 				// Refresh sidebar if already open so it shows recovered sessions at once
-				const leaves = this.app.workspace.getLeavesOfType(TranscriptSidebarView.VIEW_TYPE);
-				if (leaves.length > 0) {
-					const view = leaves[0]!.view as TranscriptSidebarView;
-					view.showSessionList();
-				}
+				this.getActiveSidebarView()?.showSessionList();
 			}
 		});
 
@@ -455,6 +475,14 @@ export default class MeetingScribePlugin extends Plugin {
 			logger.error(COMPONENT, 'Failed to update participant names', { error: message });
 			new Notice('Failed to update participant names');
 		}
+	}
+
+	private getActiveSidebarView(): TranscriptSidebarView | null {
+		const leaves = this.app.workspace.getLeavesOfType(TranscriptSidebarView.VIEW_TYPE);
+		if (leaves.length > 0) {
+			return leaves[0]!.view as TranscriptSidebarView;
+		}
+		return null;
 	}
 
 	private async activateSidebarView(): Promise<TranscriptSidebarView | null> {

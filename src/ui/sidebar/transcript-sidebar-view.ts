@@ -242,6 +242,14 @@ export class TranscriptSidebarView extends ItemView {
 		this.audioPlayer.play();
 	}
 
+	toggleAudio(): void {
+		this.audioPlayer?.toggle();
+	}
+
+	skipAudio(deltaSeconds: number): void {
+		this.audioPlayer?.skip(deltaSeconds);
+	}
+
 	private destroyAudioPlayer(): void {
 		if (this.audioPlayer) {
 			this.audioPlayer.destroy();

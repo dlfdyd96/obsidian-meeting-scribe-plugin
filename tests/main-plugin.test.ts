@@ -436,6 +436,69 @@ describe('MeetingScribePlugin command registration', () => {
 		expect(() => cmd!.callback()).not.toThrow();
 	});
 
+	it('should register audio-play-pause command', async () => {
+		const { default: MeetingScribePlugin } = await import('../src/main');
+		const plugin = new MeetingScribePlugin();
+		vi.spyOn(plugin, 'loadData').mockResolvedValue(null);
+		await plugin.onload();
+
+		const cmd = plugin.commands.find(c => c.id === 'audio-play-pause');
+		expect(cmd).toBeDefined();
+		expect(cmd!.name).toBe('Play/Pause audio');
+	});
+
+	it('should register audio-skip-back command', async () => {
+		const { default: MeetingScribePlugin } = await import('../src/main');
+		const plugin = new MeetingScribePlugin();
+		vi.spyOn(plugin, 'loadData').mockResolvedValue(null);
+		await plugin.onload();
+
+		const cmd = plugin.commands.find(c => c.id === 'audio-skip-back');
+		expect(cmd).toBeDefined();
+		expect(cmd!.name).toBe('Skip back 5 seconds');
+	});
+
+	it('should register audio-skip-forward command', async () => {
+		const { default: MeetingScribePlugin } = await import('../src/main');
+		const plugin = new MeetingScribePlugin();
+		vi.spyOn(plugin, 'loadData').mockResolvedValue(null);
+		await plugin.onload();
+
+		const cmd = plugin.commands.find(c => c.id === 'audio-skip-forward');
+		expect(cmd).toBeDefined();
+		expect(cmd!.name).toBe('Skip forward 5 seconds');
+	});
+
+	it('audio-play-pause callback should not throw when no sidebar is open', async () => {
+		const { default: MeetingScribePlugin } = await import('../src/main');
+		const plugin = new MeetingScribePlugin();
+		vi.spyOn(plugin, 'loadData').mockResolvedValue(null);
+		await plugin.onload();
+
+		const cmd = plugin.commands.find(c => c.id === 'audio-play-pause');
+		expect(() => cmd!.callback()).not.toThrow();
+	});
+
+	it('audio-skip-back callback should not throw when no sidebar is open', async () => {
+		const { default: MeetingScribePlugin } = await import('../src/main');
+		const plugin = new MeetingScribePlugin();
+		vi.spyOn(plugin, 'loadData').mockResolvedValue(null);
+		await plugin.onload();
+
+		const cmd = plugin.commands.find(c => c.id === 'audio-skip-back');
+		expect(() => cmd!.callback()).not.toThrow();
+	});
+
+	it('audio-skip-forward callback should not throw when no sidebar is open', async () => {
+		const { default: MeetingScribePlugin } = await import('../src/main');
+		const plugin = new MeetingScribePlugin();
+		vi.spyOn(plugin, 'loadData').mockResolvedValue(null);
+		await plugin.onload();
+
+		const cmd = plugin.commands.find(c => c.id === 'audio-skip-forward');
+		expect(() => cmd!.callback()).not.toThrow();
+	});
+
 	it('should call ribbonHandler.destroy() on unload', async () => {
 		const { default: MeetingScribePlugin } = await import('../src/main');
 		const plugin = new MeetingScribePlugin();
