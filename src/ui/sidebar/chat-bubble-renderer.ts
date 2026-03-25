@@ -1,5 +1,5 @@
 import type { TranscriptSegmentV2, ParticipantMapping } from '../../transcript/transcript-data';
-import { formatSpeakerDisplayName } from './speaker-popover';
+import { formatSpeakerDisplayName, hasWikiLink } from './speaker-popover';
 
 // Fallback hue if --interactive-accent cannot be parsed
 const DEFAULT_BASE_HUE = 260;
@@ -153,6 +153,15 @@ export function renderTranscriptView(
 				speakerEl.style.color = getSpeakerColor(participant);
 			}
 			speakerRow.appendChild(speakerEl);
+
+			// Wiki-link indicator icon
+			if (participant && hasWikiLink(participant)) {
+				const linkIcon = document.createElement('span');
+				linkIcon.className = 'meeting-scribe-sidebar-bubble-speaker-link-icon';
+				linkIcon.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg>';
+				linkIcon.setAttribute('aria-label', 'Wiki-linked');
+				speakerRow.appendChild(linkIcon);
+			}
 		}
 
 		const timestampEl = document.createElement('span');
@@ -180,7 +189,7 @@ export function renderTranscriptView(
 
 		const splitBtn = document.createElement('button');
 		splitBtn.className = 'meeting-scribe-sidebar-bubble-split-btn';
-		splitBtn.setAttribute('aria-label', 'Split segment');
+		splitBtn.setAttribute('aria-label', 'Split segment at cursor (enter edit mode first)');
 		splitBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20"/><path d="M8 8l-4 4 4 4"/><path d="M16 8l4 4-4 4"/></svg>';
 		actionsEl.appendChild(splitBtn);
 

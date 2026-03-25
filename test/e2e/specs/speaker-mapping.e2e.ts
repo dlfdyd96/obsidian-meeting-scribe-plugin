@@ -119,7 +119,7 @@ describe("Speaker Name Mapping — E2E Tests", function () {
 			);
 			expect(await popover.isExisting()).toBe(false);
 
-			// All speaker elements for this participant should show new name with wiki-link
+			// All speaker elements for this participant should show new name (plain text)
 			const speakerEls = await browser.$$(
 				".meeting-scribe-sidebar-bubble-speaker",
 			);
@@ -128,12 +128,17 @@ describe("Speaker Name Mapping — E2E Tests", function () {
 				const text = await el.getText();
 				if (text.includes("Alice")) {
 					foundMapped = true;
-					// Wiki-link should be enabled by default
-					expect(text).toContain("[[");
-					expect(text).toContain("]]");
+					// Should be plain text (no [[ ]])
+					expect(text).toBe("Alice");
 				}
 			}
 			expect(foundMapped).toBe(true);
+
+			// Wiki-link indicator icon should be present
+			const linkIcon = await browser.$(
+				".meeting-scribe-sidebar-bubble-speaker-link-icon",
+			);
+			expect(await linkIcon.isExisting()).toBe(true);
 
 			// Verify data was saved
 			const savedName = await browser.execute(() => {
@@ -149,17 +154,19 @@ describe("Speaker Name Mapping — E2E Tests", function () {
 			expect(savedName).toBe("Alice");
 		});
 
-		it("should display name as [[Name]] when wiki-link is enabled", async function () {
+		it("should show link icon when wiki-link is enabled", async function () {
 			// The previous test applied with wiki-link checked
-			const speakerEls = await browser.$$(
-				".meeting-scribe-sidebar-bubble-speaker",
+			const linkIcons = await browser.$$(
+				".meeting-scribe-sidebar-bubble-speaker-link-icon",
 			);
-			for (const el of speakerEls) {
-				const text = await el.getText();
-				if (text.includes("Alice")) {
-					expect(text).toBe("[[Alice]]");
-				}
-			}
+			expect(linkIcons.length).toBeGreaterThanOrEqual(1);
+
+			// Icon should contain SVG
+			const hasSvg = await browser.execute(
+				(el: Element) => el.querySelector("svg") !== null,
+				linkIcons[0]!,
+			);
+			expect(hasSvg).toBe(true);
 		});
 	});
 
@@ -259,7 +266,7 @@ describe("Speaker Name Mapping — E2E Tests", function () {
 			await applyBtn.click();
 			await browser.pause(500);
 
-			// Speaker should display as plain text
+			// Speaker should display as plain text with NO link icon
 			const updatedSpeakers = await browser.$$(
 				".meeting-scribe-sidebar-bubble-speaker",
 			);
@@ -267,9 +274,14 @@ describe("Speaker Name Mapping — E2E Tests", function () {
 				const text = await el.getText();
 				if (text.includes("Alice")) {
 					expect(text).toBe("Alice");
-					expect(text).not.toContain("[[");
 				}
 			}
+
+			// Link icon should NOT be present when wiki-link is off
+			const linkIcon = await browser.$(
+				".meeting-scribe-sidebar-bubble-speaker-link-icon",
+			);
+			expect(await linkIcon.isExisting()).toBe(false);
 
 			// Verify wikiLink is false in data
 			const wikiLink = await browser.execute(() => {

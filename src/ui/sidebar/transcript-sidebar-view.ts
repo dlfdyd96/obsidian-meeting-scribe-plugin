@@ -534,7 +534,7 @@ export class TranscriptSidebarView extends ItemView {
 		// Check meeting note path exists (meetingNote or fallback to pipeline.noteFilePath)
 		const notePath = this.transcriptData.meetingNote || this.transcriptData.pipeline.noteFilePath;
 		if (!notePath) {
-			new Notice('Meeting note not found. Cannot re-summarize.');
+			new Notice('Meeting note not found. Try clicking the refresh button in the session list to resync.');
 			return;
 		}
 
@@ -579,7 +579,7 @@ export class TranscriptSidebarView extends ItemView {
 			const notePath = this.transcriptData.meetingNote || this.transcriptData.pipeline.noteFilePath;
 			const noteFile = notePath ? this.app.vault.getAbstractFileByPath(notePath) : null;
 			if (!(noteFile instanceof TFile)) {
-				new Notice('Meeting note not found. Cannot update summary.');
+				new Notice('Meeting note file not found at the saved path. Try refreshing the session list.');
 				return;
 			}
 

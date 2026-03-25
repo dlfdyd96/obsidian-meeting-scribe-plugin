@@ -55,7 +55,7 @@ describe('Speaker Name Mapping', () => {
 			expect(speakerEls[0]!.textContent).toBe('Alice');
 		});
 
-		it('should display [[Name]] when wikiLink is true', () => {
+		it('should display plain name with link icon when wikiLink is true', () => {
 			const segments = createSegments();
 			const participants = createParticipants();
 			participants[0]!.name = 'Alice';
@@ -63,7 +63,12 @@ describe('Speaker Name Mapping', () => {
 			renderTranscriptView(container, segments, participants);
 
 			const speakerEls = container.querySelectorAll('.meeting-scribe-sidebar-bubble-speaker');
-			expect(speakerEls[0]!.textContent).toBe('[[Alice]]');
+			expect(speakerEls[0]!.textContent).toBe('Alice');
+
+			// Should have link icon next to speaker name
+			const linkIcons = container.querySelectorAll('.meeting-scribe-sidebar-bubble-speaker-link-icon');
+			expect(linkIcons.length).toBeGreaterThanOrEqual(1);
+			expect(linkIcons[0]!.querySelector('svg')).not.toBeNull();
 		});
 
 		it('should display plain name when wikiLink is false', () => {
@@ -188,12 +193,16 @@ describe('Speaker Name Mapping', () => {
 
 			// seg-1 has speaker row with Alice; seg-3 is consecutive (no speaker row)
 			const speakerEls = container.querySelectorAll('.meeting-scribe-sidebar-bubble-speaker');
-			expect(speakerEls[0]!.textContent).toBe('[[Alice]]');
+			expect(speakerEls[0]!.textContent).toBe('Alice');
 
-			// All bubbles for Participant 1 should have correct aria-label
+			// Link icon should appear next to wiki-linked speaker
+			const linkIcons = container.querySelectorAll('.meeting-scribe-sidebar-bubble-speaker-link-icon');
+			expect(linkIcons.length).toBeGreaterThanOrEqual(1);
+
+			// All bubbles for Participant 1 should have correct aria-label (plain name)
 			const bubbles = container.querySelectorAll('.meeting-scribe-sidebar-bubble');
-			expect(bubbles[0]!.getAttribute('aria-label')).toBe('Speaker: [[Alice]]');
-			expect(bubbles[2]!.getAttribute('aria-label')).toBe('Speaker: [[Alice]]');
+			expect(bubbles[0]!.getAttribute('aria-label')).toBe('Speaker: Alice');
+			expect(bubbles[2]!.getAttribute('aria-label')).toBe('Speaker: Alice');
 		});
 	});
 });

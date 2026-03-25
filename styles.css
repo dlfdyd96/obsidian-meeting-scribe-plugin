@@ -406,6 +406,15 @@ Meeting Scribe plugin styles.
 	display: flex;
 }
 
+/* Split button hidden by default — only show when editing (cursor placed) */
+.meeting-scribe-sidebar-bubble-split-btn {
+	display: none !important;
+}
+
+.meeting-scribe-sidebar-bubble--editing .meeting-scribe-sidebar-bubble-split-btn {
+	display: flex !important;
+}
+
 .meeting-scribe-sidebar-bubble-actions button {
 	background: none !important;
 	border: none !important;
@@ -658,6 +667,14 @@ Meeting Scribe plugin styles.
 .meeting-scribe-sidebar-bubble-speaker--clickable:hover {
 	text-decoration: underline;
 	opacity: 0.85;
+}
+
+.meeting-scribe-sidebar-bubble-speaker-link-icon {
+	display: inline-flex;
+	align-items: center;
+	margin-left: 3px;
+	color: var(--text-faint);
+	vertical-align: middle;
 }
 
 .meeting-scribe-sidebar-speaker-popover {

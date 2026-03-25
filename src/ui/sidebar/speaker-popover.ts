@@ -172,14 +172,17 @@ export function updateParticipantMapping(
 }
 
 /**
- * Format display name based on wiki-link setting.
+ * Format display name — always plain text (wiki-link indicated by icon).
  */
 export function formatSpeakerDisplayName(participant: ParticipantMapping, fallbackSpeaker: string): string {
-	const name = participant?.name || fallbackSpeaker;
-	if (participant?.name && participant.wikiLink) {
-		return `[[${name}]]`;
-	}
-	return name;
+	return participant?.name || fallbackSpeaker;
+}
+
+/**
+ * Whether this participant has wiki-link enabled.
+ */
+export function hasWikiLink(participant: ParticipantMapping): boolean {
+	return !!(participant?.name && participant.wikiLink);
 }
 
 function renderSuggestions(
