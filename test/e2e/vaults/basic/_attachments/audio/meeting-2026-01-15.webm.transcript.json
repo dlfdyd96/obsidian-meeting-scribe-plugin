@@ -28,9 +28,16 @@
       "text": "Looks good. What about the mobile responsive issues?"
     },
     {
+      "id": "seg-003b",
+      "speaker": "Participant 1",
+      "start": 50,
+      "end": 55,
+      "text": "Also, check the tablet layout."
+    },
+    {
       "id": "seg-004",
       "speaker": "Participant 2",
-      "start": 51,
+      "start": 56,
       "end": 70,
       "text": "I switched the sidebar to overlay mode below 768px."
     },

@@ -124,6 +124,21 @@ export class SessionManager {
 		this.notifyObservers(sessionId, session);
 	}
 
+	hasTranscriptFile(transcriptFile: string): boolean {
+		for (const session of this.sessions.values()) {
+			if (session.transcriptFile === transcriptFile) return true;
+		}
+		return false;
+	}
+
+	removeSession(sessionId: string): boolean {
+		const deleted = this.sessions.delete(sessionId);
+		if (deleted) {
+			logger.info(COMPONENT, 'Session removed', { sessionId });
+		}
+		return deleted;
+	}
+
 	findSessionByNotePath(notePath: string): MeetingSession | undefined {
 		for (const session of this.sessions.values()) {
 			if (session.pipeline.noteFilePath === notePath) {

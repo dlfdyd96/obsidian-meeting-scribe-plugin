@@ -45,6 +45,7 @@ export class TranscriptSidebarView extends ItemView {
 		private readonly sessionManager: SessionManager,
 		private readonly onRetry?: (sessionId: string) => void,
 		private readonly getSettings?: () => MeetingScribeSettings,
+		private readonly onRefreshSessions?: () => Promise<void>,
 	) {
 		super(leaf);
 	}
@@ -104,7 +105,7 @@ export class TranscriptSidebarView extends ItemView {
 			this.sessionElements,
 			(sessionId) => this.showTranscript(sessionId),
 			this.onRetry,
-			() => this.showSessionList(),
+			() => this.handleRefresh(),
 		);
 	}
 
@@ -312,9 +313,10 @@ export class TranscriptSidebarView extends ItemView {
 			return;
 		}
 
-		// Bubble text click → enter edit mode
-		if (target.classList.contains('meeting-scribe-sidebar-bubble-text')) {
-			this.enterEditMode(target);
+		// Bubble text click → enter edit mode (use closest() for child elements from contentEditable)
+		const textEl = target.closest('.meeting-scribe-sidebar-bubble-text') as HTMLElement | null;
+		if (textEl) {
+			this.enterEditMode(textEl);
 			return;
 		}
 	}
@@ -529,8 +531,8 @@ export class TranscriptSidebarView extends ItemView {
 			return;
 		}
 
-		// Check meeting note path exists
-		const notePath = this.transcriptData.meetingNote;
+		// Check meeting note path exists (meetingNote or fallback to pipeline.noteFilePath)
+		const notePath = this.transcriptData.meetingNote || this.transcriptData.pipeline.noteFilePath;
 		if (!notePath) {
 			new Notice('Meeting note not found. Cannot re-summarize.');
 			return;
@@ -574,8 +576,8 @@ export class TranscriptSidebarView extends ItemView {
 			}
 
 			// Read existing note file
-			const notePath = this.transcriptData.meetingNote;
-			const noteFile = this.app.vault.getAbstractFileByPath(notePath);
+			const notePath = this.transcriptData.meetingNote || this.transcriptData.pipeline.noteFilePath;
+			const noteFile = notePath ? this.app.vault.getAbstractFileByPath(notePath) : null;
 			if (!(noteFile instanceof TFile)) {
 				new Notice('Meeting note not found. Cannot update summary.');
 				return;
@@ -707,6 +709,13 @@ export class TranscriptSidebarView extends ItemView {
 		this.resummarizeBtn = null;
 		this.exportBtn = null;
 		this.contentEl.classList.remove('meeting-scribe-sidebar-transcript-layout');
+	}
+
+	private async handleRefresh(): Promise<void> {
+		if (this.onRefreshSessions) {
+			await this.onRefreshSessions();
+		}
+		this.showSessionList();
 	}
 
 	private onSessionUpdate(sessionId: string, session: MeetingSession): void {

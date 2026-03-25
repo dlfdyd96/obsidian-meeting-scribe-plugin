@@ -337,4 +337,44 @@ describe("Inline Transcript Editing — E2E Tests", function () {
 			expect(bubblesAfter.length).toBe(countBefore + 1);
 		});
 	});
+
+	describe("Consecutive Same-Speaker Bubble Editing", function () {
+		it("should be able to edit consecutive same-speaker bubbles independently", async function () {
+			// Find consecutive bubble (has --consecutive class)
+			const consecutiveBubble = await browser.$(
+				".meeting-scribe-sidebar-bubble--consecutive",
+			);
+			if (!(await consecutiveBubble.isExisting())) {
+				// Skip if no consecutive bubbles in test data
+				return;
+			}
+
+			const textEl = await consecutiveBubble.$(
+				".meeting-scribe-sidebar-bubble-text",
+			);
+			expect(await textEl.isExisting()).toBe(true);
+
+			// Click to enter edit mode
+			await textEl.click();
+			await browser.pause(200);
+
+			const isEditable = await browser.execute(
+				(el: Element) => (el as HTMLElement).contentEditable,
+				textEl,
+			);
+			expect(isEditable).toBe("true");
+
+			// Verify the consecutive bubble has its own data-segment-id
+			const segmentId = await browser.execute(
+				(el: Element) =>
+					el.closest(".meeting-scribe-sidebar-bubble")?.getAttribute("data-segment-id"),
+				textEl,
+			);
+			expect(segmentId).toBeTruthy();
+
+			// Cancel edit
+			await browser.keys("Escape");
+			await browser.pause(200);
+		});
+	});
 });

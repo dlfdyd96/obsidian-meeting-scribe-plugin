@@ -486,6 +486,55 @@ describe('SessionManager', () => {
 		});
 	});
 
+	describe('hasTranscriptFile', () => {
+		it('returns true when a session with that transcript file exists', () => {
+			manager.createSession('audio/meeting.webm');
+			expect(manager.hasTranscriptFile('audio/meeting.webm.transcript.json')).toBe(true);
+		});
+
+		it('returns false when no session has that transcript file', () => {
+			manager.createSession('audio/meeting.webm');
+			expect(manager.hasTranscriptFile('audio/other.webm.transcript.json')).toBe(false);
+		});
+
+		it('returns false when no sessions exist', () => {
+			expect(manager.hasTranscriptFile('audio/meeting.webm.transcript.json')).toBe(false);
+		});
+
+		it('detects restored sessions too', () => {
+			manager.restoreSession({
+				audioFile: 'audio/old.webm',
+				transcriptFile: 'audio/old.webm.transcript.json',
+				title: 'Old',
+				pipeline: { status: 'complete', progress: 100, completedSteps: [] },
+				createdAt: '2026-01-01T00:00:00.000Z',
+			});
+			expect(manager.hasTranscriptFile('audio/old.webm.transcript.json')).toBe(true);
+		});
+	});
+
+	describe('removeSession', () => {
+		it('removes an existing session and returns true', () => {
+			const session = manager.createSession('audio/meeting.webm');
+			expect(manager.removeSession(session.id)).toBe(true);
+			expect(manager.getSession(session.id)).toBeUndefined();
+			expect(manager.getAllSessions()).toHaveLength(0);
+		});
+
+		it('returns false for non-existent session', () => {
+			expect(manager.removeSession('nonexistent')).toBe(false);
+		});
+
+		it('does not affect other sessions', () => {
+			const s1 = manager.createSession('audio/a.webm');
+			const s2 = manager.createSession('audio/b.webm');
+			manager.removeSession(s1.id);
+
+			expect(manager.getAllSessions()).toHaveLength(1);
+			expect(manager.getSession(s2.id)).toBeDefined();
+		});
+	});
+
 	describe('updateSessionAudioFile', () => {
 		it('updates audioFile and transcriptFile', () => {
 			const session = manager.createSession('recording-in-progress');

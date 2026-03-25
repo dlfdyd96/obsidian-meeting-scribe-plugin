@@ -102,6 +102,9 @@ export class PipelineDispatcher {
 
 			for (const filePath of transcriptFiles) {
 				try {
+					// Skip already-tracked sessions
+					if (this.sessionManager.hasTranscriptFile(filePath)) continue;
+
 					const data = await loadTranscriptData(this.vault, filePath);
 					if (!data) continue;
 
@@ -319,6 +322,9 @@ export class PipelineDispatcher {
 
 			if (existing) {
 				existing.pipeline = { ...session.pipeline };
+				if (session.pipeline.noteFilePath) {
+					existing.meetingNote = session.pipeline.noteFilePath;
+				}
 				await saveTranscriptData(this.vault, transcriptPath, existing);
 			}
 		} catch (err) {

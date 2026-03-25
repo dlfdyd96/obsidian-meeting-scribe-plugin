@@ -266,6 +266,7 @@ export default class MeetingScribePlugin extends Plugin {
 				this.sessionManager,
 				(sessionId: string) => { void this.dispatcher.retrySession(sessionId); },
 				() => this.settings,
+				async () => { await this.dispatcher.recoverSessions(); },
 			),
 		);
 
