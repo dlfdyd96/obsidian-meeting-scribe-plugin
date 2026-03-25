@@ -292,6 +292,42 @@ Meeting Scribe plugin styles.
 	cursor: not-allowed;
 }
 
+.meeting-scribe-sidebar-action-btn--loading {
+	opacity: 0.5;
+	cursor: wait;
+	position: relative;
+}
+
+.meeting-scribe-sidebar-action-btn--loading::after {
+	content: '';
+	display: inline-block;
+	width: 10px;
+	height: 10px;
+	margin-left: 4px;
+	border: 2px solid var(--text-muted);
+	border-top-color: transparent;
+	border-radius: 50%;
+	animation: meeting-scribe-spin 0.6s linear infinite;
+	vertical-align: middle;
+}
+
+@keyframes meeting-scribe-spin {
+	to { transform: rotate(360deg); }
+}
+
+.meeting-scribe-modal-actions {
+	display: flex;
+	justify-content: flex-end;
+	gap: 8px;
+	margin-top: 16px;
+}
+
+.meeting-scribe-modal-actions button {
+	padding: 6px 16px;
+	border-radius: 4px;
+	cursor: pointer;
+}
+
 .meeting-scribe-sidebar-transcript-scroll {
 	overflow-y: auto;
 	flex: 1;

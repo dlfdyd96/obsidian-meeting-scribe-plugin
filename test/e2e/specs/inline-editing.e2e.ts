@@ -198,11 +198,11 @@ describe("Inline Transcript Editing — E2E Tests", function () {
 				(el as HTMLElement).textContent = "Edited meeting start text.";
 			}, textEl);
 
-			// Click elsewhere to blur
-			const header = await browser.$(
-				".meeting-scribe-sidebar-transcript-header",
+			// Click session title to blur (avoid action buttons in header)
+			const title = await browser.$(
+				".meeting-scribe-sidebar-session-title",
 			);
-			await header.click();
+			await title.click();
 			await browser.pause(500);
 
 			// Should exit edit mode
@@ -229,6 +229,15 @@ describe("Inline Transcript Editing — E2E Tests", function () {
 
 	describe("Delete Segment (AC #5)", function () {
 		it("should remove segment after confirm and re-render with fewer bubbles", async function () {
+			// Dismiss any lingering modal overlays
+			await browser.execute(() => {
+				const bg = document.querySelector(".modal-bg") as HTMLElement;
+				if (bg) bg.remove();
+				const container = document.querySelector(".modal-container") as HTMLElement;
+				if (container) container.remove();
+			});
+			await browser.pause(100);
+
 			// Count bubbles before delete
 			const bubblesBefore = await browser.$$(
 				".meeting-scribe-sidebar-bubble",
@@ -242,12 +251,14 @@ describe("Inline Transcript Editing — E2E Tests", function () {
 				window.confirm = () => true;
 			});
 
-			// Click delete button on first bubble (hover first to reveal)
-			const firstBubble = await browser.$(
-				".meeting-scribe-sidebar-bubble",
-			);
-			await firstBubble.moveTo();
-			await browser.pause(200);
+			// Make delete button visible via JS (CSS hover unreliable in headless) and click
+			await browser.execute(() => {
+				const actions = document.querySelector(
+					".meeting-scribe-sidebar-bubble-actions",
+				) as HTMLElement;
+				if (actions) actions.style.display = "flex";
+			});
+			await browser.pause(100);
 
 			const deleteBtn = await browser.$(
 				".meeting-scribe-sidebar-bubble-delete-btn",
@@ -270,6 +281,15 @@ describe("Inline Transcript Editing — E2E Tests", function () {
 
 	describe("Split Segment (AC #6)", function () {
 		it("should split segment into two with same speaker after cursor placement", async function () {
+			// Dismiss any lingering modal overlays
+			await browser.execute(() => {
+				const bg = document.querySelector(".modal-bg") as HTMLElement;
+				if (bg) bg.remove();
+				const modal = document.querySelector(".modal-container") as HTMLElement;
+				if (modal) modal.remove();
+			});
+			await browser.pause(100);
+
 			// Count bubbles before split
 			const bubblesBefore = await browser.$$(
 				".meeting-scribe-sidebar-bubble",
@@ -295,12 +315,14 @@ describe("Inline Transcript Editing — E2E Tests", function () {
 				sel?.addRange(range);
 			}, textEl);
 
-			// Click split button
-			const bubble = await browser.$(
-				".meeting-scribe-sidebar-bubble",
-			);
-			await bubble.moveTo();
-			await browser.pause(200);
+			// Make split button visible via JS (CSS hover unreliable in headless) and click
+			await browser.execute(() => {
+				const actions = document.querySelector(
+					".meeting-scribe-sidebar-bubble-actions",
+				) as HTMLElement;
+				if (actions) actions.style.display = "flex";
+			});
+			await browser.pause(100);
 
 			const splitBtn = await browser.$(
 				".meeting-scribe-sidebar-bubble-split-btn",

@@ -45,13 +45,13 @@
   "participants": [
     {
       "alias": "Participant 1",
-      "name": "Participant 1",
+      "name": "",
       "wikiLink": false,
       "color": 0
     },
     {
       "alias": "Participant 2",
-      "name": "Participant 2",
+      "name": "",
       "wikiLink": false,
       "color": 1
     }

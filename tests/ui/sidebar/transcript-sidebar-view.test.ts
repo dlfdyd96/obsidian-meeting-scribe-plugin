@@ -226,11 +226,11 @@ describe('TranscriptSidebarView', () => {
 			const title = view.contentEl.querySelector('.meeting-scribe-sidebar-session-title');
 			expect(title).not.toBeNull();
 
-			// Action buttons should be disabled
+			// Action buttons should be enabled (Re-summarize + Export)
 			const actionBtns = view.contentEl.querySelectorAll('.meeting-scribe-sidebar-action-btn');
 			expect(actionBtns.length).toBe(2);
-			expect((actionBtns[0] as HTMLButtonElement).disabled).toBe(true);
-			expect((actionBtns[1] as HTMLButtonElement).disabled).toBe(true);
+			expect((actionBtns[0] as HTMLButtonElement).disabled).toBe(false);
+			expect((actionBtns[1] as HTMLButtonElement).disabled).toBe(false);
 		});
 
 		it('renders chat bubbles from transcript data', async () => {

@@ -265,6 +265,7 @@ export default class MeetingScribePlugin extends Plugin {
 				leaf,
 				this.sessionManager,
 				(sessionId: string) => { void this.dispatcher.retrySession(sessionId); },
+				() => this.settings,
 			),
 		);
 

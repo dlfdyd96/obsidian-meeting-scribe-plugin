@@ -1,4 +1,4 @@
-import { ItemView, WorkspaceLeaf } from 'obsidian';
+import { ItemView, Modal, Notice, TFile, WorkspaceLeaf } from 'obsidian';
 import { SessionManager } from '../../session/session-manager';
 import { renderSessionList, renderSingleItem } from './session-list-renderer';
 import { renderTranscriptView } from './chat-bubble-renderer';
@@ -10,8 +10,13 @@ import {
 	attachSpeakerPopoverBehavior,
 	updateParticipantMapping,
 } from './speaker-popover';
+import { buildTranscriptionResultFromData } from './re-summarize-helpers';
+import { SummarizeStep } from '../../pipeline/steps/summarize-step';
+import { formatTranscriptSection } from '../../note/templates';
+import { parseFrontmatter, applyParticipantReplacements } from '../../note/note-generator';
 import { logger } from '../../utils/logger';
 import type { MeetingSession, SessionObserver } from '../../session/types';
+import type { MeetingScribeSettings } from '../../settings/settings';
 
 const COMPONENT = 'TranscriptSidebarView';
 
@@ -32,11 +37,14 @@ export class TranscriptSidebarView extends ItemView {
 	private transcriptData: TranscriptData | null = null;
 	private transcriptFilePath: string | null = null;
 	private activeSpeakerPopover: HTMLElement | null = null;
+	private resummarizeBtn: HTMLButtonElement | null = null;
+	private exportBtn: HTMLButtonElement | null = null;
 
 	constructor(
 		leaf: WorkspaceLeaf,
 		private readonly sessionManager: SessionManager,
 		private readonly onRetry?: (sessionId: string) => void,
+		private readonly getSettings?: () => MeetingScribeSettings,
 	) {
 		super(leaf);
 	}
@@ -127,19 +135,19 @@ export class TranscriptSidebarView extends ItemView {
 		header.createEl('h3', { text: session.title, cls: 'meeting-scribe-sidebar-session-title' });
 
 		const actions = header.createDiv({ cls: 'meeting-scribe-sidebar-header-actions' });
-		const resummarizeBtn = actions.createEl('button', {
+		this.resummarizeBtn = actions.createEl('button', {
 			text: 'Re-summarize',
 			cls: 'meeting-scribe-sidebar-action-btn',
 		});
-		resummarizeBtn.disabled = true;
-		resummarizeBtn.setAttribute('aria-label', 'Re-summarize (coming soon)');
+		this.resummarizeBtn.setAttribute('aria-label', 'Re-summarize transcript with LLM');
+		this.resummarizeBtn.addEventListener('click', () => this.handleResummarize());
 
-		const exportBtn = actions.createEl('button', {
+		this.exportBtn = actions.createEl('button', {
 			text: 'Export',
 			cls: 'meeting-scribe-sidebar-action-btn',
 		});
-		exportBtn.disabled = true;
-		exportBtn.setAttribute('aria-label', 'Export (coming soon)');
+		this.exportBtn.setAttribute('aria-label', 'Export transcript to Markdown');
+		this.exportBtn.addEventListener('click', () => this.handleExport(session.title));
 
 		// Load transcript data
 		const data = await loadTranscriptData(this.app.vault, session.transcriptFile);
@@ -512,6 +520,169 @@ export class TranscriptSidebarView extends ItemView {
 		renderTranscriptView(this.scrollContainer, this.transcriptData.segments, this.transcriptData.participants);
 	}
 
+	private handleResummarize(): void {
+		if (!this.transcriptData || !this.transcriptFilePath) return;
+
+		// Check pipeline is complete
+		if (this.transcriptData.pipeline.status !== 'complete') {
+			new Notice('Cannot re-summarize while pipeline is still running.');
+			return;
+		}
+
+		// Check meeting note path exists
+		const notePath = this.transcriptData.meetingNote;
+		if (!notePath) {
+			new Notice('Meeting note not found. Cannot re-summarize.');
+			return;
+		}
+
+		// Show confirmation modal
+		const modal = new ConfirmResummarizeModal(this.app, async () => {
+			await this.executeResummarize();
+		});
+		modal.open();
+	}
+
+	private async executeResummarize(): Promise<void> {
+		if (!this.transcriptData || !this.transcriptFilePath || !this.resummarizeBtn) return;
+
+		const settings = this.getSettings?.();
+		if (!settings) {
+			new Notice('Plugin settings not available.');
+			return;
+		}
+
+		// Set loading state
+		this.resummarizeBtn.disabled = true;
+		this.resummarizeBtn.classList.add('meeting-scribe-sidebar-action-btn--loading');
+
+		try {
+			// Build TranscriptionResult from edited transcript
+			const transcriptionResult = buildTranscriptionResultFromData(this.transcriptData);
+
+			// Execute SummarizeStep
+			const summarizeStep = new SummarizeStep();
+			const context = await summarizeStep.execute({
+				audioFilePath: this.transcriptData.audioFile,
+				vault: this.app.vault,
+				settings,
+				transcriptionResult,
+			});
+
+			if (!context.summaryResult) {
+				throw new Error('Summarization produced no result');
+			}
+
+			// Read existing note file
+			const notePath = this.transcriptData.meetingNote;
+			const noteFile = this.app.vault.getAbstractFileByPath(notePath);
+			if (!(noteFile instanceof TFile)) {
+				new Notice('Meeting note not found. Cannot update summary.');
+				return;
+			}
+
+			const oldContent = await this.app.vault.read(noteFile);
+			const parsed = parseFrontmatter(oldContent);
+
+			if (!parsed) {
+				// No frontmatter — overwrite entire content
+				await this.app.vault.modify(noteFile, context.summaryResult.summary);
+			} else {
+				// Extract audio embed from existing body
+				const bodyLines = parsed.body.trim().split('\n');
+				let audioEmbed = '';
+				for (const line of bodyLines) {
+					if (line.match(/^!?\[\[[^\]]+\]\]/)) {
+						audioEmbed = line;
+						break;
+					}
+				}
+
+				// Build new content preserving frontmatter and audio embed
+				let newBody = context.summaryResult.summary;
+
+				// Apply participant name replacements
+				const participants = this.transcriptData.participants
+					.filter(p => p.name)
+					.map(p => ({ alias: p.alias, name: p.name }));
+
+				if (participants.length > 0) {
+					const replacement = applyParticipantReplacements(
+						`---\n${parsed.frontmatter}\n---\n\n${audioEmbed ? audioEmbed + '\n\n' : ''}${newBody}\n`,
+						participants,
+					);
+					await this.app.vault.modify(noteFile, replacement.updatedContent);
+				} else {
+					const newContent = `---\n${parsed.frontmatter}\n---\n\n${audioEmbed ? audioEmbed + '\n\n' : ''}${newBody}\n`;
+					await this.app.vault.modify(noteFile, newContent);
+				}
+			}
+
+			// Update pipeline state
+			if (!this.transcriptData.pipeline.completedSteps.includes('re-summarize')) {
+				this.transcriptData.pipeline.completedSteps.push('re-summarize');
+			}
+			await saveTranscriptData(this.app.vault, this.transcriptFilePath, this.transcriptData);
+
+			new Notice('Summary updated');
+			logger.info(COMPONENT, 'Re-summarize completed', { notePath: this.transcriptData.meetingNote });
+		} catch (err) {
+			const message = err instanceof Error ? err.message : String(err);
+			new Notice(`Re-summarize failed: ${message}`);
+			logger.error(COMPONENT, 'Re-summarize failed', { error: message });
+		} finally {
+			// Reset button state
+			if (this.resummarizeBtn) {
+				this.resummarizeBtn.disabled = false;
+				this.resummarizeBtn.classList.remove('meeting-scribe-sidebar-action-btn--loading');
+			}
+		}
+	}
+
+	private async handleExport(sessionTitle: string): Promise<void> {
+		if (!this.transcriptData) return;
+
+		try {
+			// Build TranscriptionResult with mapped names + wiki-links for export
+			const transcriptionResult = buildTranscriptionResultFromData(this.transcriptData, { applyWikiLinks: true });
+
+			// Generate Markdown content
+			const markdown = formatTranscriptSection(transcriptionResult);
+
+			// Determine output path
+			const sanitizedTitle = sessionTitle.split('').map(c => '/\\:*?"<>|'.includes(c) ? '-' : c).join('');
+			const filename = `${sanitizedTitle} - Transcript.md`;
+			const settings = this.getSettings?.();
+			const folder = settings?.outputFolder || '';
+			const basePath = folder ? `${folder}/${filename}` : filename;
+
+			// Dedup path: append counter if file exists
+			let outputPath = basePath;
+			let counter = 1;
+			while (this.app.vault.getAbstractFileByPath(outputPath)) {
+				const name = `${sanitizedTitle} - Transcript ${counter}.md`;
+				outputPath = folder ? `${folder}/${name}` : name;
+				counter++;
+			}
+
+			// Ensure folder exists
+			if (folder) {
+				const folderExists = await this.app.vault.adapter.exists(folder);
+				if (!folderExists) {
+					await this.app.vault.createFolder(folder);
+				}
+			}
+
+			await this.app.vault.create(outputPath, markdown);
+			new Notice(`Transcript exported to ${outputPath}`);
+			logger.info(COMPONENT, 'Transcript exported', { outputPath });
+		} catch (err) {
+			const message = err instanceof Error ? err.message : String(err);
+			new Notice(`Export failed: ${message}`);
+			logger.error(COMPONENT, 'Export failed', { error: message });
+		}
+	}
+
 	private destroyAudioPlayer(): void {
 		this.closeSpeakerPopover();
 		if (this.audioPlayer) {
@@ -533,6 +704,8 @@ export class TranscriptSidebarView extends ItemView {
 		this.scrollContainer = null;
 		this.transcriptData = null;
 		this.transcriptFilePath = null;
+		this.resummarizeBtn = null;
+		this.exportBtn = null;
 		this.contentEl.classList.remove('meeting-scribe-sidebar-transcript-layout');
 	}
 
@@ -573,5 +746,33 @@ export class TranscriptSidebarView extends ItemView {
 				this.sessionElements.set(sessionId, newEl);
 			}
 		}
+	}
+}
+
+class ConfirmResummarizeModal extends Modal {
+	constructor(
+		app: import('obsidian').App,
+		private readonly onConfirm: () => void,
+	) {
+		super(app);
+	}
+
+	onOpen(): void {
+		const { contentEl } = this;
+		contentEl.createEl('p', {
+			text: 'This will send the edited transcript to LLM for a new summary. API cost will be incurred.',
+		});
+		const btnRow = contentEl.createDiv({ cls: 'meeting-scribe-modal-actions' });
+		const confirmBtn = btnRow.createEl('button', { text: 'Confirm', cls: 'mod-cta' });
+		const cancelBtn = btnRow.createEl('button', { text: 'Cancel' });
+		confirmBtn.addEventListener('click', () => {
+			this.onConfirm();
+			this.close();
+		});
+		cancelBtn.addEventListener('click', () => this.close());
+	}
+
+	onClose(): void {
+		this.contentEl.empty();
 	}
 }
