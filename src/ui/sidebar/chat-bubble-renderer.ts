@@ -164,6 +164,24 @@ export function renderTranscriptView(
 		textEl.textContent = segment.text;
 		bubble.appendChild(textEl);
 
+		// Hover action buttons (delete + split)
+		const actionsEl = document.createElement('div');
+		actionsEl.className = 'meeting-scribe-sidebar-bubble-actions';
+
+		const deleteBtn = document.createElement('button');
+		deleteBtn.className = 'meeting-scribe-sidebar-bubble-delete-btn';
+		deleteBtn.setAttribute('aria-label', 'Delete segment');
+		deleteBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6"/></svg>';
+		actionsEl.appendChild(deleteBtn);
+
+		const splitBtn = document.createElement('button');
+		splitBtn.className = 'meeting-scribe-sidebar-bubble-split-btn';
+		splitBtn.setAttribute('aria-label', 'Split segment');
+		splitBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20"/><path d="M8 8l-4 4 4 4"/><path d="M16 8l4 4-4 4"/></svg>';
+		actionsEl.appendChild(splitBtn);
+
+		bubble.appendChild(actionsEl);
+
 		fragment.appendChild(bubble);
 		previousSpeaker = segment.speaker;
 	}

@@ -11,11 +11,13 @@ vi.mock('../../../src/transcript/transcript-data', async (importOriginal) => {
 	return {
 		...actual,
 		loadTranscriptData: vi.fn().mockResolvedValue(null),
+		saveTranscriptData: vi.fn().mockResolvedValue(undefined),
 	};
 });
 
-import { loadTranscriptData } from '../../../src/transcript/transcript-data';
+import { loadTranscriptData, saveTranscriptData } from '../../../src/transcript/transcript-data';
 const mockLoadTranscriptData = vi.mocked(loadTranscriptData);
+const mockSaveTranscriptData = vi.mocked(saveTranscriptData);
 
 function createMockTranscriptData(): TranscriptData {
 	return {
@@ -847,6 +849,282 @@ describe('TranscriptSidebarView', () => {
 			for (const b of Array.from(newBubbles)) {
 				expect(b.classList.contains('meeting-scribe-sidebar-bubble--active')).toBe(false);
 			}
+		});
+	});
+
+	describe('Inline transcript editing', () => {
+		function createCompleteSession(): MeetingSession {
+			const session = sessionManager.createSession('audio/test.webm');
+			sessionManager.updateSessionState(session.id, {
+				status: 'complete',
+				progress: 100,
+				completedSteps: ['transcribe', 'summarize', 'generate'],
+			});
+			return sessionManager.getSession(session.id)!;
+		}
+
+		async function setupTranscriptView(): Promise<{ session: MeetingSession }> {
+			const session = createCompleteSession();
+			mockLoadTranscriptData.mockResolvedValueOnce(createMockTranscriptData());
+			mockSaveTranscriptData.mockClear();
+			await view.onOpen();
+			await view.showTranscript(session.id);
+			return { session };
+		}
+
+		function getBubbleText(index: number): HTMLElement {
+			const bubbles = view.contentEl.querySelectorAll('.meeting-scribe-sidebar-bubble-text');
+			return bubbles[index] as HTMLElement;
+		}
+
+		function getBubble(index: number): HTMLElement {
+			const bubbles = view.contentEl.querySelectorAll('.meeting-scribe-sidebar-bubble');
+			return bubbles[index] as HTMLElement;
+		}
+
+		describe('Edit mode activation (AC #1)', () => {
+			it('makes text editable on click', async () => {
+				await setupTranscriptView();
+				const textEl = getBubbleText(0);
+
+				textEl.click();
+
+				expect(textEl.contentEditable).toBe('true');
+			});
+
+			it('adds editing class to bubble on click', async () => {
+				await setupTranscriptView();
+				const textEl = getBubbleText(0);
+				const bubble = getBubble(0);
+
+				textEl.click();
+
+				expect(bubble.classList.contains('meeting-scribe-sidebar-bubble--editing')).toBe(true);
+			});
+
+			it('stores original text as data attribute on edit activation', async () => {
+				await setupTranscriptView();
+				const textEl = getBubbleText(0);
+
+				textEl.click();
+
+				expect(textEl.getAttribute('data-original-text')).toBe('Hello there.');
+			});
+		});
+
+		describe('Save on blur (AC #2)', () => {
+			it('saves edited text to transcript data on blur', async () => {
+				await setupTranscriptView();
+				const textEl = getBubbleText(0);
+
+				// Enter edit mode
+				textEl.click();
+				// Simulate text edit
+				textEl.textContent = 'Edited text';
+				// Blur to save
+				textEl.dispatchEvent(new Event('blur', { bubbles: true }));
+
+				expect(mockSaveTranscriptData).toHaveBeenCalledOnce();
+				const savedData = mockSaveTranscriptData.mock.calls[0]![2];
+				expect(savedData.segments[0]!.text).toBe('Edited text');
+			});
+
+			it('exits edit mode on blur', async () => {
+				await setupTranscriptView();
+				const textEl = getBubbleText(0);
+				const bubble = getBubble(0);
+
+				textEl.click();
+				textEl.dispatchEvent(new Event('blur', { bubbles: true }));
+
+				expect(textEl.contentEditable).toBe('false');
+				expect(bubble.classList.contains('meeting-scribe-sidebar-bubble--editing')).toBe(false);
+			});
+
+			it('does not save when text is unchanged', async () => {
+				await setupTranscriptView();
+				const textEl = getBubbleText(0);
+
+				textEl.click();
+				// Don't change text, just blur
+				textEl.dispatchEvent(new Event('blur', { bubbles: true }));
+
+				expect(mockSaveTranscriptData).not.toHaveBeenCalled();
+			});
+		});
+
+		describe('Escape to cancel (AC #3)', () => {
+			it('restores original text on Escape', async () => {
+				await setupTranscriptView();
+				const textEl = getBubbleText(0);
+
+				textEl.click();
+				textEl.textContent = 'Changed text';
+				textEl.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+
+				expect(textEl.textContent).toBe('Hello there.');
+			});
+
+			it('exits edit mode on Escape', async () => {
+				await setupTranscriptView();
+				const textEl = getBubbleText(0);
+				const bubble = getBubble(0);
+
+				textEl.click();
+				textEl.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+
+				expect(textEl.contentEditable).toBe('false');
+				expect(bubble.classList.contains('meeting-scribe-sidebar-bubble--editing')).toBe(false);
+			});
+
+			it('does not save on Escape', async () => {
+				await setupTranscriptView();
+				const textEl = getBubbleText(0);
+
+				textEl.click();
+				textEl.textContent = 'Changed';
+				textEl.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+
+				expect(mockSaveTranscriptData).not.toHaveBeenCalled();
+			});
+		});
+
+		describe('Hover action buttons (AC #4)', () => {
+			it('renders action buttons container in each bubble', async () => {
+				await setupTranscriptView();
+
+				const actions = view.contentEl.querySelectorAll('.meeting-scribe-sidebar-bubble-actions');
+				expect(actions.length).toBe(3); // One per bubble
+			});
+
+			it('action buttons contain delete and split buttons', async () => {
+				await setupTranscriptView();
+
+				const actions = getBubble(0).querySelector('.meeting-scribe-sidebar-bubble-actions')!;
+				const deleteBtn = actions.querySelector('.meeting-scribe-sidebar-bubble-delete-btn');
+				const splitBtn = actions.querySelector('.meeting-scribe-sidebar-bubble-split-btn');
+
+				expect(deleteBtn).not.toBeNull();
+				expect(splitBtn).not.toBeNull();
+			});
+
+			it('action buttons use SVG icons (no emoji)', async () => {
+				await setupTranscriptView();
+
+				const actions = getBubble(0).querySelector('.meeting-scribe-sidebar-bubble-actions')!;
+				const buttons = actions.querySelectorAll('button');
+				for (const btn of Array.from(buttons)) {
+					expect(btn.querySelector('svg')).not.toBeNull();
+				}
+			});
+		});
+
+		describe('Delete segment (AC #5)', () => {
+			it('removes segment from data and DOM after confirmation', async () => {
+				await setupTranscriptView();
+
+				// Mock window.confirm
+				const confirmSpy = vi.spyOn(globalThis, 'confirm').mockReturnValue(true);
+
+				const deleteBtn = getBubble(0).querySelector('.meeting-scribe-sidebar-bubble-delete-btn') as HTMLElement;
+				deleteBtn.click();
+
+				expect(confirmSpy).toHaveBeenCalled();
+
+				// Wait for async delete to complete
+				await vi.waitFor(() => {
+					expect(mockSaveTranscriptData).toHaveBeenCalledOnce();
+				});
+				const savedData = mockSaveTranscriptData.mock.calls[0]![2];
+				expect(savedData.segments.length).toBe(2);
+				expect(savedData.segments.find((s: { id: string }) => s.id === 'seg-1')).toBeUndefined();
+
+				// DOM should also update
+				const bubbles = view.contentEl.querySelectorAll('.meeting-scribe-sidebar-bubble');
+				expect(bubbles.length).toBe(2);
+
+				confirmSpy.mockRestore();
+			});
+
+			it('does nothing when confirmation is cancelled', async () => {
+				await setupTranscriptView();
+
+				const confirmSpy = vi.spyOn(globalThis, 'confirm').mockReturnValue(false);
+
+				const deleteBtn = getBubble(0).querySelector('.meeting-scribe-sidebar-bubble-delete-btn') as HTMLElement;
+				deleteBtn.click();
+
+				expect(mockSaveTranscriptData).not.toHaveBeenCalled();
+				const bubbles = view.contentEl.querySelectorAll('.meeting-scribe-sidebar-bubble');
+				expect(bubbles.length).toBe(3);
+
+				confirmSpy.mockRestore();
+			});
+		});
+
+		describe('Split segment (AC #6)', () => {
+			it('splits segment into two with same speaker', async () => {
+				await setupTranscriptView();
+				const textEl = getBubbleText(0);
+
+				// Enter edit mode to place cursor
+				textEl.click();
+
+				// Mock getSelection to return cursor at position 5 ("Hello" | " there.")
+				const mockRange = {
+					startContainer: textEl.firstChild!,
+					startOffset: 5,
+					collapsed: true,
+				};
+				const mockSelection = {
+					rangeCount: 1,
+					getRangeAt: vi.fn().mockReturnValue(mockRange),
+					anchorNode: textEl.firstChild,
+					anchorOffset: 5,
+				};
+				vi.spyOn(window, 'getSelection').mockReturnValue(mockSelection as unknown as Selection);
+
+				const splitBtn = getBubble(0).querySelector('.meeting-scribe-sidebar-bubble-split-btn') as HTMLElement;
+				splitBtn.click();
+
+				expect(mockSaveTranscriptData).toHaveBeenCalledOnce();
+				const savedData = mockSaveTranscriptData.mock.calls[0]![2];
+				expect(savedData.segments.length).toBe(4); // 3 original - 1 + 2 = 4
+				expect(savedData.segments[0].text).toBe('Hello');
+				expect(savedData.segments[1].text).toBe('there.');
+				expect(savedData.segments[0].speaker).toBe('Participant 1');
+				expect(savedData.segments[1].speaker).toBe('Participant 1');
+
+				vi.mocked(window.getSelection).mockRestore();
+			});
+
+			it('does not split when cursor is at start or end', async () => {
+				await setupTranscriptView();
+				const textEl = getBubbleText(0);
+
+				textEl.click();
+
+				// Cursor at position 0 (start)
+				const mockRange = {
+					startContainer: textEl.firstChild!,
+					startOffset: 0,
+					collapsed: true,
+				};
+				const mockSelection = {
+					rangeCount: 1,
+					getRangeAt: vi.fn().mockReturnValue(mockRange),
+					anchorNode: textEl.firstChild,
+					anchorOffset: 0,
+				};
+				vi.spyOn(window, 'getSelection').mockReturnValue(mockSelection as unknown as Selection);
+
+				const splitBtn = getBubble(0).querySelector('.meeting-scribe-sidebar-bubble-split-btn') as HTMLElement;
+				splitBtn.click();
+
+				expect(mockSaveTranscriptData).not.toHaveBeenCalled();
+
+				vi.mocked(window.getSelection).mockRestore();
+			});
 		});
 	});
 });

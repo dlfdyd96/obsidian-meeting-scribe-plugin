@@ -3,7 +3,8 @@ import { SessionManager } from '../../session/session-manager';
 import { renderSessionList, renderSingleItem } from './session-list-renderer';
 import { renderTranscriptView } from './chat-bubble-renderer';
 import { AudioPlayerController } from './audio-player-controller';
-import { loadTranscriptData } from '../../transcript/transcript-data';
+import { loadTranscriptData, saveTranscriptData, generateSegmentId } from '../../transcript/transcript-data';
+import type { TranscriptData } from '../../transcript/transcript-data';
 import { logger } from '../../utils/logger';
 import type { MeetingSession, SessionObserver } from '../../session/types';
 
@@ -23,6 +24,8 @@ export class TranscriptSidebarView extends ItemView {
 	private programmaticScrollTimer: ReturnType<typeof setTimeout> | null = null;
 	private scrollPauseTimer: ReturnType<typeof setTimeout> | null = null;
 	private scrollContainer: HTMLElement | null = null;
+	private transcriptData: TranscriptData | null = null;
+	private transcriptFilePath: string | null = null;
 
 	constructor(
 		leaf: WorkspaceLeaf,
@@ -143,6 +146,10 @@ export class TranscriptSidebarView extends ItemView {
 			return;
 		}
 
+		// Store transcript data for inline editing
+		this.transcriptData = data;
+		this.transcriptFilePath = session.transcriptFile;
+
 		// Scrollable transcript container
 		this.scrollContainer = this.contentEl.createDiv({ cls: 'meeting-scribe-sidebar-transcript-scroll' });
 		renderTranscriptView(this.scrollContainer, data.segments, data.participants);
@@ -150,8 +157,10 @@ export class TranscriptSidebarView extends ItemView {
 		// Scroll listener for manual scroll detection
 		this.scrollContainer.addEventListener('scroll', () => this.handleManualScroll());
 
-		// Timestamp click-to-seek via event delegation
-		this.scrollContainer.addEventListener('click', (e) => this.handleTimestampClick(e));
+		// Event delegation for timestamp click-to-seek and inline editing
+		this.scrollContainer.addEventListener('click', (e) => this.handleScrollContainerClick(e));
+		this.scrollContainer.addEventListener('keydown', (e) => this.handleEditKeydown(e));
+		this.scrollContainer.addEventListener('blur', (e) => this.handleEditBlur(e), true);
 
 		// Audio player at bottom
 		if (session.audioFile) {
@@ -246,15 +255,168 @@ export class TranscriptSidebarView extends ItemView {
 		}, 3000);
 	}
 
-	private handleTimestampClick(e: MouseEvent): void {
+	private handleScrollContainerClick(e: MouseEvent): void {
 		const target = e.target as HTMLElement;
-		if (!target.classList.contains('meeting-scribe-sidebar-bubble-timestamp--clickable')) return;
 
-		const startTime = parseFloat(target.getAttribute('data-start') ?? '');
-		if (isNaN(startTime) || !this.audioPlayer) return;
+		// Timestamp click-to-seek
+		if (target.classList.contains('meeting-scribe-sidebar-bubble-timestamp--clickable')) {
+			const startTime = parseFloat(target.getAttribute('data-start') ?? '');
+			if (!isNaN(startTime) && this.audioPlayer) {
+				this.audioPlayer.seekTo(startTime);
+				this.audioPlayer.play();
+			}
+			return;
+		}
 
-		this.audioPlayer.seekTo(startTime);
-		this.audioPlayer.play();
+		// Delete button click
+		if (target.closest('.meeting-scribe-sidebar-bubble-delete-btn')) {
+			const bubble = target.closest('.meeting-scribe-sidebar-bubble') as HTMLElement | null;
+			if (bubble) this.handleDeleteSegment(bubble);
+			return;
+		}
+
+		// Split button click
+		if (target.closest('.meeting-scribe-sidebar-bubble-split-btn')) {
+			const bubble = target.closest('.meeting-scribe-sidebar-bubble') as HTMLElement | null;
+			if (bubble) this.handleSplitSegment(bubble);
+			return;
+		}
+
+		// Bubble text click → enter edit mode
+		if (target.classList.contains('meeting-scribe-sidebar-bubble-text')) {
+			this.enterEditMode(target);
+			return;
+		}
+	}
+
+	private enterEditMode(textEl: HTMLElement): void {
+		if (textEl.contentEditable === 'true') return; // Already editing
+
+		const bubble = textEl.closest('.meeting-scribe-sidebar-bubble') as HTMLElement | null;
+		if (!bubble) return;
+
+		textEl.setAttribute('data-original-text', textEl.textContent ?? '');
+		textEl.contentEditable = 'true';
+		bubble.classList.add('meeting-scribe-sidebar-bubble--editing');
+		textEl.focus();
+	}
+
+	private exitEditMode(textEl: HTMLElement): void {
+		textEl.contentEditable = 'false';
+		textEl.removeAttribute('data-original-text');
+		const bubble = textEl.closest('.meeting-scribe-sidebar-bubble') as HTMLElement | null;
+		bubble?.classList.remove('meeting-scribe-sidebar-bubble--editing');
+	}
+
+	private handleEditKeydown(e: KeyboardEvent): void {
+		if (e.key !== 'Escape') return;
+		const target = e.target as HTMLElement;
+		if (!target.classList.contains('meeting-scribe-sidebar-bubble-text')) return;
+		if (target.contentEditable !== 'true') return;
+
+		// Restore original text and exit edit mode
+		const originalText = target.getAttribute('data-original-text');
+		if (originalText !== null) {
+			target.textContent = originalText;
+		}
+		this.exitEditMode(target);
+	}
+
+	private async handleEditBlur(e: FocusEvent): Promise<void> {
+		const target = e.target as HTMLElement;
+		if (!target.classList.contains('meeting-scribe-sidebar-bubble-text')) return;
+		if (target.contentEditable !== 'true') return;
+
+		const originalText = target.getAttribute('data-original-text');
+		const newText = target.textContent ?? '';
+
+		this.exitEditMode(target);
+
+		// Only save if text actually changed
+		if (newText === originalText) return;
+		if (!this.transcriptData || !this.transcriptFilePath) return;
+
+		const bubble = target.closest('.meeting-scribe-sidebar-bubble') as HTMLElement | null;
+		const segmentId = bubble?.getAttribute('data-segment-id');
+		if (!segmentId) return;
+
+		const segment = this.transcriptData.segments.find(s => s.id === segmentId);
+		if (!segment) return;
+
+		segment.text = newText;
+		await saveTranscriptData(this.app.vault, this.transcriptFilePath, this.transcriptData);
+	}
+
+	private async handleDeleteSegment(bubble: HTMLElement): Promise<void> {
+		if (!this.transcriptData || !this.transcriptFilePath || !this.scrollContainer) return;
+
+		const segmentId = bubble.getAttribute('data-segment-id');
+		if (!segmentId) return;
+
+		if (!confirm('Delete this segment?')) return;
+
+		const index = this.transcriptData.segments.findIndex(s => s.id === segmentId);
+		if (index === -1) return;
+
+		this.transcriptData.segments.splice(index, 1);
+		await saveTranscriptData(this.app.vault, this.transcriptFilePath, this.transcriptData);
+
+		// Re-render transcript view
+		while (this.scrollContainer.firstChild) this.scrollContainer.removeChild(this.scrollContainer.firstChild);
+		renderTranscriptView(this.scrollContainer, this.transcriptData.segments, this.transcriptData.participants);
+	}
+
+	private async handleSplitSegment(bubble: HTMLElement): Promise<void> {
+		if (!this.transcriptData || !this.transcriptFilePath || !this.scrollContainer) return;
+
+		const segmentId = bubble.getAttribute('data-segment-id');
+		if (!segmentId) return;
+
+		const index = this.transcriptData.segments.findIndex(s => s.id === segmentId);
+		if (index === -1) return;
+
+		const segment = this.transcriptData.segments[index]!;
+		const text = segment.text;
+
+		// Get cursor position
+		const selection = window.getSelection();
+		if (!selection || selection.rangeCount === 0) return;
+
+		const cursorOffset = selection.anchorOffset;
+
+		// Don't split at start or end
+		if (cursorOffset <= 0 || cursorOffset >= text.length) return;
+
+		const text1 = text.substring(0, cursorOffset).trim();
+		const text2 = text.substring(cursorOffset).trim();
+
+		// After trimming, don't create empty segments
+		if (!text1 || !text2) return;
+
+		const timeSplit = segment.start + (cursorOffset / text.length) * (segment.end - segment.start);
+
+		const seg1 = {
+			id: generateSegmentId(),
+			speaker: segment.speaker,
+			start: segment.start,
+			end: timeSplit,
+			text: text1,
+		};
+		const seg2 = {
+			id: generateSegmentId(),
+			speaker: segment.speaker,
+			start: timeSplit,
+			end: segment.end,
+			text: text2,
+		};
+
+		// Replace original with two new segments
+		this.transcriptData.segments.splice(index, 1, seg1, seg2);
+		await saveTranscriptData(this.app.vault, this.transcriptFilePath, this.transcriptData);
+
+		// Re-render
+		while (this.scrollContainer.firstChild) this.scrollContainer.removeChild(this.scrollContainer.firstChild);
+		renderTranscriptView(this.scrollContainer, this.transcriptData.segments, this.transcriptData.participants);
 	}
 
 	toggleAudio(): void {
@@ -283,6 +445,8 @@ export class TranscriptSidebarView extends ItemView {
 			this.scrollPauseTimer = null;
 		}
 		this.scrollContainer = null;
+		this.transcriptData = null;
+		this.transcriptFilePath = null;
 		this.contentEl.classList.remove('meeting-scribe-sidebar-transcript-layout');
 	}
 

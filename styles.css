@@ -347,6 +347,46 @@ Meeting Scribe plugin styles.
 	line-height: 1.5;
 }
 
+/* Inline editing mode */
+.meeting-scribe-sidebar-bubble--editing .meeting-scribe-sidebar-bubble-text {
+	background: var(--background-modifier-form-field);
+	border: 1px solid var(--interactive-accent);
+	border-radius: 4px;
+	padding: 4px 8px;
+	outline: none;
+}
+
+/* Hover action buttons (delete + split) */
+.meeting-scribe-sidebar-bubble-actions {
+	display: none;
+	position: absolute;
+	top: 4px;
+	right: 4px;
+	gap: 2px;
+}
+
+.meeting-scribe-sidebar-bubble:hover .meeting-scribe-sidebar-bubble-actions {
+	display: flex;
+}
+
+.meeting-scribe-sidebar-bubble-actions button {
+	background: none !important;
+	border: none !important;
+	box-shadow: none !important;
+	color: var(--text-faint);
+	cursor: pointer;
+	padding: 2px;
+	border-radius: 3px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.meeting-scribe-sidebar-bubble-actions button:hover {
+	color: var(--text-normal);
+	background: var(--background-modifier-active-hover) !important;
+}
+
 /* Active highlight for playback sync */
 .meeting-scribe-sidebar-bubble--active {
 	background: var(--background-modifier-active-hover);
