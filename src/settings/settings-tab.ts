@@ -105,7 +105,7 @@ export class MeetingScribeSettingTab extends PluginSettingTab {
 				.setName('Speech-to-text API key')
 				.setDesc(getApiKeyDesc('openai'))
 				.addText(cb => {
-					cb.setPlaceholder('sk-...')
+					cb.setPlaceholder('Enter key')
 						.setValue(settings.sttApiKey)
 						.onChange(async (value) => {
 							this.plugin.settings.sttApiKey = value;
@@ -127,8 +127,8 @@ export class MeetingScribeSettingTab extends PluginSettingTab {
 					}));
 		} else if (settings.sttProvider === 'clova') {
 			new Setting(containerEl)
-				.setName('CLOVA Speech invoke URL')
-				.setDesc('Your CLOVA Speech custom domain URL')
+				.setName('Invoke URL')
+				.setDesc('Your custom domain URL for the speech API')
 				.addText(cb => cb
 					.setPlaceholder('https://clovaspeech-gw.ncloud.com/...')
 					.setValue(settings.clovaInvokeUrl)
@@ -200,7 +200,7 @@ export class MeetingScribeSettingTab extends PluginSettingTab {
 			.setDesc('Provider for audio transcription')
 			.addDropdown(cb => cb
 				.addOption('openai', 'OpenAI')
-				.addOption('clova', 'CLOVA Speech')
+				.addOption('clova', 'Clova speech')
 				.addOption('gemini', 'Gemini')
 				.setValue(this.plugin.settings.sttProvider)
 				.onChange(async (value) => {
@@ -237,7 +237,7 @@ export class MeetingScribeSettingTab extends PluginSettingTab {
 			.setName('Language model API key')
 			.setDesc(getApiKeyDesc(this.plugin.settings.llmProvider))
 			.addText(cb => {
-				cb.setPlaceholder('sk-...')
+				cb.setPlaceholder('Enter key')
 					.setValue(this.plugin.settings.llmApiKey)
 					.onChange(async (value) => {
 						this.plugin.settings.llmApiKey = value;
