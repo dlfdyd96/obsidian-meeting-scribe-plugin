@@ -54,7 +54,7 @@ describe("Audio Player Hotkeys — E2E Tests", function () {
 				};
 			});
 			// Obsidian prefixes command names with plugin name
-			expect(names.playPause).toContain("Play/Pause audio");
+			expect(names.playPause).toContain("Play/pause audio");
 			expect(names.skipBack).toContain("Skip back 5 seconds");
 			expect(names.skipForward).toContain("Skip forward 5 seconds");
 		});

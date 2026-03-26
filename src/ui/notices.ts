@@ -37,7 +37,6 @@ export class NoticeManager {
 		const fragment = document.createDocumentFragment();
 
 		const msg = document.createElement('span');
-		// eslint-disable-next-line obsidianmd/ui/sentence-case -- status text
 		msg.textContent = '✓ Meeting note created — ';
 		fragment.appendChild(msg);
 
@@ -120,13 +119,11 @@ export class NoticeManager {
 	}
 
 	showTestSuccess(): Notice {
-		// eslint-disable-next-line obsidianmd/ui/sentence-case -- status text
 		return new Notice('✓ Test complete — setup is working', NOTICE_SUCCESS_TIMEOUT_MS);
 	}
 
 	showWelcome(): Notice {
 		return new Notice(
-			// eslint-disable-next-line obsidianmd/ui/sentence-case -- product name
 			'Welcome to Meeting Scribe! Set up your API keys to get started.',
 			NOTICE_WELCOME_TIMEOUT_MS,
 		);
@@ -150,8 +147,7 @@ export class NoticeManager {
 		const fragment = document.createDocumentFragment();
 
 		const msg = document.createElement('div');
-		// eslint-disable-next-line obsidianmd/ui/sentence-case -- technical abbreviation
-		msg.textContent = 'Set up API keys in Settings to start recording';
+		msg.textContent = 'Set up API keys in settings to start recording';
 		fragment.appendChild(msg);
 
 		const link = createClickableLink('Open Settings', () => {

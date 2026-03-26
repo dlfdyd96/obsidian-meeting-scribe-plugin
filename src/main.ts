@@ -273,8 +273,7 @@ export default class MeetingScribePlugin extends Plugin {
 
 		this.addCommand({
 			id: 'open-transcript-sidebar',
-			// eslint-disable-next-line obsidianmd/ui/sentence-case -- command name
-			name: 'Open Transcript Sidebar',
+			name: 'Open transcript sidebar',
 			callback: () => {
 				void this.activateSidebarView();
 			},
@@ -282,8 +281,7 @@ export default class MeetingScribePlugin extends Plugin {
 
 		this.addCommand({
 			id: 'audio-play-pause',
-			// eslint-disable-next-line obsidianmd/ui/sentence-case -- command name
-			name: 'Play/Pause audio',
+			name: 'Play/pause audio',
 			callback: () => {
 				this.getActiveSidebarView()?.toggleAudio();
 			},
@@ -435,7 +433,6 @@ export default class MeetingScribePlugin extends Plugin {
 
 			if (!parsed.frontmatter.includes('created_by: meeting-scribe') &&
 				!parsed.frontmatter.includes('transcript_data:')) {
-				// eslint-disable-next-line obsidianmd/ui/sentence-case -- product name
 			new Notice('This note was not created by Meeting Scribe');
 				return;
 			}

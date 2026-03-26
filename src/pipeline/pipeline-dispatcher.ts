@@ -37,7 +37,7 @@ export class PipelineDispatcher {
 		private getSettings: () => MeetingScribeSettings,
 	) {}
 
-	async dispatch(audioFilePath: string, existingSessionId?: string): Promise<string> {
+	dispatch(audioFilePath: string, existingSessionId?: string): string {
 		let sessionId: string;
 		if (existingSessionId) {
 			sessionId = existingSessionId;
@@ -63,7 +63,7 @@ export class PipelineDispatcher {
 		return sessionId;
 	}
 
-	async retrySession(sessionId: string): Promise<void> {
+	retrySession(sessionId: string): void {
 		const session = this.sessionManager.getSession(sessionId);
 		if (!session) {
 			logger.error(COMPONENT, 'Cannot retry: session not found', { sessionId });

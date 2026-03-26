@@ -495,7 +495,7 @@ describe('MeetingScribeSettingTab', () => {
 			const testSetting = settingInstances.find(s => s.nameEl.textContent === 'Run test recording');
 			expect(testSetting).toBeDefined();
 			expect(testSetting!.buttonComponents).toHaveLength(1);
-			expect(testSetting!.buttonComponents[0].buttonEl.textContent).toBe('Run Test');
+			expect(testSetting!.buttonComponents[0].buttonEl.textContent).toBe('Run test');
 		});
 
 		it('should show error when API keys are missing', async () => {
@@ -580,7 +580,7 @@ describe('MeetingScribeSettingTab', () => {
 			button.triggerClick();
 			await flushPromises();
 
-			expect(button.buttonEl.textContent).toBe('Run Test');
+			expect(button.buttonEl.textContent).toBe('Run test');
 			expect(button.buttonEl.disabled).toBe(false);
 		});
 	});

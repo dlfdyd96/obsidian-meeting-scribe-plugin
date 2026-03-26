@@ -162,8 +162,7 @@ export class GeminiSTTProvider implements STTProvider {
 
 		let response: Response;
 		try {
-			// eslint-disable-next-line no-restricted-globals -- fetch required for error body access per architecture decision
-			response = await fetch(url, {
+			response = await globalThis.fetch(url, {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify(requestBody),
@@ -252,8 +251,7 @@ export class GeminiSTTProvider implements STTProvider {
 
 		let startResponse: Response;
 		try {
-			// eslint-disable-next-line no-restricted-globals -- fetch required for error body access per architecture decision
-			startResponse = await fetch(startUrl, {
+			startResponse = await globalThis.fetch(startUrl, {
 				method: 'POST',
 				headers: {
 					'X-Goog-Upload-Protocol': 'resumable',
@@ -279,8 +277,7 @@ export class GeminiSTTProvider implements STTProvider {
 
 		let uploadResponse: Response;
 		try {
-			// eslint-disable-next-line no-restricted-globals -- fetch required for error body access per architecture decision
-			uploadResponse = await fetch(uploadUrl, {
+			uploadResponse = await globalThis.fetch(uploadUrl, {
 				method: 'POST',
 				headers: {
 					'X-Goog-Upload-Command': 'upload, finalize',
@@ -314,8 +311,7 @@ export class GeminiSTTProvider implements STTProvider {
 
 		try {
 			const url = `${GEMINI_API_BASE}/models?key=${key}`;
-			// eslint-disable-next-line no-restricted-globals -- fetch required for error body access per architecture decision
-			const response = await fetch(url, { method: 'GET' });
+			const response = await globalThis.fetch(url, { method: 'GET' });
 
 			if (response.status === 401 || response.status === 403 || response.status === 400) {
 				return false;

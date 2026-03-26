@@ -1,5 +1,6 @@
 import type { MeetingSession } from '../../session/types';
 import type { PipelineState } from '../../transcript/transcript-data';
+import { createSvgIcon } from './svg-icons';
 
 type OnSessionClick = (sessionId: string) => void;
 type OnRetry = ((sessionId: string) => void) | undefined;
@@ -39,8 +40,7 @@ export function renderSessionList(
 		const refreshBtn = header.createEl('button', {
 			cls: 'meeting-scribe-sidebar-refresh-btn',
 		});
-		// eslint-disable-next-line @microsoft/sdl/no-inner-html -- static SVG icon, no user input
-		refreshBtn.innerHTML = REFRESH_SVG;
+		createSvgIcon(refreshBtn, REFRESH_SVG);
 		refreshBtn.setAttribute('aria-label', 'Refresh sessions');
 		refreshBtn.addEventListener('click', onRefresh);
 	}
@@ -115,8 +115,7 @@ export function renderSingleItem(
 			const warning = item.createEl('span', {
 				cls: 'meeting-scribe-sidebar-session-warning',
 			});
-			// eslint-disable-next-line @microsoft/sdl/no-inner-html -- static SVG icon, no user input
-			warning.innerHTML = WARNING_SVG;
+			createSvgIcon(warning, WARNING_SVG);
 			warning.setAttribute('aria-label', 'Meeting note file not found');
 		}
 	}
@@ -126,15 +125,11 @@ export function renderSingleItem(
 		const deleteBtn = item.createEl('button', {
 			cls: 'meeting-scribe-sidebar-session-delete-btn',
 		});
-		// eslint-disable-next-line @microsoft/sdl/no-inner-html -- static SVG icon, no user input
-		deleteBtn.innerHTML = DELETE_SVG;
+		createSvgIcon(deleteBtn, DELETE_SVG);
 		deleteBtn.setAttribute('aria-label', 'Delete session');
 		deleteBtn.addEventListener('click', (e) => {
 			e.stopPropagation();
-			// eslint-disable-next-line no-alert -- simple confirmation for destructive action
-			if (confirm('Delete this session and its transcript data?')) {
-				onDelete(session.id);
-			}
+			onDelete(session.id);
 		});
 	}
 

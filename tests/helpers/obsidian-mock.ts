@@ -36,6 +36,20 @@ if (typeof HTMLElement !== 'undefined') {
 			return el;
 		};
 	}
+	if (!HTMLElement.prototype.setCssStyles) {
+		HTMLElement.prototype.setCssStyles = function (styles: Partial<CSSStyleDeclaration>) {
+			for (const [key, value] of Object.entries(styles)) {
+				(this.style as Record<string, unknown>)[key] = value;
+			}
+		};
+	}
+	if (!HTMLElement.prototype.setCssProps) {
+		HTMLElement.prototype.setCssProps = function (props: Record<string, string>) {
+			for (const [key, value] of Object.entries(props)) {
+				this.style.setProperty(key, value);
+			}
+		};
+	}
 	if (!HTMLElement.prototype.createEl) {
 		HTMLElement.prototype.createEl = function (
 			tag: string,
@@ -62,6 +76,8 @@ declare global {
 		createEl(tag: string, o?: { text?: string; cls?: string; attr?: Record<string, string> }): HTMLElement;
 		addClass(...classes: string[]): void;
 		removeClass(...classes: string[]): void;
+		setCssStyles(styles: Partial<CSSStyleDeclaration>): void;
+		setCssProps(props: Record<string, string>): void;
 	}
 }
 
@@ -199,8 +215,8 @@ export class Modal {
 		this.modalEl = document.createElement('div');
 	}
 
-	open(): void {}
-	close(): void {}
+	open(): void { document.body.appendChild(this.modalEl); this.modalEl.appendChild(this.contentEl); this.onOpen(); }
+	close(): void { this.onClose(); this.modalEl.remove(); }
 	onOpen(): void {}
 	onClose(): void {}
 }

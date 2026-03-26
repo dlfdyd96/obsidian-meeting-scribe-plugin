@@ -444,7 +444,7 @@ describe('MeetingScribePlugin command registration', () => {
 
 		const cmd = plugin.commands.find(c => c.id === 'audio-play-pause');
 		expect(cmd).toBeDefined();
-		expect(cmd!.name).toBe('Play/Pause audio');
+		expect(cmd!.name).toBe('Play/pause audio');
 	});
 
 	it('should register audio-skip-back command', async () => {

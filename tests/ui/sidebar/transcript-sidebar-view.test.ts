@@ -220,7 +220,7 @@ describe('TranscriptSidebarView', () => {
 
 			const backBtn = view.contentEl.querySelector('.meeting-scribe-sidebar-back-btn');
 			expect(backBtn).not.toBeNull();
-			expect(backBtn!.textContent).toBe('\u2190 Sessions');
+			expect(backBtn!.textContent).toBe('\u2190 sessions');
 
 			// Header should have session title
 			const title = view.contentEl.querySelector('.meeting-scribe-sidebar-session-title');
@@ -1023,13 +1023,13 @@ describe('TranscriptSidebarView', () => {
 			it('removes segment from data and DOM after confirmation', async () => {
 				await setupTranscriptView();
 
-				// Mock window.confirm
-				const confirmSpy = vi.spyOn(globalThis, 'confirm').mockReturnValue(true);
-
 				const deleteBtn = getBubble(0).querySelector('.meeting-scribe-sidebar-bubble-delete-btn') as HTMLElement;
 				deleteBtn.click();
 
-				expect(confirmSpy).toHaveBeenCalled();
+				// Find the confirmation modal and click "Confirm"
+				const modalConfirmBtn = document.querySelector('.meeting-scribe-modal-actions .mod-warning') as HTMLElement;
+				expect(modalConfirmBtn).not.toBeNull();
+				modalConfirmBtn.click();
 
 				// Wait for async delete to complete
 				await vi.waitFor(() => {
@@ -1040,25 +1040,26 @@ describe('TranscriptSidebarView', () => {
 				expect(savedData.segments.find((s: { id: string }) => s.id === 'seg-1')).toBeUndefined();
 
 				// DOM should also update
-				const bubbles = view.contentEl.querySelectorAll('.meeting-scribe-sidebar-bubble');
-				expect(bubbles.length).toBe(2);
-
-				confirmSpy.mockRestore();
+				await vi.waitFor(() => {
+					const bubbles = view.contentEl.querySelectorAll('.meeting-scribe-sidebar-bubble');
+					expect(bubbles.length).toBe(2);
+				});
 			});
 
 			it('does nothing when confirmation is cancelled', async () => {
 				await setupTranscriptView();
 
-				const confirmSpy = vi.spyOn(globalThis, 'confirm').mockReturnValue(false);
-
 				const deleteBtn = getBubble(0).querySelector('.meeting-scribe-sidebar-bubble-delete-btn') as HTMLElement;
 				deleteBtn.click();
+
+				// Find the confirmation modal and click "Cancel"
+				const modalCancelBtn = document.querySelector('.meeting-scribe-modal-actions button:not(.mod-warning)') as HTMLElement;
+				expect(modalCancelBtn).not.toBeNull();
+				modalCancelBtn.click();
 
 				expect(mockSaveTranscriptData).not.toHaveBeenCalled();
 				const bubbles = view.contentEl.querySelectorAll('.meeting-scribe-sidebar-bubble');
 				expect(bubbles.length).toBe(3);
-
-				confirmSpy.mockRestore();
 			});
 		});
 

@@ -132,13 +132,11 @@ export class StatusBar {
 	}
 
 	private renderComplete(): void {
-		// eslint-disable-next-line obsidianmd/ui/sentence-case -- status text
 		this.el.textContent = '✅ Note ready';
 		this.setStateClass('meeting-scribe-status-complete');
 	}
 
 	private renderError(): void {
-		// eslint-disable-next-line obsidianmd/ui/sentence-case -- status text
 		this.el.textContent = '⚠️ Processing failed';
 		this.setStateClass('meeting-scribe-status-error');
 	}

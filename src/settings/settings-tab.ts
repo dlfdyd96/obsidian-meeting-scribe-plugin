@@ -105,7 +105,6 @@ export class MeetingScribeSettingTab extends PluginSettingTab {
 				.setName('Speech-to-text API key')
 				.setDesc(getApiKeyDesc('openai'))
 				.addText(cb => {
-					// eslint-disable-next-line obsidianmd/ui/sentence-case -- placeholder example
 					cb.setPlaceholder('sk-...')
 						.setValue(settings.sttApiKey)
 						.onChange(async (value) => {
@@ -128,9 +127,7 @@ export class MeetingScribeSettingTab extends PluginSettingTab {
 					}));
 		} else if (settings.sttProvider === 'clova') {
 			new Setting(containerEl)
-				// eslint-disable-next-line obsidianmd/ui/sentence-case -- brand name
 				.setName('CLOVA Speech invoke URL')
-				// eslint-disable-next-line obsidianmd/ui/sentence-case -- brand name in description
 				.setDesc('Your CLOVA Speech custom domain URL')
 				.addText(cb => cb
 					.setPlaceholder('https://clovaspeech-gw.ncloud.com/...')
@@ -142,7 +139,6 @@ export class MeetingScribeSettingTab extends PluginSettingTab {
 
 			const clovaKeySetting = new Setting(containerEl)
 				.setName('Secret key')
-				// eslint-disable-next-line obsidianmd/ui/sentence-case -- brand name in description
 				.setDesc('CLOVA Speech API secret key')
 				.addText(cb => {
 					cb.setValue(settings.clovaSecretKey)
@@ -203,9 +199,7 @@ export class MeetingScribeSettingTab extends PluginSettingTab {
 			.setName('Speech-to-text provider')
 			.setDesc('Provider for audio transcription')
 			.addDropdown(cb => cb
-				// eslint-disable-next-line obsidianmd/ui/sentence-case -- brand name
 				.addOption('openai', 'OpenAI')
-				// eslint-disable-next-line obsidianmd/ui/sentence-case -- brand name
 				.addOption('clova', 'CLOVA Speech')
 				.addOption('gemini', 'Gemini')
 				.setValue(this.plugin.settings.sttProvider)
@@ -229,7 +223,6 @@ export class MeetingScribeSettingTab extends PluginSettingTab {
 			.setName('Language model provider')
 			.setDesc('Provider for summarization')
 			.addDropdown(cb => cb
-				// eslint-disable-next-line obsidianmd/ui/sentence-case -- brand name
 				.addOption('openai', 'OpenAI')
 				.addOption('anthropic', 'Anthropic')
 				.setValue(this.plugin.settings.llmProvider)
@@ -244,7 +237,6 @@ export class MeetingScribeSettingTab extends PluginSettingTab {
 			.setName('Language model API key')
 			.setDesc(getApiKeyDesc(this.plugin.settings.llmProvider))
 			.addText(cb => {
-				// eslint-disable-next-line obsidianmd/ui/sentence-case -- placeholder example
 				cb.setPlaceholder('sk-...')
 					.setValue(this.plugin.settings.llmApiKey)
 					.onChange(async (value) => {
@@ -272,8 +264,7 @@ export class MeetingScribeSettingTab extends PluginSettingTab {
 			.setName('Notes folder')
 			.setDesc('Folder for generated meeting notes')
 			.addText(cb => cb
-				// eslint-disable-next-line obsidianmd/ui/sentence-case -- product name in placeholder
-				.setPlaceholder('Meeting Notes')
+				.setPlaceholder('Meeting notes')
 				.setValue(this.plugin.settings.outputFolder)
 				.onChange(async (value) => {
 					this.plugin.settings.outputFolder = value;
@@ -295,7 +286,6 @@ export class MeetingScribeSettingTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setName('Recording format')
-			// eslint-disable-next-line obsidianmd/ui/sentence-case -- technical abbreviation
 			.setDesc('Audio format for recordings. WebM is most compatible; M4A and WAV depend on browser support.')
 			.addDropdown(cb => cb
 				.addOptions({
@@ -379,8 +369,7 @@ export class MeetingScribeSettingTab extends PluginSettingTab {
 			.setName('Run test recording')
 			.setDesc('Record 5 seconds and process through the full pipeline to verify your setup')
 			.addButton(cb => cb
-				// eslint-disable-next-line obsidianmd/ui/sentence-case -- button label convention
-				.setButtonText('Run Test')
+				.setButtonText('Run test')
 				.onClick(async () => {
 					if (!hasSTTCredentials(this.plugin.settings) || !this.plugin.settings.llmApiKey) {
 						setDescStatus(testSetting.descEl, '✗ Enter API keys first', false);
@@ -415,7 +404,6 @@ export class MeetingScribeSettingTab extends PluginSettingTab {
 							}
 							if (result.noteFilePath) {
 								testResultEl.createEl('div', {
-									// eslint-disable-next-line obsidianmd/ui/sentence-case -- button label convention
 									text: '✓ Note generated successfully',
 									cls: 'meeting-scribe-api-status-valid',
 								});
@@ -435,8 +423,7 @@ export class MeetingScribeSettingTab extends PluginSettingTab {
 					} catch {
 						setDescStatus(testSetting.descEl, '✗ Test failed — unexpected error', false);
 					} finally {
-						// eslint-disable-next-line obsidianmd/ui/sentence-case -- button label convention
-						cb.setButtonText('Run Test');
+						cb.setButtonText('Run test');
 						cb.setDisabled(false);
 					}
 				}));
@@ -448,8 +435,7 @@ export class MeetingScribeSettingTab extends PluginSettingTab {
 
 		new Setting(advancedEl)
 			.setName('Enable AI summary')
-			// eslint-disable-next-line obsidianmd/ui/sentence-case -- product name
-			.setDesc('Use LLM to generate meeting summary. When disabled, creates a blank template note with Overview, Action Items, and Notes sections.')
+			.setDesc('Use LLM to generate meeting summary. When disabled, creates a blank template note with overview, action items, and notes sections.')
 			.addToggle(cb => cb
 				.setValue(this.plugin.settings.enableSummary)
 				.onChange(async (value) => {
@@ -461,7 +447,6 @@ export class MeetingScribeSettingTab extends PluginSettingTab {
 
 		new Setting(advancedEl)
 			.setName('Include transcript in notes')
-			// eslint-disable-next-line obsidianmd/ui/sentence-case -- technical abbreviation
 			.setDesc('Append the full STT transcript below the summary in generated notes')
 			.addToggle(cb => cb
 				.setValue(this.plugin.settings.includeTranscript)
