@@ -132,12 +132,12 @@ export class StatusBar {
 	}
 
 	private renderComplete(): void {
-		this.el.textContent = '✅ Note ready';
+		this.el.textContent = 'Note ready';
 		this.setStateClass('meeting-scribe-status-complete');
 	}
 
 	private renderError(): void {
-		this.el.textContent = '⚠️ Processing failed';
+		this.el.textContent = 'Processing failed';
 		this.setStateClass('meeting-scribe-status-error');
 	}
 

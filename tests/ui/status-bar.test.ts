@@ -197,9 +197,9 @@ describe('StatusBar', () => {
 	});
 
 	describe('Complete state display', () => {
-		it('should display "✅ Note ready" with complete class', () => {
+		it('should display "Note ready" with complete class', () => {
 			stateManager.setState(PluginState.Complete, { noteFilePath: 'notes/meeting.md' });
-			expect(el.textContent).toBe('✅ Note ready');
+			expect(el.textContent).toBe('Note ready');
 			expect(el.classList.contains('meeting-scribe-status-complete')).toBe(true);
 		});
 
@@ -220,7 +220,7 @@ describe('StatusBar', () => {
 
 			it('should auto-revert to Idle after 3 seconds', async () => {
 				stateManager.setState(PluginState.Complete, { noteFilePath: 'notes/meeting.md' });
-				expect(el.textContent).toBe('✅ Note ready');
+				expect(el.textContent).toBe('Note ready');
 
 				await vi.advanceTimersByTimeAsync(3000);
 				expect(stateManager.getState()).toBe(PluginState.Idle);
@@ -242,10 +242,10 @@ describe('StatusBar', () => {
 	});
 
 	describe('Error state display', () => {
-		it('should display "⚠️ Processing failed" with error class', () => {
+		it('should display "Processing failed" with error class', () => {
 			const testError = new Error('API timeout');
 			stateManager.setState(PluginState.Error, { error: testError });
-			expect(el.textContent).toBe('⚠️ Processing failed');
+			expect(el.textContent).toBe('Processing failed');
 			expect(el.classList.contains('meeting-scribe-status-error')).toBe(true);
 		});
 

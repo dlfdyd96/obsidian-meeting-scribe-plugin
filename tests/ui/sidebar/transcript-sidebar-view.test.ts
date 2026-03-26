@@ -106,7 +106,7 @@ describe('TranscriptSidebarView', () => {
 		});
 
 		it('returns correct display text', () => {
-			expect(view.getDisplayText()).toBe('Meeting Scribe');
+			expect(view.getDisplayText()).toBe('Transcript');
 		});
 
 		it('returns correct icon', () => {

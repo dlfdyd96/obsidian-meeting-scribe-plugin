@@ -37,7 +37,7 @@ export class NoticeManager {
 		const fragment = document.createDocumentFragment();
 
 		const msg = document.createElement('span');
-		msg.textContent = '✓ Meeting note created — ';
+		msg.textContent = 'Meeting note created — ';
 		fragment.appendChild(msg);
 
 		const link = createClickableLink('click to open', () => {
@@ -119,12 +119,12 @@ export class NoticeManager {
 	}
 
 	showTestSuccess(): Notice {
-		return new Notice('✓ Test complete — setup is working', NOTICE_SUCCESS_TIMEOUT_MS);
+		return new Notice('Test complete — setup is working', NOTICE_SUCCESS_TIMEOUT_MS);
 	}
 
 	showWelcome(): Notice {
 		return new Notice(
-			'Welcome to Meeting Scribe! Set up your API keys to get started.',
+			'Welcome! Set up your API keys in settings to get started.',
 			NOTICE_WELCOME_TIMEOUT_MS,
 		);
 	}

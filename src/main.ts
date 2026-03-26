@@ -433,7 +433,7 @@ export default class MeetingScribePlugin extends Plugin {
 
 			if (!parsed.frontmatter.includes('created_by: meeting-scribe') &&
 				!parsed.frontmatter.includes('transcript_data:')) {
-			new Notice('This note was not created by Meeting Scribe');
+			new Notice('This note was not created by this plugin');
 				return;
 			}
 

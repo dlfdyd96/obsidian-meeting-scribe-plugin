@@ -139,7 +139,7 @@ export class MeetingScribeSettingTab extends PluginSettingTab {
 
 			const clovaKeySetting = new Setting(containerEl)
 				.setName('Secret key')
-				.setDesc('CLOVA Speech API secret key')
+				.setDesc('Secret key for the speech API')
 				.addText(cb => {
 					cb.setValue(settings.clovaSecretKey)
 						.onChange(async (value) => {
@@ -286,7 +286,7 @@ export class MeetingScribeSettingTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setName('Recording format')
-			.setDesc('Audio format for recordings. WebM is most compatible; M4A and WAV depend on browser support.')
+			.setDesc('Audio format for recordings. webm is most compatible; m4a and wav depend on browser support.')
 			.addDropdown(cb => cb
 				.addOptions({
 					'webm': 'WebM (default)',
@@ -404,7 +404,7 @@ export class MeetingScribeSettingTab extends PluginSettingTab {
 							}
 							if (result.noteFilePath) {
 								testResultEl.createEl('div', {
-									text: '✓ Note generated successfully',
+									text: 'Note generated successfully',
 									cls: 'meeting-scribe-api-status-valid',
 								});
 							}
@@ -435,7 +435,7 @@ export class MeetingScribeSettingTab extends PluginSettingTab {
 
 		new Setting(advancedEl)
 			.setName('Enable AI summary')
-			.setDesc('Use LLM to generate meeting summary. When disabled, creates a blank template note with overview, action items, and notes sections.')
+			.setDesc('Use language model to generate meeting summary. When disabled, creates a blank template note.')
 			.addToggle(cb => cb
 				.setValue(this.plugin.settings.enableSummary)
 				.onChange(async (value) => {
@@ -447,7 +447,7 @@ export class MeetingScribeSettingTab extends PluginSettingTab {
 
 		new Setting(advancedEl)
 			.setName('Include transcript in notes')
-			.setDesc('Append the full STT transcript below the summary in generated notes')
+			.setDesc('Append the full transcript below the summary in generated notes')
 			.addToggle(cb => cb
 				.setValue(this.plugin.settings.includeTranscript)
 				.onChange(async (value) => {

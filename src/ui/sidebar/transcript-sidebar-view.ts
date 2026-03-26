@@ -55,7 +55,7 @@ export class TranscriptSidebarView extends ItemView {
 	}
 
 	getDisplayText(): string {
-		return 'Meeting Scribe';
+		return 'Transcript';
 	}
 
 	getIcon(): string {
@@ -63,6 +63,7 @@ export class TranscriptSidebarView extends ItemView {
 	}
 
 	async onOpen(): Promise<void> {
+		await super.onOpen();
 		// Defensively unsubscribe stale observer from prior open cycle
 		if (this.observer) {
 			this.sessionManager.unsubscribe(this.observer);
@@ -80,6 +81,7 @@ export class TranscriptSidebarView extends ItemView {
 	}
 
 	async onClose(): Promise<void> {
+		await super.onClose();
 		this.destroyAudioPlayer();
 		if (this.observer) {
 			this.sessionManager.unsubscribe(this.observer);
@@ -142,7 +144,7 @@ export class TranscriptSidebarView extends ItemView {
 			text: 'Re-summarize',
 			cls: 'meeting-scribe-sidebar-action-btn',
 		});
-		this.resummarizeBtn.setAttribute('aria-label', 'Re-summarize transcript with LLM');
+		this.resummarizeBtn.setAttribute('aria-label', 'Re-summarize transcript');
 		this.resummarizeBtn.addEventListener('click', () => { this.handleResummarize(); });
 
 		this.exportBtn = actions.createEl('button', {
