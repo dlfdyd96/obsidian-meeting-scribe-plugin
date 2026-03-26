@@ -286,7 +286,7 @@ export class MeetingScribeSettingTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setName('Recording format')
-			.setDesc('Audio format for recordings. webm is most compatible; m4a and wav depend on browser support.')
+			.setDesc('Audio format for recordings')
 			.addDropdown(cb => cb
 				.addOptions({
 					'webm': 'WebM (default)',
