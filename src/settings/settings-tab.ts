@@ -5,6 +5,11 @@ import { SUPPORTED_AUDIO_FORMATS } from '../constants';
 import { providerRegistry } from '../providers/provider-registry';
 import { logger } from '../utils/logger';
 
+// Provider display labels — stored as constants to preserve brand casing
+const OPENAI_LABEL = 'OpenAI';
+const CLOVA_LABEL = 'Clova speech';
+const ANTHROPIC_LABEL = 'Anthropic';
+
 const LLM_MODELS: Record<string, Record<string, string>> = {
 	openai: {
 		'gpt-4o': 'GPT-4o',
@@ -199,8 +204,8 @@ export class MeetingScribeSettingTab extends PluginSettingTab {
 			.setName('Speech-to-text provider')
 			.setDesc('Provider for audio transcription')
 			.addDropdown(cb => cb
-				.addOption('openai', 'OpenAI')
-				.addOption('clova', 'Clova speech')
+				.addOption('openai', OPENAI_LABEL)
+				.addOption('clova', CLOVA_LABEL)
 				.addOption('gemini', 'Gemini')
 				.setValue(this.plugin.settings.sttProvider)
 				.onChange(async (value) => {
@@ -223,8 +228,8 @@ export class MeetingScribeSettingTab extends PluginSettingTab {
 			.setName('Language model provider')
 			.setDesc('Provider for summarization')
 			.addDropdown(cb => cb
-				.addOption('openai', 'OpenAI')
-				.addOption('anthropic', 'Anthropic')
+				.addOption('openai', OPENAI_LABEL)
+				.addOption('anthropic', ANTHROPIC_LABEL)
 				.setValue(this.plugin.settings.llmProvider)
 				.onChange(async (value) => {
 					this.plugin.settings.llmProvider = value;
